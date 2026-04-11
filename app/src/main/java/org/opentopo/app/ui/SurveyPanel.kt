@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -271,7 +272,14 @@ private fun ProjectDetail(
     val points by db.pointDao().getByProject(project.id).collectAsState(initial = emptyList())
     val recordingState = surveyManager?.recordingState?.collectAsState()?.value ?: RecordingState()
     var remarks by remember { mutableStateOf("") }
-    var antennaHeight by remember { mutableStateOf("1.80") }
+    val activity = LocalContext.current as? org.opentopo.app.MainActivity
+    val prefs = activity?.prefs
+    val savedAH by prefs?.antennaHeight?.collectAsState(initial = "1.80") ?: remember { mutableStateOf("1.80") }
+    var antennaHeight by remember { mutableStateOf(savedAH) }
+    val scope = rememberCoroutineScope()
+
+    // Sync when saved value loads
+    LaunchedEffect(savedAH) { antennaHeight = savedAH }
 
     Column(
         modifier = Modifier
@@ -311,7 +319,10 @@ private fun ProjectDetail(
             surveyManager = surveyManager,
             recordingState = recordingState,
             antennaHeight = antennaHeight,
-            onAntennaHeightChange = { antennaHeight = it },
+            onAntennaHeightChange = {
+                antennaHeight = it
+                scope.launch { prefs?.setAntennaHeight(it) }
+            },
             remarks = remarks,
             onRemarksChange = { remarks = it },
             onRecorded = { remarks = "" },

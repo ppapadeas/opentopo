@@ -42,12 +42,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
@@ -506,16 +509,46 @@ private fun UsbPicker(usbService: UsbGnssService) {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun NtripConnectForm(ntripClient: NtripClient) {
+    val activity = LocalContext.current as? org.opentopo.app.MainActivity
+    val prefs = activity?.prefs
+    val scope = rememberCoroutineScope()
+
+    // Load saved values from DataStore
+    val savedPreset by prefs?.ntripPresetIndex?.collectAsState(initial = 0) ?: remember { mutableStateOf(0) }
+    val savedHost by prefs?.ntripHost?.collectAsState(initial = "") ?: remember { mutableStateOf("") }
+    val savedPort by prefs?.ntripPort?.collectAsState(initial = "2101") ?: remember { mutableStateOf("2101") }
+    val savedUsername by prefs?.ntripUsername?.collectAsState(initial = "") ?: remember { mutableStateOf("") }
+    val savedPassword by prefs?.ntripPassword?.collectAsState(initial = "") ?: remember { mutableStateOf("") }
+    val savedMountpoint by prefs?.ntripMountpoint?.collectAsState(initial = "") ?: remember { mutableStateOf("") }
+
     // -1 means "Custom server"
-    var selectedPresetIndex by remember { mutableIntStateOf(0) }
-    var host by remember { mutableStateOf(NtripConfig.PRESETS[0].host) }
-    var port by remember { mutableStateOf(NtripConfig.PRESETS[0].port.toString()) }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var mountpoint by remember { mutableStateOf("") }
+    var selectedPresetIndex by remember { mutableIntStateOf(savedPreset) }
+    var host by remember { mutableStateOf(
+        if (savedHost.isNotBlank()) savedHost
+        else NtripConfig.PRESETS[0].host
+    ) }
+    var port by remember { mutableStateOf(
+        if (savedPort.isNotBlank()) savedPort
+        else NtripConfig.PRESETS[0].port.toString()
+    ) }
+    var username by remember { mutableStateOf(savedUsername) }
+    var password by remember { mutableStateOf(savedPassword) }
+    var mountpoint by remember { mutableStateOf(savedMountpoint) }
     var mountpoints by remember { mutableStateOf<List<NtripMountpoint>>(emptyList()) }
     var fetchingSourcetable by remember { mutableStateOf(false) }
     val isCustom = selectedPresetIndex == -1
+
+    // Sync when saved values load (DataStore is async)
+    LaunchedEffect(savedPreset, savedHost, savedPort, savedUsername, savedPassword, savedMountpoint) {
+        if (savedPreset != 0 || savedHost.isNotBlank()) {
+            selectedPresetIndex = savedPreset
+            if (savedHost.isNotBlank()) host = savedHost
+            if (savedPort.isNotBlank()) port = savedPort
+            username = savedUsername
+            password = savedPassword
+            mountpoint = savedMountpoint
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Caster preset picker
@@ -687,6 +720,12 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                             password,
                         ),
                     )
+                    // Persist connection details
+                    scope.launch {
+                        prefs?.setNtripConfig(
+                            selectedPresetIndex, host, port, username, password, mountpoint,
+                        )
+                    }
                 },
                 enabled = host.isNotBlank() && mountpoint.isNotBlank(),
                 modifier = Modifier.weight(1f),

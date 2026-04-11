@@ -41,6 +41,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var usbService: UsbGnssService
     private lateinit var ntripClient: NtripClient
     private lateinit var db: AppDatabase
+    lateinit var prefs: org.opentopo.app.prefs.UserPreferences
+        private set
     private var surveyManager: SurveyManager? = null
     private var stakeout: Stakeout? = null
 
@@ -73,6 +75,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         db = AppDatabase.getInstance(this)
+        prefs = org.opentopo.app.prefs.UserPreferences(this)
         bluetoothService = BluetoothGnssService(this, gnssState)
         usbService = UsbGnssService(this, gnssState)
 
