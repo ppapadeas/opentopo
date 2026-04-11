@@ -202,6 +202,7 @@ fun ConnectionPanel(
                                     onClick = {
                                         bluetoothService.disconnect()
                                         usbService.disconnect()
+                                        internalService.disconnect()
                                     },
                                     shape = MaterialTheme.shapes.medium,
                                 ) {
@@ -253,32 +254,39 @@ fun ConnectionPanel(
                 } else if (connectionType == 1) {
                     UsbPicker(usbService)
                 } else {
-                    // Internal GPS — permission check + connect
-                    val scope = rememberCoroutineScope()
-                    val activity = LocalContext.current as? org.opentopo.app.MainActivity
-                    val permissionLauncher = rememberLauncherForActivityResult(
-                        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-                    ) { granted ->
-                        if (granted) {
-                            internalService.connect()
-                            scope.launch { activity?.prefs?.setConnectionType(2) }
-                        }
-                    }
-                    Button(
-                        onClick = {
-                            if (internalService.hasPermission()) {
+                    // Internal GPS — show connect button only when not connected
+                    if (!isConnected && !isConnecting) {
+                        val scope = rememberCoroutineScope()
+                        val activity = LocalContext.current as? org.opentopo.app.MainActivity
+                        val permissionLauncher = rememberLauncherForActivityResult(
+                            androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                        ) { granted ->
+                            if (granted) {
                                 internalService.connect()
                                 scope.launch { activity?.prefs?.setConnectionType(2) }
-                            } else {
-                                permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                    ) {
-                        Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Connect Internal GPS")
+                        }
+                        Text(
+                            "Use device\u2019s built-in GPS. No RTK corrections available.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(
+                            onClick = {
+                                if (internalService.hasPermission()) {
+                                    internalService.connect()
+                                    scope.launch { activity?.prefs?.setConnectionType(2) }
+                                } else {
+                                    permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                        ) {
+                            Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Connect Internal GPS")
+                        }
                     }
                 }
             }
