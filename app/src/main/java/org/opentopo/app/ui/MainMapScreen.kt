@@ -166,6 +166,8 @@ fun MainMapScreen(
 
     var selectedTab by remember { mutableIntStateOf(TAB_CONNECTION) }
     var fabMenuExpanded by remember { mutableStateOf(false) }
+    val activity = context as? org.opentopo.app.MainActivity
+    val coordFormat by activity?.prefs?.coordFormat?.collectAsState(initial = 0) ?: remember { mutableStateOf(0) }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
 
@@ -317,7 +319,7 @@ fun MainMapScreen(
                 // ── Status bar (visible in peek) ──
                 StatusBar(
                     position, accuracy, satellites,
-                    connectionStatus, ntripState, projectedCoords, surveyColors,
+                    connectionStatus, ntripState, projectedCoords, surveyColors, coordFormat,
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -713,6 +715,7 @@ private fun StatusBar(
     ntripState: org.opentopo.app.ntrip.NtripState,
     projectedCoords: org.opentopo.transform.ProjectedCoordinate?,
     surveyColors: org.opentopo.app.ui.theme.SurveyColors,
+    coordFormat: Int = 0,
 ) {
     Column(
         Modifier
@@ -758,34 +761,24 @@ private fun StatusBar(
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                projectedCoords?.let {
-                    Text(
-                        "E ${"%.3f".format(it.eastingM)}",
-                        fontFamily = CoordinateFont,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        "N ${"%.3f".format(it.northingM)}",
-                        fontFamily = CoordinateFont,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                } ?: run {
-                    Text(
-                        "%.8f\u00B0".format(position.latitude),
-                        fontFamily = CoordinateFont,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        "%.8f\u00B0".format(position.longitude),
-                        fontFamily = CoordinateFont,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                when (coordFormat) {
+                    0 -> { // EGSA87
+                        projectedCoords?.let {
+                            Text("E ${"%.3f".format(it.eastingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("N ${"%.3f".format(it.northingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        } ?: run {
+                            Text("%.8f\u00B0".format(position.latitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                            Text("%.8f\u00B0".format(position.longitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    1 -> { // WGS84 decimal
+                        Text("%.8f\u00B0".format(position.latitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Text("%.8f\u00B0".format(position.longitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    2 -> { // WGS84 DMS
+                        Text(decimalToDms(position.latitude, true), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(decimalToDms(position.longitude, false), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    }
                 }
             }
             }
@@ -886,4 +879,15 @@ fun AccuracyBadge(accuracyM: Double, prefix: String) {
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
     )
+}
+
+/** Convert decimal degrees to DMS string. */
+private fun decimalToDms(decimal: Double, isLatitude: Boolean): String {
+    val abs = kotlin.math.abs(decimal)
+    val deg = abs.toInt()
+    val minFloat = (abs - deg) * 60
+    val min = minFloat.toInt()
+    val sec = (minFloat - min) * 60
+    val dir = if (isLatitude) { if (decimal >= 0) "N" else "S" } else { if (decimal >= 0) "E" else "W" }
+    return "%d\u00B0%02d\u2032%06.3f\u2033%s".format(deg, min, sec, dir)
 }

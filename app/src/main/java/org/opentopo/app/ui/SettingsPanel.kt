@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -254,12 +255,22 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text("About", style = MaterialTheme.typography.titleMedium)
-                Text("OpenTopo v1.0.0", style = MaterialTheme.typography.bodyMedium)
+                Text("OpenTopo v${appVersion()}", style = MaterialTheme.typography.bodyMedium)
                 Text(
                     "Open-source GNSS surveying for Android",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.height(4.dp))
+                val context = LocalContext.current
+                val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                TextButton(
+                    onClick = { uriHandler.openUri("https://github.com/ppapadeas/opentopo") },
+                ) {
+                    Icon(Icons.Outlined.Code, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Source code on GitHub")
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Map data: OpenStreetMap contributors",
@@ -280,5 +291,15 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
         }
 
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun appVersion(): String {
+    val context = LocalContext.current
+    return try {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+    } catch (_: Exception) {
+        "?"
     }
 }
