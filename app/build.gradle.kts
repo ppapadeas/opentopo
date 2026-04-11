@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "org.opentopo.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.opentopo.app"
@@ -34,8 +34,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
     buildFeatures {
@@ -78,9 +80,9 @@ dependencies {
     implementation("org.maplibre.gl:android-sdk:11.8.4")
 
     // Room
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.8.4")
+    implementation("androidx.room:room-ktx:2.8.4")
+    ksp("androidx.room:room-compiler:2.8.4")
 
     // USB Serial
     implementation("com.github.mik3y:usb-serial-for-android:3.10.0")
