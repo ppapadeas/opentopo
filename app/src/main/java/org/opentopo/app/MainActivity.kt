@@ -14,6 +14,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -103,6 +106,17 @@ class MainActivity : ComponentActivity() {
             stakeout = Stakeout(gnssState, deStream2, dnStream2)
         } catch (_: Exception) {
             // Grid files missing — transform features disabled
+        }
+
+        // Feed GNSS position to NtripClient continuously for GGA generation
+        CoroutineScope(Dispatchers.Default).launch {
+            gnssState.position.collect { pos ->
+                ntripClient.lastRawGga = gnssState.lastRawGga
+                ntripClient.updatePosition(
+                    pos.latitude, pos.longitude, pos.altitude ?: 0.0,
+                    pos.fixQuality, pos.numSatellites, pos.hdop ?: 1.0,
+                )
+            }
         }
 
         requestPermissionsIfNeeded()

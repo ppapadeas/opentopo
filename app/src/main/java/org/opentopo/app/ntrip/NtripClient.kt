@@ -177,11 +177,16 @@ class NtripClient(
             throw IOException("NTRIP: $responseLine")
         }
 
-        // Skip remaining headers (if any)
-        while (true) {
-            val header = readLine(input) ?: break
-            if (header.isBlank()) break
+        // For NTRIP v2 (HTTP/1.1), skip remaining headers until blank line.
+        // For NTRIP v1 (ICY 200 OK), there are no additional headers —
+        // data starts immediately after the response line.
+        if (responseLine.startsWith("HTTP/")) {
+            while (true) {
+                val header = readLine(input) ?: break
+                if (header.isBlank()) break
+            }
         }
+        // For ICY responses, data starts immediately — do NOT read more lines.
 
         _state.value = _state.value.copy(
             status = NtripStatus.CONNECTED,
