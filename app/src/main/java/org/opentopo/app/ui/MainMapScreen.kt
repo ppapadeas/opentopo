@@ -379,11 +379,9 @@ fun MainMapScreen(
                 factory = { ctx ->
                     MapView(ctx).apply {
                         getMapAsync { map ->
-                            // Load style — use local PMTiles if available, else remote
-                            val baseStyleJson = ctx.assets.open("style_vathra.json")
+                            // Load vathra.xyz vector basemap style from assets
+                            val styleJson = ctx.assets.open("style_vathra.json")
                                 .bufferedReader().readText()
-                            val tm = (ctx as? org.opentopo.app.MainActivity)?.tileManager
-                            val styleJson = tm?.buildStyleJson(baseStyleJson) ?: baseStyleJson
                             map.setStyle(
                                 org.maplibre.android.maps.Style.Builder()
                                     .fromJson(styleJson),
