@@ -80,7 +80,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.content.Context
 import android.graphics.PointF
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.os.VibrationEffect
+import android.os.Vibrator
 import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
@@ -204,12 +209,51 @@ fun MainMapScreen(
         }
     }
 
-    // Snackbar on point recorded
+    // Haptic + audio feedback on point recorded
     LaunchedEffect(recordingState.lastRecordedPoint) {
         recordingState.lastRecordedPoint?.let { pt ->
+            // Strong haptic confirmation
+            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(300)
+            }
+
+            // Audio chime
+            try {
+                val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+                toneGen.startTone(ToneGenerator.TONE_PROP_ACK, 200)
+                kotlinx.coroutines.delay(300)
+                toneGen.release()
+            } catch (_: Exception) {}
+
             snackbarHostState.showSnackbar(
                 "Recorded ${pt.pointId}: E=${"%.3f".format(pt.easting)} N=${"%.3f".format(pt.northing)} \u00B1${"%.3f".format(pt.horizontalAccuracy ?: 0.0)}m"
             )
+        }
+    }
+
+    // NTRIP disconnect alert — vibration pattern + warning tone
+    LaunchedEffect(ntripState.status) {
+        if (ntripState.status == NtripStatus.RECONNECTING || ntripState.status == NtripStatus.DISCONNECTED) {
+            // Only alert if we were previously connected (not on initial state)
+            if (ntripState.lastDataTime > 0) {
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    // Alert pattern: short-short-long
+                    vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 100, 100, 100, 400), -1))
+                }
+                try {
+                    val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+                    toneGen.startTone(ToneGenerator.TONE_PROP_NACK, 500)
+                    kotlinx.coroutines.delay(600)
+                    toneGen.release()
+                } catch (_: Exception) {}
+
+                snackbarHostState.showSnackbar("NTRIP connection lost!")
+            }
         }
     }
 
@@ -459,6 +503,36 @@ fun MainMapScreen(
                 },
                 modifier = Modifier.fillMaxSize(),
             )
+
+            // ── Persistent fix status pill (always visible on map) ──
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(12.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 2.dp,
+                shadowElevation = 2.dp,
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    // Colored fix dot
+                    Canvas(Modifier.size(12.dp)) {
+                        drawCircle(color = surveyColors.fixColor(position.fixQuality))
+                    }
+                    // Fix label
+                    Text(
+                        surveyColors.fixLabel(position.fixQuality),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = CoordinateFont,
+                    )
+                }
+            }
 
             // ── Map layer switcher (top-right) ──
             Box(
