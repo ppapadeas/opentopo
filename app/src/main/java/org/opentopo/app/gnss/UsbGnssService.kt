@@ -102,14 +102,17 @@ class UsbGnssService(
     }
 
     private fun connectInternal(driver: UsbSerialDriver, baudRate: Int) {
+        android.util.Log.d("UsbGnss", "connectInternal: ${driver.device.productName}, baud=$baudRate")
         val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
         val connection = try {
             usbManager.openDevice(driver.device)
         } catch (e: SecurityException) {
+            android.util.Log.e("UsbGnss", "SecurityException opening device", e)
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
             return
         }
         if (connection == null) {
+            android.util.Log.e("UsbGnss", "openDevice returned null")
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
             return
         }
@@ -120,11 +123,13 @@ class UsbGnssService(
             usbPort.setParameters(baudRate, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
             port = usbPort
             gnssState.setConnectionStatus(ConnectionStatus.CONNECTED)
+            android.util.Log.d("UsbGnss", "connected, launching readLoop")
 
             readerJob = scope.launch {
                 readLoop(usbPort)
             }
         } catch (e: IOException) {
+            android.util.Log.e("UsbGnss", "IOException during connect", e)
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
         }
     }
@@ -161,18 +166,24 @@ class UsbGnssService(
 
     private suspend fun readLoop(usbPort: UsbSerialPort) {
         val buffer = ByteArray(READ_BUFFER_SIZE)
+        android.util.Log.d("UsbGnss", "readLoop started")
         try {
             while (kotlinx.coroutines.currentCoroutineContext().isActive) {
                 val bytesRead = usbPort.read(buffer, READ_TIMEOUT_MS)
                 if (bytesRead > 0) {
+                    val raw = String(buffer, 0, bytesRead)
+                    android.util.Log.d("UsbGnss", "read $bytesRead bytes: ${raw.take(80)}")
                     parser.feed(buffer, 0, bytesRead)
                 }
             }
-        } catch (_: CancellationException) {
-            // Coroutine cancelled — normal disconnect
-        } catch (_: IOException) {
-            // Device disconnected or read error
+        } catch (e: CancellationException) {
+            android.util.Log.d("UsbGnss", "readLoop cancelled")
+        } catch (e: IOException) {
+            android.util.Log.e("UsbGnss", "readLoop IO error", e)
+        } catch (e: Exception) {
+            android.util.Log.e("UsbGnss", "readLoop unexpected error", e)
         }
+        android.util.Log.d("UsbGnss", "readLoop exited")
         gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
     }
 }

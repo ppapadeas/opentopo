@@ -52,12 +52,28 @@ class GnssState : NmeaListener {
 
     override fun onRmc(data: RmcData) {
         if (data.status != 'A') return
+        val lat = data.latitude
+        val lon = data.longitude
         val current = _position.value
-        _position.value = current.copy(
-            speedKnots = data.speedKnots,
-            courseTrue = data.courseTrue,
-            date = data.date,
-        )
+        _position.value = if (lat != null && lon != null) {
+            // RMC has valid position — update coordinates if GGA hasn't set them yet
+            current.copy(
+                latitude = lat,
+                longitude = lon,
+                speedKnots = data.speedKnots,
+                courseTrue = data.courseTrue,
+                date = data.date,
+                hasFix = current.hasFix || true,
+                fixQuality = if (current.fixQuality == 0) 1 else current.fixQuality,
+                fixDescription = if (current.fixQuality == 0) "GPS" else current.fixDescription,
+            )
+        } else {
+            current.copy(
+                speedKnots = data.speedKnots,
+                courseTrue = data.courseTrue,
+                date = data.date,
+            )
+        }
     }
 
     override fun onGsa(data: GsaData) {
