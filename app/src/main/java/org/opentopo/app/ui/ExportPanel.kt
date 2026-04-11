@@ -2,6 +2,8 @@ package org.opentopo.app.ui
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Architecture
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.TableChart
@@ -30,6 +33,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +56,7 @@ import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.db.PointEntity
 import org.opentopo.app.db.ProjectEntity
 import org.opentopo.app.export.CsvExporter
+import org.opentopo.app.export.CsvImporter
 import org.opentopo.app.export.DxfExporter
 import org.opentopo.app.export.GeoJsonExporter
 import org.opentopo.app.ui.theme.CoordinateFont
@@ -78,16 +83,11 @@ fun ExportPanel(
     ) {
 
         /* ---- Section header ---- */
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Outlined.FileDownload,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text("Export", style = MaterialTheme.typography.titleLarge)
-        }
+        SectionHeader(
+            icon = Icons.Outlined.FileDownload,
+            title = "Export",
+            modifier = Modifier.padding(top = 8.dp),
+        )
 
         if (projects.isEmpty()) {
             /* ---- Empty state ---- */
@@ -149,7 +149,7 @@ fun ExportPanel(
                 }
             }
 
-            /* ---- Export format ---- */
+            /* ---- Import / Export ---- */
             val proj = selectedProject
             if (proj == null) {
                 Text(
@@ -159,6 +159,42 @@ fun ExportPanel(
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
             } else {
+                /* ---- Import CSV ---- */
+                val importLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.GetContent()
+                ) { uri ->
+                    uri?.let {
+                        scope.launch {
+                            try {
+                                val input = context.contentResolver.openInputStream(it)
+                                    ?: return@launch
+                                val points = CsvImporter.import(input, proj.id)
+                                input.close()
+                                withContext(Dispatchers.IO) {
+                                    points.forEach { pt -> db.pointDao().insert(pt) }
+                                }
+                                exportStatus = "Imported ${points.size} points"
+                            } catch (e: Exception) {
+                                exportStatus = "Import failed: ${e.message}"
+                            }
+                        }
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { importLauncher.launch("text/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Icon(
+                        Icons.Outlined.FileUpload,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Import CSV")
+                }
+
                 Text(
                     "Export format",
                     style = MaterialTheme.typography.labelLarge,
@@ -187,7 +223,7 @@ fun ExportPanel(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        /* -- CSV -- */
+                        /* -- CSV (primary export) -- */
                         FilledTonalButton(
                             onClick = {
                                 scope.launch {
@@ -213,12 +249,12 @@ fun ExportPanel(
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
-                            Spacer(Modifier.width(6.dp))
-                            Text("CSV")
+                            Spacer(Modifier.width(8.dp))
+                            Text("Export CSV")
                         }
 
                         /* -- GeoJSON -- */
-                        FilledTonalButton(
+                        OutlinedButton(
                             onClick = {
                                 scope.launch {
                                     isExporting = true
@@ -243,12 +279,12 @@ fun ExportPanel(
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
-                            Spacer(Modifier.width(6.dp))
-                            Text("GeoJSON")
+                            Spacer(Modifier.width(8.dp))
+                            Text("Export GeoJSON")
                         }
 
                         /* -- DXF -- */
-                        FilledTonalButton(
+                        OutlinedButton(
                             onClick = {
                                 scope.launch {
                                     isExporting = true
@@ -273,8 +309,8 @@ fun ExportPanel(
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
-                            Spacer(Modifier.width(6.dp))
-                            Text("DXF")
+                            Spacer(Modifier.width(8.dp))
+                            Text("Export DXF")
                         }
                     }
                 }

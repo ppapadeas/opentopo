@@ -52,6 +52,9 @@ class NtripClient(
 
     private var currentConfig: NtripConfig? = null
 
+    /** GGA forwarding interval in milliseconds (configurable from settings). */
+    @Volatile var ggaIntervalMs: Long = GGA_INTERVAL_MS
+
     /** Last raw GGA from the GNSS receiver. */
     @Volatile var lastRawGga: String? = null
 
@@ -279,7 +282,7 @@ class NtripClient(
         ggaJob?.cancel()
         ggaJob = scope.launch {
             while (isActive) {
-                delay(GGA_INTERVAL_MS)
+                delay(ggaIntervalMs)
                 val output = socketOutput ?: continue
                 sendGga(output)
             }

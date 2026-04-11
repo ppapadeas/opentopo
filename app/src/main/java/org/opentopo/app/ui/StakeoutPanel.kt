@@ -65,22 +65,11 @@ fun StakeoutPanel(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Section header with icon
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.NearMe,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-            )
-            Text(
-                "Stakeout",
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
+        SectionHeader(
+            icon = Icons.Outlined.NearMe,
+            title = "Stakeout",
+            modifier = Modifier.padding(top = 8.dp),
+        )
 
         if (!hasTarget) {
             // Target input form
@@ -192,7 +181,7 @@ fun StakeoutPanel(
                     shape = MaterialTheme.shapes.medium,
                 ) {
                     Column(
-                        Modifier.padding(12.dp),
+                        Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         SurveyStatusRow(

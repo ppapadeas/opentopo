@@ -122,6 +122,30 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Apply saved settings to services reactively
+        CoroutineScope(Dispatchers.Default).launch {
+            launch {
+                prefs.averagingSeconds.collect { seconds ->
+                    surveyManager?.averagingSeconds = seconds
+                }
+            }
+            launch {
+                prefs.minAccuracyM.collect { value ->
+                    surveyManager?.minAccuracyM = value.toDoubleOrNull() ?: 0.05
+                }
+            }
+            launch {
+                prefs.requireRtkFix.collect { required ->
+                    surveyManager?.requireRtkFix = required
+                }
+            }
+            launch {
+                prefs.ggaIntervalSeconds.collect { seconds ->
+                    ntripClient.ggaIntervalMs = seconds * 1000L
+                }
+            }
+        }
+
         requestPermissionsIfNeeded()
         registerUsbReceiver()
 
@@ -153,7 +177,8 @@ class MainActivity : ComponentActivity() {
             if (savedConnectionType == 1) { // USB
                 val drivers = usbService.getAvailableDevices()
                 if (drivers.isNotEmpty()) {
-                    usbService.connect(drivers.first())
+                    val savedBaud = prefs.baudRate.first()
+                    usbService.connect(drivers.first(), savedBaud)
                 }
             }
 

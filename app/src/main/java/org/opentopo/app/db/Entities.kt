@@ -1,5 +1,6 @@
 package org.opentopo.app.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -43,5 +44,6 @@ data class PointEntity(
     val averagingSeconds: Int,     // how many seconds averaged
     val antennaHeight: Double? = null, // metres, instrument height
     val remarks: String = "",
+    @ColumnInfo(name = "photoPath") val photoPath: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
 )

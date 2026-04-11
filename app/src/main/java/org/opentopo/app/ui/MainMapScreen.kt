@@ -8,7 +8,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,10 +66,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.painter.Painter
@@ -80,6 +79,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.graphics.PointF
+import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -149,6 +150,7 @@ fun MainMapScreen(
         surveyManager?.recordingState?.collectAsState()?.value ?: RecordingState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     remember { MapLibre.getInstance(context) }
 
@@ -424,6 +426,25 @@ fun MainMapScreen(
                                     "user-location-glow",
                                 )
                             }
+                            // Tap survey point to show details
+                            map.addOnMapClickListener { latLng ->
+                                val pixel = map.projection.toScreenLocation(latLng)
+                                val features = map.queryRenderedFeatures(
+                                    PointF(pixel.x, pixel.y),
+                                    "survey-points-circle",
+                                )
+                                if (features.isNotEmpty()) {
+                                    val pointId = features[0].getStringProperty("id")
+                                        ?: return@addOnMapClickListener false
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Point: $pointId")
+                                    }
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+
                             mapRef = map
                         }
                     }
@@ -644,11 +665,13 @@ private fun StatusBar(
         // Row 2: Coordinates
         if (position.hasFix) {
             Spacer(Modifier.height(8.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = MaterialTheme.shapes.small,
+            ) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
@@ -681,6 +704,7 @@ private fun StatusBar(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
+            }
             }
 
             // Row 3: Alt + NTRIP status

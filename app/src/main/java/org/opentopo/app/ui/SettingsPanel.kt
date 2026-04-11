@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,19 +67,11 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Section header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                Icons.Outlined.Settings,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-            )
-            Text("Settings", style = MaterialTheme.typography.titleLarge)
-        }
+        SectionHeader(
+            icon = Icons.Outlined.Settings,
+            title = "Settings",
+            modifier = Modifier.padding(top = 8.dp),
+        )
 
         // ── Recording settings ──
         OutlinedCard(Modifier.fillMaxWidth()) {
@@ -105,7 +98,7 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
                             onValueChange = {},
                             readOnly = true,
                             modifier = Modifier
-                                .width(100.dp)
+                                .width(120.dp)
                                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                             textStyle = MaterialTheme.typography.bodyMedium,
                             trailingIcon = {
@@ -139,7 +132,7 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
                     OutlinedTextField(
                         value = minAccuracy,
                         onValueChange = { scope.launch { prefs?.setMinAccuracyM(it) } },
-                        modifier = Modifier.width(100.dp),
+                        modifier = Modifier.width(120.dp),
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = CoordinateFont,
                         ),
@@ -233,7 +226,7 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
                             onValueChange = {},
                             readOnly = true,
                             modifier = Modifier
-                                .width(100.dp)
+                                .width(120.dp)
                                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                             textStyle = MaterialTheme.typography.bodyMedium,
                             trailingIcon = {
@@ -312,7 +305,11 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
         }
 
         // ── About ──
-        OutlinedCard(Modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            tonalElevation = 2.dp,
+        ) {
             Column(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),

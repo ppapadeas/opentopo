@@ -40,7 +40,6 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -390,10 +389,12 @@ private fun BluetoothPicker(bluetoothService: BluetoothGnssService) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-            TextField(
-                value = selectedDevice?.name ?: "Select device...",
+            OutlinedTextField(
+                value = selectedDevice?.name ?: "",
                 onValueChange = {},
                 readOnly = true,
+                label = { Text("Device") },
+                placeholder = { Text("Select device\u2026") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                 modifier = Modifier
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -436,6 +437,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
     // Observe USB device version from MainActivity to refresh list on hot-plug
     val activity = LocalContext.current as? org.opentopo.app.MainActivity
     val usbVersion by activity?.usbDeviceVersion?.collectAsState() ?: remember { mutableStateOf(0) }
+    val baudRate by activity?.prefs?.baudRate?.collectAsState(initial = 115200) ?: remember { mutableStateOf(115200) }
     val drivers = remember(usbVersion) { usbService.getAvailableDevices() }
     var expanded by remember { mutableStateOf(false) }
     var selectedDriver by remember { mutableStateOf<UsbSerialDriver?>(null) }
@@ -443,10 +445,12 @@ private fun UsbPicker(usbService: UsbGnssService) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-            TextField(
-                value = selectedDriver?.device?.productName ?: "Select USB device\u2026",
+            OutlinedTextField(
+                value = selectedDriver?.device?.productName ?: "",
                 onValueChange = {},
                 readOnly = true,
+                label = { Text("Device") },
+                placeholder = { Text("Select USB device\u2026") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                 modifier = Modifier
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -488,7 +492,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
             Button(
                 onClick = {
                     selectedDriver?.let { driver ->
-                        usbService.connect(driver)
+                        usbService.connect(driver, baudRate)
                         scope.launch { activity?.prefs?.setConnectionType(1) }
                     }
                 },
@@ -559,7 +563,7 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
             expanded = presetExpanded,
             onExpandedChange = { presetExpanded = it },
         ) {
-            TextField(
+            OutlinedTextField(
                 value = if (isCustom) "Custom server" else NtripConfig.PRESETS.getOrNull(selectedPresetIndex)?.name ?: "Custom server",
                 onValueChange = {},
                 readOnly = true,
@@ -657,10 +661,12 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 expanded = mpExpanded,
                 onExpandedChange = { mpExpanded = it },
             ) {
-                TextField(
-                    value = mountpoint.ifBlank { "Select..." },
+                OutlinedTextField(
+                    value = mountpoint.ifBlank { "" },
                     onValueChange = {},
                     readOnly = true,
+                    label = { Text("Select mountpoint") },
+                    placeholder = { Text("Select\u2026") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(mpExpanded) },
                     modifier = Modifier
                         .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)

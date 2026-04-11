@@ -1,5 +1,8 @@
 package org.opentopo.app.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Inventory2
@@ -55,6 +59,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import java.io.File
 import kotlinx.coroutines.launch
 import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.db.PointEntity
@@ -152,7 +158,7 @@ fun SurveyPanel(
 // ── Section header ──
 
 @Composable
-private fun SectionHeader(
+internal fun SectionHeader(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     modifier: Modifier = Modifier,
@@ -481,15 +487,28 @@ private fun RecordingControls(
 @Composable
 private fun PointCard(point: PointEntity, db: AppDatabase) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
+
+    // Camera photo capture
+    val photoUri = remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture(),
+    ) { success ->
+        if (success) {
+            scope.launch {
+                db.pointDao().update(point.copy(photoPath = photoUri.value?.path))
+            }
+        }
+    }
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Fix badge on the left
@@ -530,6 +549,32 @@ private fun PointCard(point: PointEntity, db: AppDatabase) {
                         )
                     }
                 }
+            }
+
+            // Photo button
+            IconButton(
+                onClick = {
+                    val photoFile = File(
+                        context.filesDir,
+                        "photos/${point.pointId}_${System.currentTimeMillis()}.jpg",
+                    )
+                    photoFile.parentFile?.mkdirs()
+                    val uri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        photoFile,
+                    )
+                    photoUri.value = uri
+                    cameraLauncher.launch(uri)
+                },
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.PhotoCamera,
+                    contentDescription = "Take photo for ${point.pointId}",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             // Edit button
