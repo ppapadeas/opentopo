@@ -17,11 +17,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.CellTower
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Usb
 import androidx.compose.material3.Button
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -47,6 +49,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -427,14 +430,17 @@ private fun BluetoothPicker(bluetoothService: BluetoothGnssService) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UsbPicker(usbService: UsbGnssService) {
-    val drivers = remember { usbService.getAvailableDevices() }
+    // Observe USB device version from MainActivity to refresh list on hot-plug
+    val activity = LocalContext.current as? org.opentopo.app.MainActivity
+    val usbVersion by activity?.usbDeviceVersion?.collectAsState() ?: remember { mutableStateOf(0) }
+    val drivers = remember(usbVersion) { usbService.getAvailableDevices() }
     var expanded by remember { mutableStateOf(false) }
     var selectedDriver by remember { mutableStateOf<UsbSerialDriver?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
             TextField(
-                value = selectedDriver?.device?.productName ?: "Select USB device...",
+                value = selectedDriver?.device?.productName ?: "Select USB device\u2026",
                 onValueChange = {},
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
@@ -456,31 +462,53 @@ private fun UsbPicker(usbService: UsbGnssService) {
                 }
                 if (drivers.isEmpty()) {
                     DropdownMenuItem(
-                        text = { Text("No USB devices") },
+                        text = { Text("No USB devices found") },
                         onClick = { expanded = false },
                     )
                 }
             }
         }
-        Button(
-            onClick = { selectedDriver?.let { usbService.connect(it) } },
-            enabled = selectedDriver != null,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Icon(
-                Icons.Outlined.Usb,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text("Connect USB")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { activity?.refreshUsbDevices() },
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Refresh")
+            }
+            Button(
+                onClick = {
+                    selectedDriver?.let { driver ->
+                        // Request USB permission if needed, then connect
+                        activity?.requestUsbPermission(driver.device)
+                        usbService.connect(driver)
+                    }
+                },
+                enabled = selectedDriver != null,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    Icons.Outlined.Usb,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Connect")
+            }
         }
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun NtripConnectForm(ntripClient: NtripClient) {
+    // -1 means "Custom server"
     var selectedPresetIndex by remember { mutableIntStateOf(0) }
     var host by remember { mutableStateOf(NtripConfig.PRESETS[0].host) }
     var port by remember { mutableStateOf(NtripConfig.PRESETS[0].port.toString()) }
@@ -489,6 +517,7 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
     var mountpoint by remember { mutableStateOf("") }
     var mountpoints by remember { mutableStateOf<List<NtripMountpoint>>(emptyList()) }
     var fetchingSourcetable by remember { mutableStateOf(false) }
+    val isCustom = selectedPresetIndex == -1
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Caster preset picker
@@ -498,7 +527,7 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
             onExpandedChange = { presetExpanded = it },
         ) {
             TextField(
-                value = NtripConfig.PRESETS.getOrNull(selectedPresetIndex)?.name ?: "Custom",
+                value = if (isCustom) "Custom server" else NtripConfig.PRESETS.getOrNull(selectedPresetIndex)?.name ?: "Custom server",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Caster") },
@@ -524,6 +553,39 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                         },
                     )
                 }
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Custom server\u2026") },
+                    onClick = {
+                        selectedPresetIndex = -1
+                        host = ""
+                        port = "2101"
+                        mountpoints = emptyList()
+                        mountpoint = ""
+                        presetExpanded = false
+                    },
+                )
+            }
+        }
+
+        // Custom server: host + port fields
+        if (isCustom) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = host,
+                    onValueChange = { host = it },
+                    label = { Text("Host") },
+                    placeholder = { Text("ntrip.example.com") },
+                    modifier = Modifier.weight(2f),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = port,
+                    onValueChange = { port = it },
+                    label = { Text("Port") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
             }
         }
 
