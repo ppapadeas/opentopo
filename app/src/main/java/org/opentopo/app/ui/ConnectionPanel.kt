@@ -237,6 +237,14 @@ fun ConnectionPanel(
                                     "HDOP",
                                     accuracy.hdop?.let { "%.1f".format(it) } ?: "\u2014",
                                 )
+
+                                // Skyplot
+                                if (satellites.satellites.isNotEmpty()) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Skyplot(
+                                        satellites = satellites.satellites,
+                                    )
+                                }
                             }
                         }
                     }
