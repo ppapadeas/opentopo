@@ -42,6 +42,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -244,13 +245,25 @@ fun ConnectionPanel(
                 } else if (connectionType == 1) {
                     UsbPicker(usbService)
                 } else {
-                    // Internal GPS — simple connect button
+                    // Internal GPS — permission check + connect
                     val scope = rememberCoroutineScope()
                     val activity = LocalContext.current as? org.opentopo.app.MainActivity
-                    Button(
-                        onClick = {
+                    val permissionLauncher = rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                    ) { granted ->
+                        if (granted) {
                             internalService.connect()
                             scope.launch { activity?.prefs?.setConnectionType(2) }
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            if (internalService.hasPermission()) {
+                                internalService.connect()
+                                scope.launch { activity?.prefs?.setConnectionType(2) }
+                            } else {
+                                permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.medium,
