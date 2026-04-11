@@ -90,8 +90,11 @@ class UsbGnssService(
                 PendingIntent.FLAG_MUTABLE
             else
                 0
+            val intent = Intent(ACTION_USB_PERMISSION).apply {
+                setPackage(context.packageName)
+            }
             val permIntent = PendingIntent.getBroadcast(
-                context, 0, Intent(ACTION_USB_PERMISSION), flags,
+                context, 0, intent, flags,
             )
             usbManager.requestPermission(driver.device, permIntent)
         }

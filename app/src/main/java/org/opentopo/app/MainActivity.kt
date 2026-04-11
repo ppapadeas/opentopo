@@ -165,8 +165,11 @@ class MainActivity : ComponentActivity() {
                 PendingIntent.FLAG_MUTABLE
             else
                 0
+            val intent = Intent(ACTION_USB_PERMISSION).apply {
+                setPackage(packageName)
+            }
             val permIntent = PendingIntent.getBroadcast(
-                this, 0, Intent(ACTION_USB_PERMISSION), flags
+                this, 0, intent, flags
             )
             usbManager.requestPermission(device, permIntent)
         }
