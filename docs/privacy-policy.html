@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTopo - Privacy Policy</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 0 auto; padding: 24px; color: #333; line-height: 1.6; }
+        h1 { color: #2E7D32; }
+        h2 { color: #424242; margin-top: 2em; }
+        .updated { color: #666; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <h1>OpenTopo Privacy Policy</h1>
+    <p class="updated">Last updated: April 11, 2026</p>
+
+    <h2>Overview</h2>
+    <p>OpenTopo is an open-source GNSS surveying application. We are committed to protecting your privacy. This policy explains what data the app accesses and how it is handled.</p>
+
+    <h2>Data We Collect</h2>
+    <h3>Location Data</h3>
+    <p>OpenTopo uses precise GNSS location data from an external receiver connected via USB or Bluetooth. This data is:</p>
+    <ul>
+        <li><strong>Stored locally</strong> on your device in survey project databases</li>
+        <li><strong>Never sent to our servers</strong> &mdash; we have no servers or cloud services</li>
+        <li><strong>Exported only when you choose</strong> to share via CSV, GeoJSON, or DXF files</li>
+    </ul>
+
+    <h3>NTRIP Correction Data</h3>
+    <p>When you connect to an NTRIP caster for RTK corrections, the app sends your approximate position (NMEA GGA sentence) to the caster you configure. This is required for the caster to provide correction data. The NTRIP connection is:</p>
+    <ul>
+        <li>Initiated only by your explicit action</li>
+        <li>Sent to the caster address <strong>you</strong> configure (not our servers)</li>
+        <li>Used solely for receiving GNSS correction data</li>
+    </ul>
+
+    <h2>Data We Do NOT Collect</h2>
+    <ul>
+        <li>No analytics or telemetry</li>
+        <li>No advertising identifiers</li>
+        <li>No personal information (name, email, phone)</li>
+        <li>No crash reporting to external services</li>
+        <li>No data is sent to OpenTopo developers</li>
+    </ul>
+
+    <h2>Local Storage</h2>
+    <p>The app stores the following data locally on your device:</p>
+    <ul>
+        <li><strong>Survey projects and points</strong> &mdash; coordinates, accuracy, remarks, photos</li>
+        <li><strong>Connection settings</strong> &mdash; NTRIP credentials, device preferences</li>
+        <li><strong>App preferences</strong> &mdash; averaging time, baud rate, display format</li>
+    </ul>
+    <p>All local data can be deleted by clearing app data or uninstalling the app.</p>
+
+    <h2>Permissions</h2>
+    <table>
+        <tr><td><strong>Bluetooth</strong></td><td>Connect to Bluetooth GNSS receivers</td></tr>
+        <tr><td><strong>Location</strong></td><td>Required by Android for Bluetooth scanning</td></tr>
+        <tr><td><strong>USB</strong></td><td>Connect to USB GNSS receivers</td></tr>
+        <tr><td><strong>Internet</strong></td><td>NTRIP corrections and map tile loading</td></tr>
+    </table>
+
+    <h2>Third-Party Services</h2>
+    <p>The app loads map tiles from:</p>
+    <ul>
+        <li><strong>vathra.xyz</strong> &mdash; OpenStreetMap-based vector tiles (no tracking)</li>
+        <li><strong>Ktimatologio (gis.ktimanet.gr)</strong> &mdash; Greek national orthophoto WMS (no tracking)</li>
+        <li><strong>Protomaps CDN</strong> &mdash; Map font/glyph files (no tracking)</li>
+    </ul>
+    <p>These services may log standard HTTP request data (IP address, user agent) per their own privacy policies.</p>
+
+    <h2>Children's Privacy</h2>
+    <p>OpenTopo is a professional surveying tool not directed at children under 13.</p>
+
+    <h2>Changes to This Policy</h2>
+    <p>Updates will be posted at this URL. Continued use of the app constitutes acceptance.</p>
+
+    <h2>Contact</h2>
+    <p>For privacy questions: <a href="https://github.com/ppapadeas/opentopo/issues">github.com/ppapadeas/opentopo/issues</a></p>
+
+    <hr>
+    <p><small>OpenTopo is open-source software licensed under the GNU AGPLv3.</small></p>
+</body>
+</html>

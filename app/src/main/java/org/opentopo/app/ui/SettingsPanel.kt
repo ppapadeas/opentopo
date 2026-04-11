@@ -254,7 +254,7 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text("About", style = MaterialTheme.typography.titleMedium)
-                Text("OpenTopo v0.2.0", style = MaterialTheme.typography.bodyMedium)
+                Text("OpenTopo v1.0.0", style = MaterialTheme.typography.bodyMedium)
                 Text(
                     "Open-source GNSS surveying for Android",
                     style = MaterialTheme.typography.bodySmall,

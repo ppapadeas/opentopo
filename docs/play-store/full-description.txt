@@ -1,0 +1,27 @@
+OpenTopo is a free, open-source GNSS surveying app for Android. Connect your USB or Bluetooth RTK receiver, stream NTRIP corrections, and collect survey-grade points in the field.
+
+GNSS RECEIVER SUPPORT
+Connect to any NMEA-compatible GNSS receiver via USB-OTG (FTDI, CP210x, CH340, PL2303) or Bluetooth. Auto-detects devices and reconnects on startup.
+
+RTK CORRECTIONS
+Built-in NTRIP v1 client with VRS support. GGA forwarding for virtual reference station casters. Auto-reconnect with configurable GGA interval. Supports any NTRIP caster worldwide.
+
+PRECISE SURVEYING
+Record averaged survey points with configurable epoch duration, accuracy thresholds, and RTK fix requirements. Track antenna height, add remarks, and attach photos to each point.
+
+COORDINATE TRANSFORMATION
+Built-in HEPOS transformation engine for Greek GGRS87/EGSA87 coordinates. Real-time projection from WGS84 with high-precision correction grids.
+
+MAP DISPLAY
+Vector basemap with Greek labels, roads, buildings, and contour lines. Ktimatologio orthophoto overlay. Recorded points displayed with fix-quality color coding.
+
+STAKEOUT NAVIGATION
+Enter target coordinates and navigate to the point with a compass bearing arrow, distance display, and delta E/N readout.
+
+DATA EXPORT
+Export survey projects to CSV, GeoJSON, or DXF. Import points from CSV files. Share via any Android app.
+
+OPEN SOURCE
+No ads, no tracking, no cloud dependency. All data stays on your device. Source code available on GitHub under GNU AGPLv3.
+
+Built for professional surveyors and GNSS enthusiasts in Greece and beyond.

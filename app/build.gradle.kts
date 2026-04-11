@@ -4,6 +4,19 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val _localProps: Map<String, String> by lazy {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) {
+        f.readLines()
+            .filter { it.contains("=") && !it.startsWith("#") }
+            .associate {
+                val (k, v) = it.split("=", limit = 2)
+                k.trim() to v.trim()
+            }
+    } else emptyMap()
+}
+fun localProp(key: String): String? = _localProps[key]
+
 android {
     namespace = "org.opentopo.app"
     compileSdk = 36
@@ -13,19 +26,20 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         create("release") {
-            // For development, use debug keystore
-            // Replace with proper keystore for Play Store release
-            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            val sf = localProp("RELEASE_STORE_FILE")
+            if (sf != null) {
+                storeFile = file(sf)
+                storePassword = localProp("RELEASE_STORE_PASSWORD")
+                keyAlias = localProp("RELEASE_KEY_ALIAS")
+                keyPassword = localProp("RELEASE_KEY_PASSWORD")
+            }
         }
     }
 
