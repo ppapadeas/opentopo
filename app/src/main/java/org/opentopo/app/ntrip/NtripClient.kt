@@ -128,7 +128,8 @@ class NtripClient(
             connectTimeout = 10_000
             readTimeout = 30_000
             doInput = true
-            doOutput = config.sendGga
+            // Do NOT set doOutput here — it converts GET to POST and casters reject it.
+            // GGA is sent via the input stream's socket after connection is established.
         }
 
         connection = conn
@@ -138,9 +139,10 @@ class NtripClient(
             throw IOException("NTRIP server returned HTTP $responseCode")
         }
 
-        if (config.sendGga) {
-            outputStream = conn.outputStream
-        }
+        // Note: GGA forwarding via HttpURLConnection is not reliable —
+        // doOutput=true converts GET to POST, which casters reject.
+        // VRS casters that need GGA will require a raw socket implementation.
+        outputStream = null
 
         _state.value = _state.value.copy(
             status = NtripStatus.CONNECTED,
