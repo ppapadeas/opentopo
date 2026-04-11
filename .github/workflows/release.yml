@@ -33,17 +33,14 @@ jobs:
       - name: Run tests
         run: ./gradlew :lib-transform:test :app:testDebugUnitTest
 
-      - name: Build release APK
-        run: ./gradlew assembleRelease
-
-      - name: Build release AAB
-        run: ./gradlew bundleRelease
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            app/build/outputs/apk/release/app-release-unsigned.apk
+            app/build/outputs/apk/debug/app-debug.apk
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
