@@ -83,6 +83,8 @@ class MainActivity : ComponentActivity() {
         ntripClient = NtripClient { rtcmData ->
             bluetoothService.write(rtcmData)
             usbService.write(rtcmData)
+            // Feed GGA back to NTRIP for VRS
+            gnssState.lastRawGga?.let { ntripClient.updateGga(it) }
         }
 
         // Initialize transform-dependent services

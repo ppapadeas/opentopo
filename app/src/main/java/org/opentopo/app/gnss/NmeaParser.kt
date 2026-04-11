@@ -46,7 +46,7 @@ class NmeaParser(private val listener: NmeaListener) {
         val type = if (sentenceId.length >= 3) sentenceId.takeLast(3) else return
 
         when (type) {
-            "GGA" -> parseGga(fields)
+            "GGA" -> { parseGga(fields); listener.onRawGga(sentence) }
             "RMC" -> parseRmc(fields)
             "GSA" -> parseGsa(fields)
             "GSV" -> parseGsv(fields)
@@ -277,6 +277,7 @@ enum class Constellation {
 /** Callback interface for parsed NMEA data. */
 interface NmeaListener {
     fun onGga(data: GgaData) {}
+    fun onRawGga(sentence: String) {}
     fun onRmc(data: RmcData) {}
     fun onGsa(data: GsaData) {}
     fun onGsv(data: GsvData) {}

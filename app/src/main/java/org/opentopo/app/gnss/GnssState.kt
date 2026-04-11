@@ -33,6 +33,15 @@ class GnssState : NmeaListener {
         _connectionStatus.value = status
     }
 
+    /** Last raw GGA sentence for NTRIP VRS forwarding. */
+    @Volatile
+    var lastRawGga: String? = null
+        private set
+
+    override fun onRawGga(sentence: String) {
+        lastRawGga = sentence
+    }
+
     override fun onGga(data: GgaData) {
         val lat = data.latitude ?: return
         val lon = data.longitude ?: return
