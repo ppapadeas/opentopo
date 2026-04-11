@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.CellTower
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Usb
 import androidx.compose.material3.Button
@@ -77,6 +78,7 @@ fun ConnectionPanel(
     gnssState: GnssState,
     bluetoothService: BluetoothGnssService,
     usbService: UsbGnssService,
+    internalService: org.opentopo.app.gnss.InternalGnssService,
     ntripClient: NtripClient,
     modifier: Modifier = Modifier,
 ) {
@@ -120,36 +122,38 @@ fun ConnectionPanel(
                     )
                 }
 
-                // BT / USB segmented toggle
+                // BT / USB / Internal segmented toggle
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         selected = connectionType == 0,
                         onClick = { connectionType = 0 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
                         icon = {
                             SegmentedButtonDefaults.Icon(active = connectionType == 0) {
-                                Icon(
-                                    Icons.Outlined.Bluetooth,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                )
+                                Icon(Icons.Outlined.Bluetooth, null, Modifier.size(18.dp))
                             }
                         },
-                    ) { Text("Bluetooth") }
+                    ) { Text("BT") }
                     SegmentedButton(
                         selected = connectionType == 1,
                         onClick = { connectionType = 1 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                         icon = {
                             SegmentedButtonDefaults.Icon(active = connectionType == 1) {
-                                Icon(
-                                    Icons.Outlined.Usb,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                )
+                                Icon(Icons.Outlined.Usb, null, Modifier.size(18.dp))
                             }
                         },
                     ) { Text("USB") }
+                    SegmentedButton(
+                        selected = connectionType == 2,
+                        onClick = { connectionType = 2 },
+                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                        icon = {
+                            SegmentedButtonDefaults.Icon(active = connectionType == 2) {
+                                Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
+                            }
+                        },
+                    ) { Text("Internal") }
                 }
 
                 val isConnected = connectionStatus == ConnectionStatus.CONNECTED
@@ -237,8 +241,24 @@ fun ConnectionPanel(
                     }
                 } else if (connectionType == 0) {
                     BluetoothPicker(bluetoothService)
-                } else {
+                } else if (connectionType == 1) {
                     UsbPicker(usbService)
+                } else {
+                    // Internal GPS — simple connect button
+                    val scope = rememberCoroutineScope()
+                    val activity = LocalContext.current as? org.opentopo.app.MainActivity
+                    Button(
+                        onClick = {
+                            internalService.connect()
+                            scope.launch { activity?.prefs?.setConnectionType(2) }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                    ) {
+                        Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Connect Internal GPS")
+                    }
                 }
             }
         }

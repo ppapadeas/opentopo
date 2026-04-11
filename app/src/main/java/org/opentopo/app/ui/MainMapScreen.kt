@@ -140,6 +140,7 @@ fun MainMapScreen(
     gnssState: GnssState,
     bluetoothService: BluetoothGnssService,
     usbService: UsbGnssService,
+    internalService: org.opentopo.app.gnss.InternalGnssService,
     ntripClient: NtripClient,
     db: AppDatabase,
     surveyManager: SurveyManager?,
@@ -360,7 +361,7 @@ fun MainMapScreen(
                     ) {
                         when (tab) {
                             TAB_CONNECTION -> ConnectionPanel(
-                                gnssState, bluetoothService, usbService, ntripClient,
+                                gnssState, bluetoothService, usbService, internalService, ntripClient,
                             )
                             TAB_SURVEY -> SurveyPanel(db, surveyManager)
                             TAB_STAKEOUT -> StakeoutPanel(stakeout)

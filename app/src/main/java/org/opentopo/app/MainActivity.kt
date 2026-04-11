@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.gnss.BluetoothGnssService
 import org.opentopo.app.gnss.GnssState
+import org.opentopo.app.gnss.InternalGnssService
 import org.opentopo.app.gnss.UsbGnssService
 import org.opentopo.app.ntrip.NtripClient
 import org.opentopo.app.ntrip.NtripConfig
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
     private val gnssState = GnssState()
     private lateinit var bluetoothService: BluetoothGnssService
     private lateinit var usbService: UsbGnssService
+    private lateinit var internalService: InternalGnssService
     private lateinit var ntripClient: NtripClient
     private lateinit var db: AppDatabase
     lateinit var prefs: org.opentopo.app.prefs.UserPreferences
@@ -85,6 +87,7 @@ class MainActivity : ComponentActivity() {
         prefs = org.opentopo.app.prefs.UserPreferences(this)
         bluetoothService = BluetoothGnssService(this, gnssState)
         usbService = UsbGnssService(this, gnssState)
+        internalService = InternalGnssService(this, gnssState)
 
         // NTRIP RTCM data flows to whichever transport is connected
         ntripClient = NtripClient { rtcmData ->
@@ -160,6 +163,7 @@ class MainActivity : ComponentActivity() {
                     gnssState = gnssState,
                     bluetoothService = bluetoothService,
                     usbService = usbService,
+                    internalService = internalService,
                     ntripClient = ntripClient,
                     db = db,
                     surveyManager = surveyManager,
@@ -186,6 +190,8 @@ class MainActivity : ComponentActivity() {
                     val savedBaud = prefs.baudRate.first()
                     usbService.connect(drivers.first(), savedBaud)
                 }
+            } else if (savedConnectionType == 2) { // Internal GPS
+                internalService.connect()
             }
 
             // Auto-connect NTRIP if settings are saved
@@ -212,6 +218,7 @@ class MainActivity : ComponentActivity() {
         ntripClient.disconnect()
         bluetoothService.disconnect()
         usbService.destroy()
+        internalService.disconnect()
         try {
             unregisterReceiver(usbReceiver)
         } catch (_: IllegalArgumentException) {
