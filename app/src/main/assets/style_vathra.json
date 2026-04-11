@@ -1,0 +1,32 @@
+{
+  "version": 8,
+  "name": "OpenTopo Basemap",
+  "sources": {
+    "vathra": {
+      "type": "vector",
+      "url": "https://vathra-tiles.vathra.workers.dev/greece.json",
+      "attribution": "&copy; <a href='https://openstreetmap.org'>OpenStreetMap</a>"
+    }
+  },
+  "glyphs": "https://cdn.protomaps.com/fonts/pbf/{fontstack}/{range}.pbf",
+  "layers": [
+    {"id": "background", "type": "background", "paint": {"background-color": "#f0ede9"}},
+    {"id": "earth", "type": "fill", "source": "vathra", "source-layer": "earth", "paint": {"fill-color": "#f0ede9"}},
+    {"id": "water", "type": "fill", "source": "vathra", "source-layer": "water", "paint": {"fill-color": "#b4d4e1"}},
+    {"id": "landcover-grass", "type": "fill", "source": "vathra", "source-layer": "landcover", "filter": ["==", "pmap:kind", "grass"], "paint": {"fill-color": "#d8e8c8", "fill-opacity": 0.6}},
+    {"id": "landcover-forest", "type": "fill", "source": "vathra", "source-layer": "landcover", "filter": ["==", "pmap:kind", "forest"], "paint": {"fill-color": "#c5dfad", "fill-opacity": 0.5}},
+    {"id": "landuse-park", "type": "fill", "source": "vathra", "source-layer": "landuse", "filter": ["in", "pmap:kind", "park", "garden", "nature_reserve"], "paint": {"fill-color": "#d0e8c0", "fill-opacity": 0.5}},
+    {"id": "landuse-residential", "type": "fill", "source": "vathra", "source-layer": "landuse", "filter": ["==", "pmap:kind", "residential"], "paint": {"fill-color": "#e8e0d8", "fill-opacity": 0.4}},
+    {"id": "landuse-industrial", "type": "fill", "source": "vathra", "source-layer": "landuse", "filter": ["in", "pmap:kind", "industrial", "commercial"], "paint": {"fill-color": "#e0dbd4", "fill-opacity": 0.3}},
+    {"id": "boundaries", "type": "line", "source": "vathra", "source-layer": "boundaries", "paint": {"line-color": "#bab0a8", "line-width": 1, "line-dasharray": [3, 2]}},
+    {"id": "roads-minor", "type": "line", "source": "vathra", "source-layer": "roads", "filter": ["in", "pmap:kind", "minor_road", "other"], "minzoom": 11, "paint": {"line-color": "#ffffff", "line-width": {"stops": [[11, 0.5], [14, 3]]}}},
+    {"id": "roads-medium", "type": "line", "source": "vathra", "source-layer": "roads", "filter": ["in", "pmap:kind", "medium_road"], "minzoom": 8, "paint": {"line-color": "#ffffff", "line-width": {"stops": [[8, 0.5], [14, 5]]}}},
+    {"id": "roads-major-casing", "type": "line", "source": "vathra", "source-layer": "roads", "filter": ["in", "pmap:kind", "major_road", "highway"], "minzoom": 6, "paint": {"line-color": "#d4c4a8", "line-width": {"stops": [[6, 1], [14, 9]]}, "line-gap-width": 0}},
+    {"id": "roads-major", "type": "line", "source": "vathra", "source-layer": "roads", "filter": ["in", "pmap:kind", "major_road", "highway"], "minzoom": 6, "paint": {"line-color": "#faf5e8", "line-width": {"stops": [[6, 0.5], [14, 7]]}}},
+    {"id": "buildings", "type": "fill", "source": "vathra", "source-layer": "buildings", "minzoom": 13, "paint": {"fill-color": "#d9d0c8", "fill-opacity": 0.6}},
+    {"id": "place-labels-village", "type": "symbol", "source": "vathra", "source-layer": "places", "filter": ["in", "pmap:kind", "village", "hamlet", "suburb", "neighbourhood"], "minzoom": 11, "layout": {"text-field": ["coalesce", ["get", "name:el"], ["get", "name"]], "text-font": ["Noto Sans Regular"], "text-size": 12, "text-max-width": 8}, "paint": {"text-color": "#6b6560", "text-halo-color": "#ffffff", "text-halo-width": 1.5}},
+    {"id": "place-labels-town", "type": "symbol", "source": "vathra", "source-layer": "places", "filter": ["in", "pmap:kind", "town", "borough"], "minzoom": 8, "layout": {"text-field": ["coalesce", ["get", "name:el"], ["get", "name"]], "text-font": ["Noto Sans Medium"], "text-size": {"stops": [[8, 11], [13, 16]]}, "text-max-width": 8}, "paint": {"text-color": "#4a4540", "text-halo-color": "#ffffff", "text-halo-width": 1.5}},
+    {"id": "place-labels-city", "type": "symbol", "source": "vathra", "source-layer": "places", "filter": ["in", "pmap:kind", "city", "state"], "minzoom": 5, "layout": {"text-field": ["coalesce", ["get", "name:el"], ["get", "name"]], "text-font": ["Noto Sans Bold"], "text-size": {"stops": [[5, 12], [10, 20]]}, "text-max-width": 10}, "paint": {"text-color": "#333030", "text-halo-color": "#ffffff", "text-halo-width": 2}},
+    {"id": "road-labels", "type": "symbol", "source": "vathra", "source-layer": "roads", "filter": ["in", "pmap:kind", "major_road", "highway", "medium_road"], "minzoom": 12, "layout": {"text-field": ["coalesce", ["get", "name:el"], ["get", "name"]], "text-font": ["Noto Sans Regular"], "text-size": 10, "symbol-placement": "line", "text-max-angle": 30}, "paint": {"text-color": "#6b6560", "text-halo-color": "#ffffff", "text-halo-width": 1}}
+  ]
+}

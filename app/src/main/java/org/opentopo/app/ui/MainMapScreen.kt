@@ -30,13 +30,16 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.outlined.GpsFixed
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.RadioButtonChecked
-import androidx.compose.material.icons.outlined.SatelliteAlt
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenu
@@ -86,6 +89,9 @@ import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.RasterSource
+import org.maplibre.android.style.sources.TileSet
+import org.maplibre.android.style.layers.RasterLayer
 import org.maplibre.geojson.Point
 import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.gnss.BluetoothGnssService
@@ -279,12 +285,20 @@ fun MainMapScreen(
         },
     ) { paddingValues ->
         // ── Map fills the screen ──
+        var layerMenuExpanded by remember { mutableStateOf(false) }
+
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             AndroidView(
                 factory = { ctx ->
                     MapView(ctx).apply {
                         getMapAsync { map ->
-                            map.setStyle("https://demotiles.maplibre.org/style.json") { style ->
+                            // Load vathra.xyz vector basemap style from assets
+                            val styleJson = ctx.assets.open("style_vathra.json")
+                                .bufferedReader().readText()
+                            map.setStyle(
+                                org.maplibre.android.maps.Style.Builder()
+                                    .fromJson(styleJson),
+                            ) { style ->
                                 map.cameraPosition = CameraPosition.Builder()
                                     .target(LatLng(38.5, 23.8)).zoom(6.0).build()
 
@@ -295,7 +309,6 @@ fun MainMapScreen(
                                 )
                                 style.addSource(locationSource)
 
-                                // Glow / accuracy halo
                                 style.addLayer(
                                     CircleLayer("user-location-glow", "user-location")
                                         .withProperties(
@@ -305,8 +318,6 @@ fun MainMapScreen(
                                             PropertyFactory.circleStrokeWidth(0f),
                                         )
                                 )
-
-                                // Main dot
                                 style.addLayer(
                                     CircleLayer("user-location-dot", "user-location")
                                         .withProperties(
@@ -317,6 +328,24 @@ fun MainMapScreen(
                                             PropertyFactory.circleStrokeWidth(2.5f),
                                         )
                                 )
+
+                                // Prepare Ktimatologio orthophoto WMS as hidden raster source
+                                val ktimaSource = RasterSource(
+                                    "ktima-ortho",
+                                    TileSet(
+                                        "2.2.0",
+                                        "http://gis.ktimanet.gr/wms/wmsopen/wmsserver.aspx?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=BASEMAP&SRS=EPSG:900913&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg",
+                                    ),
+                                    256,
+                                )
+                                style.addSource(ktimaSource)
+                                style.addLayerBelow(
+                                    RasterLayer("ktima-ortho-layer", "ktima-ortho")
+                                        .withProperties(
+                                            PropertyFactory.visibility(org.maplibre.android.style.layers.Property.NONE),
+                                        ),
+                                    "user-location-glow",
+                                )
                             }
                             mapRef = map
                         }
@@ -325,42 +354,48 @@ fun MainMapScreen(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // ── Status overlay pill ──
-            Surface(
+            // ── Map layer switcher (top-right) ──
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
+                    .align(Alignment.TopEnd)
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(12.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                shape = MaterialTheme.shapes.medium,
-                tonalElevation = 3.dp,
-                shadowElevation = 2.dp,
             ) {
-                Row(
-                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                FilledIconButton(
+                    onClick = { layerMenuExpanded = true },
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
                 ) {
-                    FixTypeBadge(position.fixQuality)
-                    if (position.hasFix) {
-                        Icon(
-                            Icons.Outlined.SatelliteAlt,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            "${position.numSatellites}",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontFamily = CoordinateFont,
-                        )
-                        accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
-                        if (ntripState.status == NtripStatus.CONNECTED) {
-                            NtripIndicator(
-                                surveyColors.correctionAgeColor(ntripState.ageOfCorrectionSeconds),
+                    Icon(
+                        Icons.Outlined.Layers,
+                        contentDescription = "Map layers",
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                DropdownMenu(
+                    expanded = layerMenuExpanded,
+                    onDismissRequest = { layerMenuExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Street Map") },
+                        onClick = {
+                            layerMenuExpanded = false
+                            mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
+                                PropertyFactory.visibility(org.maplibre.android.style.layers.Property.NONE),
                             )
-                        }
-                    }
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Orthophoto (Ktimatologio)") },
+                        onClick = {
+                            layerMenuExpanded = false
+                            mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
+                                PropertyFactory.visibility(org.maplibre.android.style.layers.Property.VISIBLE),
+                            )
+                        },
+                    )
                 }
             }
 
