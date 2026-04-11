@@ -7,6 +7,12 @@
       "url": "https://vathra-tiles.vathra.workers.dev/greece.json",
       "maxzoom": 13,
       "attribution": "&copy; <a href='https://openstreetmap.org'>OpenStreetMap</a>"
+    },
+    "contours": {
+      "type": "vector",
+      "url": "https://vathra-tiles.vathra.workers.dev/contours.json",
+      "maxzoom": 14,
+      "attribution": ""
     }
   },
   "glyphs": "https://cdn.protomaps.com/fonts/pbf/{fontstack}/{range}.pbf",
@@ -62,6 +68,15 @@
     {"id": "buildings-outline", "type": "line", "source": "vathra", "source-layer": "buildings",
       "minzoom": 14,
       "paint": {"line-color": "#c0b8b0", "line-width": 0.5}},
+
+    {"id": "contours-lines", "type": "line", "source": "contours", "source-layer": "contours",
+      "minzoom": 11,
+      "paint": {"line-color": "#c4a882", "line-width": 0.6, "line-opacity": 0.5}},
+    {"id": "contours-labels", "type": "symbol", "source": "contours", "source-layer": "contours",
+      "minzoom": 13,
+      "filter": ["==", ["%", ["get", "elevation"], 50], 0],
+      "layout": {"text-field": ["concat", ["to-string", ["get", "elevation"]], "m"], "text-font": ["Noto Sans Regular"], "text-size": 9, "symbol-placement": "line"},
+      "paint": {"text-color": "#a08060", "text-halo-color": "#ffffff", "text-halo-width": 1}},
 
     {"id": "place-labels-village", "type": "symbol", "source": "vathra", "source-layer": "places",
       "filter": ["in", "kind", "village", "hamlet", "suburb", "neighbourhood"],

@@ -92,6 +92,8 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.RasterSource
 import org.maplibre.android.style.sources.TileSet
 import org.maplibre.android.style.layers.RasterLayer
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
 import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.gnss.BluetoothGnssService
@@ -152,6 +154,13 @@ fun MainMapScreen(
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
 
+    // Observe active project's survey points for map display
+    val activeProjectId by surveyManager?.activeProjectId?.collectAsState()
+        ?: remember { mutableStateOf(null) }
+    val activePoints by activeProjectId?.let {
+        db.pointDao().getByProject(it).collectAsState(initial = emptyList())
+    } ?: remember { mutableStateOf(emptyList()) }
+
     // Update user location on map when position changes
     LaunchedEffect(position.latitude, position.longitude, position.fixQuality) {
         val map = mapRef ?: return@LaunchedEffect
@@ -192,6 +201,28 @@ fun MainMapScreen(
             snackbarHostState.showSnackbar(
                 "Recorded ${pt.pointId}: E=${"%.3f".format(pt.easting)} N=${"%.3f".format(pt.northing)} \u00B1${"%.3f".format(pt.horizontalAccuracy ?: 0.0)}m"
             )
+        }
+    }
+
+    // Update survey point markers on map when active points change
+    LaunchedEffect(activePoints) {
+        val map = mapRef ?: return@LaunchedEffect
+        val style = map.style ?: return@LaunchedEffect
+
+        // Build GeoJSON FeatureCollection from points
+        val features = activePoints.mapNotNull { pt ->
+            if (pt.latitude == 0.0 && pt.longitude == 0.0) return@mapNotNull null
+            val point = Point.fromLngLat(pt.longitude, pt.latitude)
+            Feature.fromGeometry(point).apply {
+                addStringProperty("id", pt.pointId)
+                addNumberProperty("fixQuality", pt.fixQuality)
+            }
+        }
+        val fc = FeatureCollection.fromFeatures(features)
+
+        val source = style.getSourceAs<GeoJsonSource>("survey-points")
+        if (source != null) {
+            source.setGeoJson(fc)
         }
     }
 
@@ -329,6 +360,48 @@ fun MainMapScreen(
                                         )
                                 )
 
+                                // Survey points source + layers
+                                val pointsSource = GeoJsonSource("survey-points")
+                                style.addSource(pointsSource)
+
+                                // Point markers - colored circles based on fix quality
+                                style.addLayerBelow(
+                                    CircleLayer("survey-points-circle", "survey-points")
+                                        .withProperties(
+                                            PropertyFactory.circleRadius(6f),
+                                            PropertyFactory.circleColor(
+                                                Expression.match(
+                                                    Expression.get("fixQuality"),
+                                                    Expression.literal("#C62828"),  // default: no fix red
+                                                    Expression.stop(4, "#2E7D32"),  // RTK fix green
+                                                    Expression.stop(5, "#EF6C00"),  // RTK float orange
+                                                    Expression.stop(2, "#F9A825"),  // DGPS yellow
+                                                    Expression.stop(1, "#1565C0"),  // GPS blue
+                                                )
+                                            ),
+                                            PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                            PropertyFactory.circleStrokeWidth(1.5f),
+                                        ),
+                                    "user-location-glow",
+                                )
+
+                                // Point labels
+                                style.addLayerBelow(
+                                    org.maplibre.android.style.layers.SymbolLayer(
+                                        "survey-points-labels", "survey-points",
+                                    ).withProperties(
+                                        PropertyFactory.textField(Expression.get("id")),
+                                        PropertyFactory.textFont(arrayOf("Noto Sans Medium")),
+                                        PropertyFactory.textSize(11f),
+                                        PropertyFactory.textOffset(arrayOf(0f, -1.5f)),
+                                        PropertyFactory.textColor("#333333"),
+                                        PropertyFactory.textHaloColor("#FFFFFF"),
+                                        PropertyFactory.textHaloWidth(1.5f),
+                                        PropertyFactory.textAllowOverlap(true),
+                                    ),
+                                    "user-location-glow",
+                                )
+
                                 // Prepare Ktimatologio orthophoto WMS as hidden raster source
                                 val ktimaSource = RasterSource(
                                     "ktima-ortho",
@@ -394,6 +467,21 @@ fun MainMapScreen(
                             mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
                                 PropertyFactory.visibility(org.maplibre.android.style.layers.Property.VISIBLE),
                             )
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Toggle Contours") },
+                        onClick = {
+                            layerMenuExpanded = false
+                            val layer = mapRef?.style?.getLayer("contours-lines")
+                            val labelsLayer = mapRef?.style?.getLayer("contours-labels")
+                            val currentVis = layer?.visibility?.value
+                            val newVis = if (currentVis == org.maplibre.android.style.layers.Property.VISIBLE)
+                                org.maplibre.android.style.layers.Property.NONE
+                            else
+                                org.maplibre.android.style.layers.Property.VISIBLE
+                            layer?.setProperties(PropertyFactory.visibility(newVis))
+                            labelsLayer?.setProperties(PropertyFactory.visibility(newVis))
                         },
                     )
                 }

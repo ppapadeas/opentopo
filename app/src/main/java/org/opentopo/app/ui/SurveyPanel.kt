@@ -17,6 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Inventory2
@@ -348,7 +350,7 @@ private fun ProjectDetail(
             )
         } else {
             points.forEach { point ->
-                PointCard(point)
+                PointCard(point = point, db = db)
                 Spacer(Modifier.height(12.dp))
             }
         }
@@ -477,7 +479,11 @@ private fun RecordingControls(
 // ── Point card ──
 
 @Composable
-private fun PointCard(point: PointEntity) {
+private fun PointCard(point: PointEntity, db: AppDatabase) {
+    val scope = rememberCoroutineScope()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
@@ -525,8 +531,136 @@ private fun PointCard(point: PointEntity) {
                     }
                 }
             }
+
+            // Edit button
+            IconButton(
+                onClick = { showEditDialog = true },
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.Edit,
+                    contentDescription = "Edit ${point.pointId}",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // Delete button
+            IconButton(
+                onClick = { showDeleteDialog = true },
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = "Delete ${point.pointId}",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
+
+    // Delete confirmation dialog
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete point ${point.pointId}?") },
+            text = {
+                Text("This will permanently remove this survey point.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch { db.pointDao().delete(point) }
+                        showDeleteDialog = false
+                    },
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // Edit dialog
+    if (showEditDialog) {
+        EditPointDialog(
+            point = point,
+            onDismiss = { showEditDialog = false },
+            onSave = { newRemarks, newAH ->
+                scope.launch {
+                    db.pointDao().update(
+                        point.copy(remarks = newRemarks, antennaHeight = newAH),
+                    )
+                }
+                showEditDialog = false
+            },
+        )
+    }
+}
+
+// ── Edit point dialog ──
+
+@Composable
+private fun EditPointDialog(
+    point: PointEntity,
+    onDismiss: () -> Unit,
+    onSave: (remarks: String, antennaHeight: Double?) -> Unit,
+) {
+    var remarks by remember { mutableStateOf(point.remarks) }
+    var antennaHeight by remember {
+        mutableStateOf(point.antennaHeight?.let { "%.2f".format(it) } ?: "")
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Outlined.Edit,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        title = { Text("Edit ${point.pointId}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = antennaHeight,
+                    onValueChange = { antennaHeight = it },
+                    label = { Text("Antenna Height (m)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodyMedium
+                        .copy(fontFamily = CoordinateFont),
+                )
+                OutlinedTextField(
+                    value = remarks,
+                    onValueChange = { remarks = it },
+                    label = { Text("Remarks") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(remarks, antennaHeight.toDoubleOrNull())
+                },
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }
 
 // ── New project dialog ──

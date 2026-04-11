@@ -439,6 +439,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
     val drivers = remember(usbVersion) { usbService.getAvailableDevices() }
     var expanded by remember { mutableStateOf(false) }
     var selectedDriver by remember { mutableStateOf<UsbSerialDriver?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
@@ -488,6 +489,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
                 onClick = {
                     selectedDriver?.let { driver ->
                         usbService.connect(driver)
+                        scope.launch { activity?.prefs?.setConnectionType(1) }
                     }
                 },
                 enabled = selectedDriver != null,

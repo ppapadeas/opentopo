@@ -14,8 +14,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +30,7 @@ import org.opentopo.app.gnss.BluetoothGnssService
 import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.gnss.UsbGnssService
 import org.opentopo.app.ntrip.NtripClient
+import org.opentopo.app.ntrip.NtripConfig
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.SurveyManager
 import org.opentopo.app.ui.MainMapScreen
@@ -139,6 +142,33 @@ class MainActivity : ComponentActivity() {
 
         // Handle USB device attached via intent (app launched by USB plug)
         handleUsbIntent(intent)
+
+        // Auto-reconnect from saved settings
+        lifecycleScope.launch {
+            // Small delay to let USB devices enumerate
+            kotlinx.coroutines.delay(2000)
+
+            // Auto-connect USB if previously used
+            val savedConnectionType = prefs.connectionType.first()
+            if (savedConnectionType == 1) { // USB
+                val drivers = usbService.getAvailableDevices()
+                if (drivers.isNotEmpty()) {
+                    usbService.connect(drivers.first())
+                }
+            }
+
+            // Auto-connect NTRIP if settings are saved
+            val host = prefs.ntripHost.first()
+            val mountpoint = prefs.ntripMountpoint.first()
+            if (host.isNotBlank() && mountpoint.isNotBlank()) {
+                // Wait for GNSS fix first
+                gnssState.position.first { it.hasFix }
+                val port = prefs.ntripPort.first().toIntOrNull() ?: 2101
+                val username = prefs.ntripUsername.first()
+                val password = prefs.ntripPassword.first()
+                ntripClient.connect(NtripConfig("", host, port, mountpoint, username, password))
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
