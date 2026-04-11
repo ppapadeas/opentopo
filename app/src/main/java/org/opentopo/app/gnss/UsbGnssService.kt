@@ -12,6 +12,7 @@ import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
@@ -160,18 +161,17 @@ class UsbGnssService(
 
     private suspend fun readLoop(usbPort: UsbSerialPort) {
         val buffer = ByteArray(READ_BUFFER_SIZE)
-        val scope = kotlinx.coroutines.coroutineScope { this }
-        while (scope.isActive) {
-            try {
+        try {
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
                 val bytesRead = usbPort.read(buffer, READ_TIMEOUT_MS)
                 if (bytesRead > 0) {
                     parser.feed(buffer, 0, bytesRead)
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IOException) {
-                break
             }
+        } catch (_: CancellationException) {
+            // Coroutine cancelled — normal disconnect
+        } catch (_: IOException) {
+            // Device disconnected or read error
         }
         gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
     }

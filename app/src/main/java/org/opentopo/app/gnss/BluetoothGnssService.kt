@@ -111,18 +111,19 @@ class BluetoothGnssService(
 
     private suspend fun readLoop(inputStream: InputStream) {
         val buffer = ByteArray(READ_BUFFER_SIZE)
-        val scope = kotlinx.coroutines.coroutineScope { this }
-        while (scope.isActive) {
-            try {
+        try {
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
                 val bytesRead = inputStream.read(buffer)
                 if (bytesRead > 0) {
                     parser.feed(buffer, 0, bytesRead)
                 } else if (bytesRead == -1) {
                     break
                 }
-            } catch (e: IOException) {
-                break
             }
+        } catch (_: kotlinx.coroutines.CancellationException) {
+            // Normal disconnect
+        } catch (_: IOException) {
+            // Device disconnected
         }
         gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
         _connectedDevice.value = null
