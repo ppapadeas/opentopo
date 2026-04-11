@@ -333,17 +333,11 @@ fun MainMapScreen(
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
-                            text = {
-                                Text(
-                                    tab.title,
-                                    style = MaterialTheme.typography.labelLarge,
-                                )
-                            },
                             icon = {
                                 Icon(
                                     tab.icon,
                                     contentDescription = tab.title,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(22.dp),
                                 )
                             },
                         )
