@@ -14,6 +14,7 @@ import org.opentopo.app.db.PointEntity
 import org.opentopo.app.gnss.GnssState
 import org.opentopo.transform.GeographicCoordinate
 import org.opentopo.transform.HeposTransform
+import org.opentopo.transform.ProjectedCoordinate
 import java.io.InputStream
 
 /**
@@ -31,20 +32,55 @@ class SurveyManager(
     private val _recordingState = MutableStateFlow(RecordingState())
     val recordingState: StateFlow<RecordingState> = _recordingState.asStateFlow()
 
+    private val _activeProjectId = MutableStateFlow<Long?>(null)
+    val activeProjectId: StateFlow<Long?> = _activeProjectId.asStateFlow()
+
+    /** Live EGSA87 coordinates from current GNSS position. */
+    private val _projectedPosition = MutableStateFlow<ProjectedCoordinate?>(null)
+    val projectedPosition: StateFlow<ProjectedCoordinate?> = _projectedPosition.asStateFlow()
+
     private var averagingJob: Job? = null
 
     /** Settings for point recording. */
     var averagingSeconds: Int = 5
-    var minAccuracyM: Double = 0.0      // 0 = no filter
+    var minAccuracyM: Double = 0.0
     var requireRtkFix: Boolean = false
+    var antennaHeight: Double? = null
 
-    /**
-     * Start recording a point. Collects epochs for [averagingSeconds],
-     * then stores the averaged position.
-     */
+    init {
+        // Continuously transform live position to EGSA87
+        scope.launch(Dispatchers.Default) {
+            gnssState.position.collect { pos ->
+                _projectedPosition.value = if (pos.hasFix) {
+                    try {
+                        transform.forward(GeographicCoordinate(pos.latitude, pos.longitude, pos.altitude ?: 0.0))
+                    } catch (_: Exception) {
+                        null
+                    }
+                } else {
+                    null
+                }
+            }
+        }
+    }
+
+    fun setActiveProject(id: Long?) {
+        _activeProjectId.value = id
+    }
+
+    /** Quick-record for FAB: uses active project. */
+    fun startRecording(remarks: String = "") {
+        val projectId = _activeProjectId.value ?: return
+        startRecording(projectId, remarks)
+    }
+
     fun startRecording(projectId: Long, remarks: String = "") {
         averagingJob?.cancel()
-        _recordingState.value = RecordingState(isRecording = true, epochsCollected = 0)
+        _recordingState.value = RecordingState(
+            isRecording = true,
+            epochsCollected = 0,
+            totalEpochsTarget = averagingSeconds,
+        )
 
         averagingJob = scope.launch {
             val epochs = mutableListOf<EpochSample>()
@@ -55,7 +91,6 @@ class SurveyManager(
                 val acc = gnssState.accuracy.value
 
                 if (pos.hasFix) {
-                    // Quality filter
                     val passesQuality = when {
                         requireRtkFix && pos.fixQuality != 4 -> false
                         minAccuracyM > 0 && (acc.horizontalAccuracyM ?: 999.0) > minAccuracyM -> false
@@ -86,7 +121,7 @@ class SurveyManager(
                     break
                 }
 
-                delay(1000) // sample once per second
+                delay(1000)
             }
 
             if (epochs.isNotEmpty()) {
@@ -123,12 +158,10 @@ class SurveyManager(
         val avgSats = epochs.map { it.numSatellites }.average().toInt()
         val avgHdop = epochs.mapNotNull { it.hdop }.takeIf { it.isNotEmpty() }?.average()
 
-        // Transform to EGSA87
         val projected = transform.forward(
             GeographicCoordinate(avgLat, avgLon, avgAlt ?: 0.0)
         )
 
-        // Generate point ID
         val count = db.pointDao().countByProject(projectId)
         val pointId = "P%03d".format(count + 1)
 
@@ -146,6 +179,7 @@ class SurveyManager(
             numSatellites = avgSats,
             hdop = avgHdop,
             averagingSeconds = epochs.size,
+            antennaHeight = antennaHeight,
             remarks = remarks,
         )
 
@@ -168,6 +202,11 @@ private data class EpochSample(
 data class RecordingState(
     val isRecording: Boolean = false,
     val epochsCollected: Int = 0,
+    val totalEpochsTarget: Int = 5,
     val lastRecordedPoint: PointEntity? = null,
     val error: String? = null,
-)
+) {
+    val progress: Float
+        get() = if (totalEpochsTarget > 0)
+            (epochsCollected.toFloat() / totalEpochsTarget).coerceIn(0f, 1f) else 0f
+}

@@ -109,7 +109,7 @@ fun ExportPanel(
 
         exportStatus?.let {
             Spacer(Modifier.height(8.dp))
-            Text(it, style = MaterialTheme.typography.bodySmall)
+            Text(it, style = MaterialTheme.typography.bodySmall, fontFamily = org.opentopo.app.ui.theme.CoordinateFont)
         }
     }
 }

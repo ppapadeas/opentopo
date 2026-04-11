@@ -41,6 +41,7 @@ data class PointEntity(
     val numSatellites: Int,
     val hdop: Double?,
     val averagingSeconds: Int,     // how many seconds averaged
+    val antennaHeight: Double? = null, // metres, instrument height
     val remarks: String = "",
     val timestamp: Long = System.currentTimeMillis(),
 )
