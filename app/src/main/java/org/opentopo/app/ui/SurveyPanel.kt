@@ -1,40 +1,55 @@
 package org.opentopo.app.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.RadioButtonChecked
+import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.opentopo.app.db.AppDatabase
@@ -44,8 +59,8 @@ import org.opentopo.app.survey.RecordingState
 import org.opentopo.app.survey.SurveyManager
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
-import org.opentopo.app.ui.theme.RecordingProgress
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SurveyPanel(
     db: AppDatabase,
@@ -56,154 +71,515 @@ fun SurveyPanel(
     var selectedProject by remember { mutableStateOf<ProjectEntity?>(null) }
     var showNewProjectDialog by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    // Load point counts per project
+    val pointCounts = remember { mutableStateMapOf<Long, Int>() }
+    LaunchedEffect(projects) {
+        projects.forEach { project ->
+            pointCounts[project.id] = db.pointDao().countByProject(project.id)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
         if (selectedProject != null) {
-            ProjectDetail(selectedProject!!, db, surveyManager, onBack = { selectedProject = null })
+            ProjectDetail(
+                project = selectedProject!!,
+                db = db,
+                surveyManager = surveyManager,
+                onBack = { selectedProject = null },
+            )
         } else {
-            Text("Survey", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = { showNewProjectDialog = true }, modifier = Modifier.fillMaxWidth()) { Text("New Project") }
-            Spacer(Modifier.height(8.dp))
+            // -- Section header --
+            SectionHeader(
+                icon = Icons.Outlined.Straighten,
+                title = "Survey Projects",
+                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
+            )
+
+            // -- New project button --
+            OutlinedButton(
+                onClick = { showNewProjectDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    Icons.Outlined.AddCircleOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("New Project")
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             if (projects.isEmpty()) {
-                Text("No projects yet.", style = MaterialTheme.typography.bodyMedium)
+                EmptyProjectsState()
             } else {
                 projects.forEach { project ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
+                    ProjectCard(
+                        project = project,
+                        pointCount = pointCounts[project.id],
+                        onClick = {
                             selectedProject = project
                             surveyManager?.setActiveProject(project.id)
                         },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    ) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(project.name, style = MaterialTheme.typography.titleSmall)
-                            if (project.description.isNotBlank()) Text(project.description, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
             }
         }
 
         if (showNewProjectDialog) {
-            NewProjectDialog(db, onDismiss = { showNewProjectDialog = false }, onCreated = { showNewProjectDialog = false })
+            NewProjectDialog(
+                db = db,
+                onDismiss = { showNewProjectDialog = false },
+                onCreated = { showNewProjectDialog = false },
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+// ── Section header ──
+
+@Composable
+private fun SectionHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            title,
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+// ── Empty state ──
+
+@Composable
+private fun EmptyProjectsState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            Icons.Outlined.Inventory2,
+            contentDescription = null,
+            modifier = Modifier.size(56.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+        )
+        Text(
+            "No projects yet",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Create a project to start recording survey points.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
+    }
+}
+
+// ── Project card ──
+
+@Composable
+private fun ProjectCard(
+    project: ProjectEntity,
+    pointCount: Int?,
+    onClick: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Outlined.Folder,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    project.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (project.description.isNotBlank()) {
+                    Text(
+                        project.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            pointCount?.let { count ->
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "$count pts",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = CoordinateFont,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
 
+// ── Project detail ──
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ProjectDetail(project: ProjectEntity, db: AppDatabase, surveyManager: SurveyManager?, onBack: () -> Unit) {
+private fun ProjectDetail(
+    project: ProjectEntity,
+    db: AppDatabase,
+    surveyManager: SurveyManager?,
+    onBack: () -> Unit,
+) {
     val points by db.pointDao().getByProject(project.id).collectAsState(initial = emptyList())
     val recordingState = surveyManager?.recordingState?.collectAsState()?.value ?: RecordingState()
     var remarks by remember { mutableStateOf("") }
     var antennaHeight by remember { mutableStateOf("1.80") }
 
-    Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-            Text(project.name, style = MaterialTheme.typography.titleLarge)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+    ) {
+        // -- Header with back button --
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Icon(
+                Icons.Outlined.FolderOpen,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                project.name,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // Record controls
-        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-            Column(Modifier.padding(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = antennaHeight, onValueChange = { antennaHeight = it },
-                        label = { Text("AH (m)") }, modifier = Modifier.weight(0.35f), singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = CoordinateFont),
-                    )
-                    OutlinedTextField(
-                        value = remarks, onValueChange = { remarks = it },
-                        label = { Text("Remarks") }, modifier = Modifier.weight(0.65f), singleLine = true,
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
+        // -- Recording controls --
+        RecordingControls(
+            project = project,
+            surveyManager = surveyManager,
+            recordingState = recordingState,
+            antennaHeight = antennaHeight,
+            onAntennaHeightChange = { antennaHeight = it },
+            remarks = remarks,
+            onRemarksChange = { remarks = it },
+            onRecorded = { remarks = "" },
+        )
 
-                if (recordingState.isRecording) {
-                    LinearProgressIndicator(
-                        progress = { recordingState.progress },
-                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                        color = RecordingProgress,
-                    )
-                    Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(16.dp))
+
+        // -- Points section header --
+        SectionHeader(
+            icon = Icons.Outlined.RadioButtonChecked,
+            title = "Points (${points.size})",
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        if (points.isEmpty()) {
+            Text(
+                "No points recorded yet.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 32.dp, top = 4.dp),
+            )
+        } else {
+            points.forEach { point ->
+                PointCard(point)
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+// ── Recording controls ──
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun RecordingControls(
+    project: ProjectEntity,
+    surveyManager: SurveyManager?,
+    recordingState: RecordingState,
+    antennaHeight: String,
+    onAntennaHeightChange: (String) -> Unit,
+    remarks: String,
+    onRemarksChange: (String) -> Unit,
+    onRecorded: () -> Unit,
+) {
+    val surveyColors = LocalSurveyColors.current
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // Input fields
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = antennaHeight,
+                    onValueChange = onAntennaHeightChange,
+                    label = { Text("AH (m)") },
+                    modifier = Modifier.weight(0.35f),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                        .copy(fontFamily = CoordinateFont),
+                )
+                OutlinedTextField(
+                    value = remarks,
+                    onValueChange = onRemarksChange,
+                    label = { Text("Remarks") },
+                    modifier = Modifier.weight(0.65f),
+                    singleLine = true,
+                )
+            }
+
+            if (recordingState.isRecording) {
+                // -- Recording in progress --
+                Spacer(Modifier.height(4.dp))
+
+                ContainedLoadingIndicator(
+                    progress = { recordingState.progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp),
+                    indicatorColor = surveyColors.recordingProgress,
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         "Averaging: ${recordingState.epochsCollected}/${recordingState.totalEpochsTarget}",
-                        style = MaterialTheme.typography.bodyMedium, fontFamily = CoordinateFont,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = CoordinateFont,
+                        fontWeight = FontWeight.Bold,
+                        color = surveyColors.recordingActive,
                     )
-                    Spacer(Modifier.height(4.dp))
-                    OutlinedButton(onClick = { surveyManager?.cancelRecording() }, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
-                } else {
-                    recordingState.lastRecordedPoint?.let { pt ->
-                        Text(
-                            "${pt.pointId}: E=${pt.easting?.let { "%.3f".format(it) }} N=${pt.northing?.let { "%.3f".format(it) }}",
-                            style = MaterialTheme.typography.bodySmall, fontFamily = CoordinateFont,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                    }
-                    recordingState.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                    Button(
-                        onClick = {
-                            surveyManager?.antennaHeight = antennaHeight.toDoubleOrNull()
-                            surveyManager?.startRecording(project.id, remarks)
-                            remarks = ""
-                        },
-                        enabled = surveyManager != null, modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Record Point") }
+                    LoadingIndicator(modifier = Modifier.size(24.dp))
+                }
+
+                OutlinedButton(
+                    onClick = { surveyManager?.cancelRecording() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Cancel")
+                }
+            } else {
+                // -- Last recorded point feedback --
+                recordingState.lastRecordedPoint?.let { pt ->
+                    Text(
+                        "${pt.pointId}: E=${pt.easting?.let { "%.3f".format(it) }} N=${pt.northing?.let { "%.3f".format(it) }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = CoordinateFont,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                // -- Error message --
+                recordingState.error?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+
+                // -- Record button --
+                FilledTonalButton(
+                    onClick = {
+                        surveyManager?.antennaHeight = antennaHeight.toDoubleOrNull()
+                        surveyManager?.startRecording(project.id, remarks)
+                        onRecorded()
+                    },
+                    enabled = surveyManager != null,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        Icons.Outlined.RadioButtonChecked,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Record Point")
                 }
             }
         }
-
-        Spacer(Modifier.height(8.dp))
-        Text("Points (${points.size})", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        points.forEach { point -> PointRow(point); Spacer(Modifier.height(4.dp)) }
     }
 }
 
-@Composable
-private fun PointRow(point: PointEntity) {
-    val surveyColors = LocalSurveyColors.current
-    val fixColor = surveyColors.fixColor(point.fixQuality)
-    val fixLabel = when (point.fixQuality) { 4 -> "RTK"; 5 -> "Float"; 2 -> "DGPS"; 1 -> "GPS"; else -> "?" }
+// ── Point card ──
 
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(point.pointId, style = MaterialTheme.typography.titleSmall, fontFamily = CoordinateFont, fontWeight = FontWeight.Bold)
+@Composable
+private fun PointCard(point: PointEntity) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Fix badge on the left
+            Box(modifier = Modifier.width(56.dp)) {
+                FixTypeBadge(point.fixQuality)
+            }
+
             Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
+
+            // Coordinates + metadata
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "E:${point.easting?.let { "%.3f".format(it) } ?: "\u2014"} N:${point.northing?.let { "%.3f".format(it) } ?: "\u2014"}",
-                    style = MaterialTheme.typography.bodySmall, fontFamily = CoordinateFont,
+                    point.pointId,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontFamily = CoordinateFont,
+                    fontWeight = FontWeight.Bold,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(fixLabel, color = fixColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                    point.horizontalAccuracy?.let { Text("\u00B1%.3fm".format(it), style = MaterialTheme.typography.labelSmall, fontFamily = CoordinateFont, color = surveyColors.accuracyColor(it)) }
-                    if (point.remarks.isNotBlank()) Text(point.remarks, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    "E: ${point.easting?.let { "%.3f".format(it) } ?: "\u2014"}  N: ${point.northing?.let { "%.3f".format(it) } ?: "\u2014"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = CoordinateFont,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    point.horizontalAccuracy?.let {
+                        AccuracyBadge(it, "H")
+                    }
+                    if (point.remarks.isNotBlank()) {
+                        Text(
+                            point.remarks,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+// ── New project dialog ──
+
 @Composable
-private fun NewProjectDialog(db: AppDatabase, onDismiss: () -> Unit, onCreated: () -> Unit) {
+private fun NewProjectDialog(
+    db: AppDatabase,
+    onDismiss: () -> Unit,
+    onCreated: () -> Unit,
+) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New Project") },
+        icon = {
+            Icon(
+                Icons.Outlined.Folder,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        title = {
+            Text("New Project")
+        },
         text = {
-            Column {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, singleLine = true)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         },
-        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) { scope.launch { db.projectDao().insert(ProjectEntity(name = name, description = description)); onCreated() } } }, enabled = name.isNotBlank()) { Text("Create") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        scope.launch {
+                            db.projectDao().insert(
+                                ProjectEntity(name = name, description = description),
+                            )
+                            onCreated()
+                        }
+                    }
+                },
+                enabled = name.isNotBlank(),
+            ) {
+                Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
     )
 }

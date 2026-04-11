@@ -1,11 +1,14 @@
 package org.opentopo.app.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,34 +18,49 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Cable
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.GpsFixed
+import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.RadioButtonChecked
+import androidx.compose.material.icons.outlined.SatelliteAlt
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingActionButtonMenu
+import androidx.compose.material3.FloatingActionButtonMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +68,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -71,16 +93,22 @@ import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.SurveyManager
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
-import org.opentopo.app.ui.theme.OnFixColor
-import org.opentopo.app.ui.theme.RecordingActive
-import org.opentopo.app.ui.theme.RecordingProgress
 
-private const val PANEL_NONE = -1
-private const val PANEL_CONNECTION = 0
-private const val PANEL_SURVEY = 1
-private const val PANEL_STAKEOUT = 2
-private const val PANEL_EXPORT = 3
+private const val TAB_CONNECTION = 0
+private const val TAB_SURVEY = 1
+private const val TAB_STAKEOUT = 2
+private const val TAB_EXPORT = 3
 
+private data class TabItem(val title: String, val icon: ImageVector)
+
+private val tabs = listOf(
+    TabItem("Connect", Icons.Outlined.Cable),
+    TabItem("Survey", Icons.Outlined.Straighten),
+    TabItem("Stakeout", Icons.Outlined.NearMe),
+    TabItem("Export", Icons.Outlined.FileDownload),
+)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MainMapScreen(
     gnssState: GnssState,
@@ -98,237 +126,424 @@ fun MainMapScreen(
     val satellites by gnssState.satellites.collectAsState()
     val connectionStatus by gnssState.connectionStatus.collectAsState()
     val ntripState by ntripClient.state.collectAsState()
-    val projectedCoords by surveyManager?.projectedPosition?.collectAsState() ?: remember { mutableStateOf(null) }
-    val recordingState = surveyManager?.recordingState?.collectAsState()?.value ?: RecordingState()
+    val projectedCoords by surveyManager?.projectedPosition?.collectAsState()
+        ?: remember { mutableStateOf(null) }
+    val recordingState =
+        surveyManager?.recordingState?.collectAsState()?.value ?: RecordingState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     remember { MapLibre.getInstance(context) }
 
-    var activePanel by remember { mutableIntStateOf(PANEL_NONE) }
-    var drawerExpanded by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableIntStateOf(TAB_CONNECTION) }
+    var fabMenuExpanded by remember { mutableStateOf(false) }
 
     // Snackbar on point recorded
     LaunchedEffect(recordingState.lastRecordedPoint) {
         recordingState.lastRecordedPoint?.let { pt ->
             snackbarHostState.showSnackbar(
-                "${pt.pointId}: E=${"%.3f".format(pt.easting)} N=${"%.3f".format(pt.northing)} \u00B1${"%.3f".format(pt.horizontalAccuracy ?: 0.0)}m"
+                "Recorded ${pt.pointId}: E=${"%.3f".format(pt.easting)} N=${"%.3f".format(pt.northing)} \u00B1${"%.3f".format(pt.horizontalAccuracy ?: 0.0)}m"
             )
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        // ── Map (fills entire screen, behind everything) ──
-        AndroidView(
-            factory = { ctx ->
-                MapView(ctx).apply {
-                    getMapAsync { map ->
-                        map.setStyle("https://demotiles.maplibre.org/style.json") {
-                            map.cameraPosition = CameraPosition.Builder()
-                                .target(LatLng(38.5, 23.8)).zoom(6.0).build()
-                        }
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+    val scaffoldState = rememberBottomSheetScaffoldState(
+        bottomSheetState = rememberStandardBottomSheetState(
+            initialValue = SheetValue.PartiallyExpanded,
+        ),
+    )
 
-        // ── Top drawer overlay ──
-        Column(modifier = Modifier.fillMaxWidth().align(Alignment.TopStart)) {
-            // Status bar (always visible) — with system bar insets
+    BottomSheetScaffold(
+        scaffoldState = scaffoldState,
+        modifier = modifier,
+        sheetPeekHeight = 148.dp,
+        sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        sheetShadowElevation = 8.dp,
+        sheetDragHandle = {
             Surface(
-                modifier = Modifier.fillMaxWidth().clickable {
-                    drawerExpanded = !drawerExpanded
-                    if (!drawerExpanded) activePanel = PANEL_NONE
-                },
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                tonalElevation = 2.dp,
-                shadowElevation = 4.dp,
+                modifier = Modifier.padding(vertical = 12.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                shape = MaterialTheme.shapes.extraLarge,
             ) {
-                Column(
-                    Modifier
-                        .windowInsetsPadding(WindowInsets.statusBars)
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
-                ) {
-                    // Row 1: Fix badge + satellites + expand toggle
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        FixTypeBadge(position.fixQuality)
-                        Spacer(Modifier.width(10.dp))
-                        if (position.hasFix) {
-                            SatelliteBreakdown(satellites)
-                            Spacer(Modifier.weight(1f))
-                            accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
-                            Spacer(Modifier.width(6.dp))
-                            // NTRIP indicator
-                            if (ntripState.status == NtripStatus.CONNECTED) {
-                                val ageColor = surveyColors.correctionAgeColor(ntripState.ageOfCorrectionSeconds)
-                                Canvas(Modifier.size(10.dp)) { drawCircle(ageColor) }
-                                Spacer(Modifier.width(3.dp))
-                                Text("${ntripState.ageOfCorrectionSeconds}s", style = MaterialTheme.typography.labelMedium, fontFamily = CoordinateFont, color = ageColor)
-                            }
-                        } else {
-                            Spacer(Modifier.weight(1f))
-                            if (connectionStatus == ConnectionStatus.DISCONNECTED) {
-                                Text("Tap to open \u25BC", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                            }
-                        }
-                        Icon(
-                            if (drawerExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            "Toggle drawer",
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
+                Box(Modifier.size(width = 32.dp, height = 4.dp))
+            }
+        },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(bottom = 160.dp),
+            )
+        },
+        sheetContent = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars),
+            ) {
+                // ── Status bar (visible in peek) ──
+                StatusBar(
+                    position, accuracy, satellites,
+                    connectionStatus, ntripState, projectedCoords, surveyColors,
+                )
 
-                    // Row 2: Coordinates (if fix)
-                    if (position.hasFix) {
-                        Spacer(Modifier.height(6.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            projectedCoords?.let {
-                                Text("E ${"%.3f".format(it.eastingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                                Text("N ${"%.3f".format(it.northingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                            } ?: run {
-                                Text("%.8f\u00B0".format(position.latitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge)
-                                Text("%.8f\u00B0".format(position.longitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge)
-                            }
-                            accuracy.altitudeErrorM?.let { AccuracyBadge(it, "V") }
-                        }
-                    }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                    // Drag handle indicator
-                    Spacer(Modifier.height(6.dp))
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Box(
-                            Modifier
-                                .size(width = 32.dp, height = 4.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                                    RoundedCornerShape(2.dp)
+                // ── Expressive SecondaryTabRow ──
+                SecondaryTabRow(selectedTabIndex = selectedTab) {
+                    tabs.forEachIndexed { index, tab ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = {
+                                Text(
+                                    tab.title,
+                                    style = MaterialTheme.typography.labelLarge,
                                 )
+                            },
+                            icon = {
+                                Icon(
+                                    tab.icon,
+                                    contentDescription = tab.title,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
                         )
                     }
                 }
-            }
 
-            // Expandable area
-            AnimatedVisibility(visible = drawerExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-                    tonalElevation = 1.dp,
-                ) {
-                    Column(
+                // ── Panel content with animated transitions ──
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "panel",
+                ) { tab ->
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(480.dp)
-                            .verticalScroll(rememberScrollState()),
+                            .height(420.dp),
                     ) {
-                        // Tool buttons row
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                        ) {
-                            ToolButton(
-                                icon = { Icon(Icons.Default.LocationOn, null, Modifier.size(20.dp)) },
-                                label = "Connection",
-                                selected = activePanel == PANEL_CONNECTION,
-                                onClick = { activePanel = if (activePanel == PANEL_CONNECTION) PANEL_NONE else PANEL_CONNECTION },
-                                statusColor = when (connectionStatus) {
-                                    ConnectionStatus.CONNECTED -> surveyColors.fixColor(position.fixQuality)
-                                    ConnectionStatus.CONNECTING -> surveyColors.rtkFloat
-                                    else -> null
-                                },
+                        when (tab) {
+                            TAB_CONNECTION -> ConnectionPanel(
+                                gnssState, bluetoothService, usbService, ntripClient,
                             )
-                            ToolButton(
-                                icon = { Icon(Icons.Default.Build, null, Modifier.size(20.dp)) },
-                                label = "Survey",
-                                selected = activePanel == PANEL_SURVEY,
-                                onClick = { activePanel = if (activePanel == PANEL_SURVEY) PANEL_NONE else PANEL_SURVEY },
-                            )
-                            ToolButton(
-                                icon = { Icon(Icons.Default.Search, null, Modifier.size(20.dp)) },
-                                label = "Stakeout",
-                                selected = activePanel == PANEL_STAKEOUT,
-                                onClick = { activePanel = if (activePanel == PANEL_STAKEOUT) PANEL_NONE else PANEL_STAKEOUT },
-                            )
-                            ToolButton(
-                                icon = { Icon(Icons.Default.Share, null, Modifier.size(20.dp)) },
-                                label = "Export",
-                                selected = activePanel == PANEL_EXPORT,
-                                onClick = { activePanel = if (activePanel == PANEL_EXPORT) PANEL_NONE else PANEL_EXPORT },
-                            )
+                            TAB_SURVEY -> SurveyPanel(db, surveyManager)
+                            TAB_STAKEOUT -> StakeoutPanel(stakeout)
+                            TAB_EXPORT -> ExportPanel(db)
                         }
-
-                        // Active panel content
-                        when (activePanel) {
-                            PANEL_CONNECTION -> ConnectionPanel(gnssState, bluetoothService, usbService, ntripClient)
-                            PANEL_SURVEY -> SurveyPanel(db, surveyManager)
-                            PANEL_STAKEOUT -> StakeoutPanel(stakeout)
-                            PANEL_EXPORT -> ExportPanel(db)
-                        }
-
-                        Spacer(Modifier.height(16.dp))
                     }
                 }
             }
-        }
+        },
+    ) { paddingValues ->
+        // ── Map fills the screen ──
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            AndroidView(
+                factory = { ctx ->
+                    MapView(ctx).apply {
+                        getMapAsync { map ->
+                            map.setStyle("https://demotiles.maplibre.org/style.json") {
+                                map.cameraPosition = CameraPosition.Builder()
+                                    .target(LatLng(38.5, 23.8)).zoom(6.0).build()
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
 
-        // ── FAB: Record Point ──
-        if (position.hasFix && surveyManager != null && surveyManager.activeProjectId.collectAsState().value != null) {
-            Box(
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                contentAlignment = Alignment.Center,
+            // ── HorizontalFloatingToolbar: GNSS status overlay ──
+            HorizontalFloatingToolbar(
+                expanded = true,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(12.dp),
+            ) {
+                IconButton(onClick = {}) {
+                    FixTypeBadge(position.fixQuality)
+                }
+                if (position.hasFix) {
+                    Icon(
+                        Icons.Outlined.SatelliteAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "${position.numSatellites}",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontFamily = CoordinateFont,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
+                    accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
+                    if (ntripState.status == NtripStatus.CONNECTED) {
+                        Spacer(Modifier.width(4.dp))
+                        NtripIndicator(
+                            surveyColors.correctionAgeColor(ntripState.ageOfCorrectionSeconds),
+                        )
+                    }
+                }
+            }
+
+            // ── FloatingActionButtonMenu: Record actions ──
+            val showFab = position.hasFix
+                    && surveyManager != null
+                    && surveyManager.activeProjectId.collectAsState().value != null
+
+            AnimatedVisibility(
+                visible = showFab,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 164.dp),
+                enter = scaleIn() + fadeIn(),
+                exit = scaleOut() + fadeOut(),
             ) {
                 if (recordingState.isRecording) {
-                    CircularProgressIndicator(
-                        progress = { recordingState.progress },
-                        modifier = Modifier.size(72.dp),
-                        strokeWidth = 4.dp,
-                        color = RecordingProgress,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
-                }
-                FloatingActionButton(
-                    onClick = {
-                        if (!recordingState.isRecording) {
-                            surveyManager.startRecording()
+                    // Recording in progress: show a standalone FAB with progress
+                    Box(contentAlignment = Alignment.Center) {
+                        LoadingIndicator(
+                            progress = { recordingState.progress },
+                            modifier = Modifier.size(80.dp),
+                            color = surveyColors.recordingProgress,
+                        )
+                        Surface(
+                            color = surveyColors.recordingActive,
+                            shape = MaterialTheme.shapes.extraLarge,
+                            modifier = Modifier.size(64.dp),
+                            shadowElevation = 6.dp,
+                            onClick = { surveyManager?.cancelRecording() },
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    "${recordingState.epochsCollected}",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = CoordinateFont,
+                                    color = Color.White,
+                                )
+                            }
                         }
-                    },
-                    modifier = Modifier.size(64.dp),
-                    containerColor = if (recordingState.isRecording) RecordingActive else MaterialTheme.colorScheme.primary,
-                ) {
-                    if (recordingState.isRecording) {
-                        Text("${recordingState.epochsCollected}", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Default.Add, "Record point", Modifier.size(28.dp))
+                    }
+                } else {
+                    // Idle: show FAB menu with survey actions
+                    FloatingActionButtonMenu(
+                        expanded = fabMenuExpanded,
+                        button = {
+                            ToggleFloatingActionButton(
+                                checked = fabMenuExpanded,
+                                onCheckedChange = { fabMenuExpanded = !fabMenuExpanded },
+                            ) {
+                                val imageVector by remember {
+                                    derivedStateOf {
+                                        if (checkedProgress > 0.5f) Icons.Filled.Close
+                                        else Icons.Filled.Add
+                                    }
+                                }
+                                Icon(
+                                    painter = rememberVectorPainter(imageVector),
+                                    contentDescription = "Survey actions",
+                                )
+                            }
+                        },
+                    ) {
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabMenuExpanded = false
+                                surveyManager?.startRecording()
+                            },
+                            icon = {
+                                Icon(
+                                    Icons.Outlined.RadioButtonChecked,
+                                    contentDescription = null,
+                                )
+                            },
+                            text = { Text("Record Point") },
+                        )
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabMenuExpanded = false
+                                surveyManager?.startRecording()
+                            },
+                            icon = {
+                                Icon(
+                                    Icons.Outlined.Speed,
+                                    contentDescription = null,
+                                )
+                            },
+                            text = { Text("Quick Mark") },
+                        )
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabMenuExpanded = false
+                                selectedTab = TAB_STAKEOUT
+                            },
+                            icon = {
+                                Icon(
+                                    Icons.Outlined.NearMe,
+                                    contentDescription = null,
+                                )
+                            },
+                            text = { Text("Stakeout") },
+                        )
                     }
                 }
             }
         }
+    }
+}
 
-        // Snackbar
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
-        )
+// ── Status bar shown in bottom sheet peek ──
+
+@Composable
+private fun StatusBar(
+    position: org.opentopo.app.gnss.PositionState,
+    accuracy: org.opentopo.app.gnss.AccuracyState,
+    satellites: org.opentopo.app.gnss.SatelliteState,
+    connectionStatus: ConnectionStatus,
+    ntripState: org.opentopo.app.ntrip.NtripState,
+    projectedCoords: org.opentopo.transform.ProjectedCoordinate?,
+    surveyColors: org.opentopo.app.ui.theme.SurveyColors,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 12.dp),
+    ) {
+        // Row 1: Fix badge + sats + accuracy
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FixTypeBadge(position.fixQuality)
+            Spacer(Modifier.width(10.dp))
+            if (position.hasFix) {
+                SatelliteBreakdown(satellites)
+                Spacer(Modifier.weight(1f))
+                accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
+                Spacer(Modifier.width(6.dp))
+                accuracy.altitudeErrorM?.let { AccuracyBadge(it, "V") }
+            } else {
+                Spacer(Modifier.weight(1f))
+                Text(
+                    if (connectionStatus == ConnectionStatus.CONNECTED) "Waiting for fix\u2026"
+                    else "Swipe up to connect",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        // Row 2: Coordinates
+        if (position.hasFix) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                projectedCoords?.let {
+                    Text(
+                        "E ${"%.3f".format(it.eastingM)}",
+                        fontFamily = CoordinateFont,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        "N ${"%.3f".format(it.northingM)}",
+                        fontFamily = CoordinateFont,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                } ?: run {
+                    Text(
+                        "%.8f\u00B0".format(position.latitude),
+                        fontFamily = CoordinateFont,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        "%.8f\u00B0".format(position.longitude),
+                        fontFamily = CoordinateFont,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+
+            // Row 3: Alt + NTRIP status
+            Spacer(Modifier.height(4.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                position.altitude?.let {
+                    Text(
+                        "Alt: ${"%.2f".format(it)}m",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } ?: Spacer(Modifier.width(1.dp))
+
+                if (ntripState.status == NtripStatus.CONNECTED) {
+                    val ageColor =
+                        surveyColors.correctionAgeColor(ntripState.ageOfCorrectionSeconds)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        NtripIndicator(ageColor)
+                        Text(
+                            "NTRIP ${"%.0f".format(ntripState.dataRateBps / 1024.0)}KB/s",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontFamily = CoordinateFont,
+                            color = ageColor,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 // ── Reusable composables ──
 
 @Composable
+private fun NtripIndicator(color: Color) {
+    Canvas(Modifier.size(8.dp)) { drawCircle(color) }
+}
+
+@Composable
 fun FixTypeBadge(fixQuality: Int) {
     val surveyColors = LocalSurveyColors.current
     val color = surveyColors.fixColor(fixQuality)
-    val label = when (fixQuality) { 4 -> "RTK Fix"; 5 -> "RTK Float"; 2 -> "DGPS"; 1 -> "GPS"; else -> "No Fix" }
-    Surface(color = color, shape = RoundedCornerShape(4.dp)) {
-        Text(label, color = OnFixColor, fontFamily = CoordinateFont, style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+    val label = surveyColors.fixLabel(fixQuality)
+    Surface(
+        color = color,
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Text(
+            label,
+            color = surveyColors.onFix,
+            fontFamily = CoordinateFont,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+        )
     }
 }
 
 @Composable
 fun SatelliteBreakdown(satellites: org.opentopo.app.gnss.SatelliteState) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         satellites.byConstellation.forEach { (constellation, sats) ->
             val label = when (constellation) {
                 org.opentopo.app.gnss.Constellation.GPS -> "GP"
@@ -337,7 +552,12 @@ fun SatelliteBreakdown(satellites: org.opentopo.app.gnss.SatelliteState) {
                 org.opentopo.app.gnss.Constellation.BEIDOU -> "BD"
                 else -> "?"
             }
-            Text("${sats.size}$label", style = MaterialTheme.typography.labelSmall, fontFamily = CoordinateFont)
+            Text(
+                "${sats.size}$label",
+                style = MaterialTheme.typography.labelMedium,
+                fontFamily = CoordinateFont,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -346,34 +566,11 @@ fun SatelliteBreakdown(satellites: org.opentopo.app.gnss.SatelliteState) {
 fun AccuracyBadge(accuracyM: Double, prefix: String) {
     val surveyColors = LocalSurveyColors.current
     val color = surveyColors.accuracyColor(accuracyM)
-    Text("$prefix\u00B1${"%.3f".format(accuracyM)}m", color = color, fontFamily = CoordinateFont,
-        style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-}
-
-@Composable
-private fun ToolButton(
-    icon: @Composable () -> Unit,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    statusColor: Color? = null,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(contentAlignment = Alignment.TopEnd) {
-            Surface(
-                onClick = onClick,
-                shape = RoundedCornerShape(12.dp),
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.size(48.dp),
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    icon()
-                }
-            }
-            if (statusColor != null) {
-                Canvas(Modifier.size(10.dp)) { drawCircle(statusColor) }
-            }
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-    }
+    Text(
+        "$prefix\u00B1${"%.3f".format(accuracyM)}m",
+        color = color,
+        fontFamily = CoordinateFont,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+    )
 }
