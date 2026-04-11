@@ -19,9 +19,9 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -73,9 +73,11 @@ fun StakeoutPanel(
 
         if (!hasTarget) {
             // Target input form
-            OutlinedCard(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 1.dp,
             ) {
                 Column(
                     Modifier.padding(16.dp),
@@ -86,7 +88,7 @@ fun StakeoutPanel(
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    OutlinedTextField(
+                    TextField(
                         value = targetName,
                         onValueChange = { targetName = it },
                         label = { Text("Name") },
@@ -95,7 +97,7 @@ fun StakeoutPanel(
                         shape = MaterialTheme.shapes.small,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
+                        TextField(
                             value = targetE,
                             onValueChange = { targetE = it },
                             label = { Text("E (m)") },
@@ -103,7 +105,7 @@ fun StakeoutPanel(
                             singleLine = true,
                             shape = MaterialTheme.shapes.small,
                         )
-                        OutlinedTextField(
+                        TextField(
                             value = targetN,
                             onValueChange = { targetN = it },
                             label = { Text("N (m)") },
@@ -176,9 +178,11 @@ fun StakeoutPanel(
                 }
 
                 // Delta card
-                OutlinedCard(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
                     shape = MaterialTheme.shapes.medium,
+                    tonalElevation = 1.dp,
                 ) {
                     Column(
                         Modifier.padding(16.dp),

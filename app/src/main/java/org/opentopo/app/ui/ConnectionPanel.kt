@@ -37,6 +37,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.TextField
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -160,6 +161,7 @@ fun ConnectionPanel(
                         modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         shape = MaterialTheme.shapes.medium,
+                        tonalElevation = 1.dp,
                     ) {
                         Column(Modifier.padding(12.dp)) {
                             Row(
@@ -196,6 +198,7 @@ fun ConnectionPanel(
                                         bluetoothService.disconnect()
                                         usbService.disconnect()
                                     },
+                                    shape = MaterialTheme.shapes.medium,
                                 ) {
                                     Text("Disconnect")
                                 }
@@ -306,7 +309,10 @@ fun ConnectionPanel(
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     )
                                 }
-                                OutlinedButton(onClick = { ntripClient.disconnect() }) {
+                                OutlinedButton(
+                                    onClick = { ntripClient.disconnect() },
+                                    shape = MaterialTheme.shapes.medium,
+                                ) {
                                     Text("Stop")
                                 }
                             }
@@ -389,13 +395,14 @@ private fun BluetoothPicker(bluetoothService: BluetoothGnssService) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-            OutlinedTextField(
+            TextField(
                 value = selectedDevice?.name ?: "",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Device") },
                 placeholder = { Text("Select device\u2026") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                colors = ExposedDropdownMenuDefaults.textFieldColors(),
                 modifier = Modifier
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     .fillMaxWidth(),
@@ -419,6 +426,7 @@ private fun BluetoothPicker(bluetoothService: BluetoothGnssService) {
             onClick = { selectedDevice?.let { bluetoothService.connect(it) } },
             enabled = selectedDevice != null,
             modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
         ) {
             Icon(
                 Icons.Outlined.Bluetooth,
@@ -445,13 +453,14 @@ private fun UsbPicker(usbService: UsbGnssService) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-            OutlinedTextField(
+            TextField(
                 value = selectedDriver?.device?.productName ?: "",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Device") },
                 placeholder = { Text("Select USB device\u2026") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                colors = ExposedDropdownMenuDefaults.textFieldColors(),
                 modifier = Modifier
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     .fillMaxWidth(),
@@ -480,6 +489,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
             OutlinedButton(
                 onClick = { activity?.refreshUsbDevices() },
                 modifier = Modifier.weight(1f),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Icon(
                     Icons.Outlined.Refresh,
@@ -498,6 +508,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
                 },
                 enabled = selectedDriver != null,
                 modifier = Modifier.weight(1f),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Icon(
                     Icons.Outlined.Usb,
@@ -563,12 +574,13 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
             expanded = presetExpanded,
             onExpandedChange = { presetExpanded = it },
         ) {
-            OutlinedTextField(
+            TextField(
                 value = if (isCustom) "Custom server" else NtripConfig.PRESETS.getOrNull(selectedPresetIndex)?.name ?: "Custom server",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Caster") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(presetExpanded) },
+                colors = ExposedDropdownMenuDefaults.textFieldColors(),
                 modifier = Modifier
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     .fillMaxWidth(),
@@ -626,6 +638,8 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
             }
         }
 
+        HorizontalDivider()
+
         // Username / Password row
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -645,6 +659,8 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
             )
         }
 
+        HorizontalDivider()
+
         // Mountpoint text field
         OutlinedTextField(
             value = mountpoint,
@@ -661,13 +677,14 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 expanded = mpExpanded,
                 onExpandedChange = { mpExpanded = it },
             ) {
-                OutlinedTextField(
+                TextField(
                     value = mountpoint.ifBlank { "" },
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Select mountpoint") },
                     placeholder = { Text("Select\u2026") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(mpExpanded) },
+                    colors = ExposedDropdownMenuDefaults.textFieldColors(),
                     modifier = Modifier
                         .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                         .fillMaxWidth(),
@@ -685,6 +702,8 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 }
             }
         }
+
+        HorizontalDivider()
 
         // Action buttons
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -707,6 +726,7 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 },
                 enabled = !fetchingSourcetable && host.isNotBlank(),
                 modifier = Modifier.weight(1f),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 if (fetchingSourcetable) {
                     ContainedLoadingIndicator(modifier = Modifier.size(20.dp))
@@ -737,6 +757,7 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 },
                 enabled = host.isNotBlank() && mountpoint.isNotBlank(),
                 modifier = Modifier.weight(1f),
+                shape = MaterialTheme.shapes.medium,
             ) {
                 Text("Connect")
             }
@@ -754,16 +775,19 @@ fun SurveyStatusRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 value,
                 style = MaterialTheme.typography.bodyMedium,
@@ -774,7 +798,7 @@ fun SurveyStatusRow(
             detail?.let {
                 Text(
                     it,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
                 )
             }
