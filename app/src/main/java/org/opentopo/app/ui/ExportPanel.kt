@@ -149,9 +149,16 @@ fun ExportPanel(
                 }
             }
 
-            /* ---- Export format ButtonGroup ---- */
+            /* ---- Export format ---- */
             val proj = selectedProject
-            if (proj != null) {
+            if (proj == null) {
+                Text(
+                    "Select a project above to export its survey points",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            } else {
                 Text(
                     "Export format",
                     style = MaterialTheme.typography.labelLarge,

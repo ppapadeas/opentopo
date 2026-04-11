@@ -495,13 +495,14 @@ private fun StatusBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FixTypeBadge(position.fixQuality)
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
             if (position.hasFix) {
                 SatelliteBreakdown(satellites)
                 Spacer(Modifier.weight(1f))
-                accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
-                Spacer(Modifier.width(6.dp))
-                accuracy.altitudeErrorM?.let { AccuracyBadge(it, "V") }
+                Column(horizontalAlignment = Alignment.End) {
+                    accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
+                    accuracy.altitudeErrorM?.let { AccuracyBadge(it, "V") }
+                }
             } else {
                 Spacer(Modifier.weight(1f))
                 Text(
@@ -632,7 +633,7 @@ fun SatelliteBreakdown(satellites: org.opentopo.app.gnss.SatelliteState) {
             }
             Text(
                 "${sats.size}$label",
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodySmall,
                 fontFamily = CoordinateFont,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

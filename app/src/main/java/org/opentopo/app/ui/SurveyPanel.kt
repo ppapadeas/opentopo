@@ -26,6 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -102,7 +103,7 @@ fun SurveyPanel(
             )
 
             // -- New project button --
-            OutlinedButton(
+            FilledTonalButton(
                 onClick = { showNewProjectDialog = true },
                 modifier = Modifier.fillMaxWidth(),
             ) {

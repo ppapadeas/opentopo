@@ -159,7 +159,7 @@ fun ConnectionPanel(
                     // Connected / connecting state surface
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         shape = MaterialTheme.shapes.medium,
                     ) {
                         Column(Modifier.padding(12.dp)) {
