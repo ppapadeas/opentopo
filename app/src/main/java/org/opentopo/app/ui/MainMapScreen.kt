@@ -601,7 +601,7 @@ fun MainMapScreen(
                 visible = showFab,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 164.dp),
+                    .padding(end = 16.dp, bottom = 8.dp),
                 enter = scaleIn() + fadeIn(),
                 exit = scaleOut() + fadeOut(),
             ) {

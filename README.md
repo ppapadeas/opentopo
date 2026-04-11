@@ -8,21 +8,88 @@
 
 ---
 
+## Download
+
+Get the latest APK from [GitHub Releases](https://github.com/ppapadeas/opentopo/releases).
+
 ## Why OpenTopo?
 
-Greek surveyors and engineers using low-cost RTK GNSS receivers (ArduSimple, u-blox ZED-F9P, Emlid) on Android have no open-source app that correctly transforms WGS84/ETRS89 coordinates to GGRS87/EGSA87 (EPSG:2100). The transformation requires a 7-parameter Helmert datum shift **plus** a 2D correction grid published by Ktimatologio S.A. Without the grid, errors of 0.5-2.0m make results unusable for cadastral and engineering work.
+Greek surveyors and engineers using low-cost RTK GNSS receivers (ArduSimple, u-blox ZED-F9P, Emlid) on Android have no open-source app that correctly transforms WGS84/ETRS89 coordinates to GGRS87/EGSA87 (EPSG:2100). The transformation requires a 7-parameter Helmert datum shift **plus** a 2D correction grid published by Ktimatologio S.A. Without the grid, errors of 0.5-2.0 m make results unusable for cadastral and engineering work.
 
 OpenTopo solves this by implementing the full HEPOS transformation model and packaging it in a free, open-source survey data collector.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/play-store/screenshots/01_map.png" width="18%" />
+  <img src="docs/play-store/screenshots/02_gnss.png" width="18%" />
+  <img src="docs/play-store/screenshots/03_survey.png" width="18%" />
+  <img src="docs/play-store/screenshots/04_stakeout.png" width="18%" />
+  <img src="docs/play-store/screenshots/05_config.png" width="18%" />
+</p>
+
 ## Features
 
-- **HEPOS Transformation Engine** - Full 6-step pipeline: geographic-to-Cartesian, 7-parameter Helmert, Cartesian-to-geographic, Transverse Mercator projection, grid interpolation, correction application. Sub-centimetre accuracy validated against 10 reference points across Greece.
-- **Bluetooth & USB GNSS** - Connect to any NMEA-compatible receiver via Bluetooth Classic (SPP) or USB-OTG serial. Parses GGA, RMC, GSA, GSV, GST sentences.
-- **NTRIP Client** - Built-in NTRIP v1/v2 client with presets for HEPOS, CivilPOS, and Hexagon SmartNet Greece. GGA forwarding for VRS. Auto-reconnect with exponential backoff.
-- **Survey Data Collection** - Create projects, record points with configurable epoch averaging (1-60s), quality filters (minimum accuracy, RTK-only mode), auto-incrementing point IDs.
-- **Stakeout Navigation** - Navigate to target EGSA87 coordinates with live distance, bearing, and delta E/N display.
-- **Map-Centric UI** - Full-screen MapLibre map as the primary interface. Bottom sheet with tool panels for connection, survey, stakeout, and export.
-- **Export** - CSV (both CRS), GeoJSON (EPSG:2100), DXF (AutoCAD compatible). Share via Android intent.
+### HEPOS Transformation Engine
+Full 6-step pipeline: geographic-to-Cartesian, 7-parameter Helmert, Cartesian-to-geographic, Transverse Mercator projection, grid interpolation, correction application. Sub-centimetre accuracy validated against 10 reference points across Greece.
+
+### GNSS Connections
+- **Bluetooth Classic (SPP)** -- connect to any NMEA-compatible receiver
+- **USB-OTG serial** -- via SerialInputOutputManager (usb-serial-for-android)
+- **Internal GPS** -- Android LocationManager NMEA for quick field checks
+- Parses GGA, RMC, GSA, GSV, GST sentences with multi-constellation support (GPS, GLONASS, Galileo, BeiDou)
+- Auto-reconnect on startup for all connection types
+
+### NTRIP Client
+- Raw TCP socket client with NTRIP v1 (ICY 200 OK) support
+- VRS/GGA forwarding with synthetic GGA generation
+- Presets for HEPOS (Ktimatologio), CivilPOS, Hexagon SmartNet Greece, plus custom server option
+- Auto-reconnect on startup
+- RTCM corrections routed to whichever transport (BT/USB) is active
+
+### Map
+- Vathra.xyz Protomaps vector tiles (OpenStreetMap data, Greek labels)
+- Ktimatologio orthophoto WMS overlay
+- Contour lines overlay (vathra.xyz)
+- Survey points displayed with fix-quality colors and labels
+- User position dot colored by fix quality
+- Layer switcher (Street Map / Orthophoto / Contours)
+
+### Survey Data Collection
+- Create projects, record points with configurable epoch averaging (1-60 s)
+- Quality filters: minimum accuracy threshold, RTK-only mode
+- Auto-incrementing point IDs
+- Point edit and delete with confirmation dialogs
+- Photo attachments on recorded points
+- Haptic and audio feedback on point recorded
+
+### Stakeout Navigation
+Navigate to target EGSA87 coordinates with live compass, distance, bearing, and delta E/N display.
+
+### Coordinate Tools
+- Interactive coordinate converter (WGS84 to EGSA87) with full pipeline visualization
+- Transform parameter inspector showing Helmert parameters, TM constants, and grid metadata
+
+### Export and Import
+- Export CSV (both WGS84 and EGSA87), GeoJSON (EPSG:2100), DXF (AutoCAD R14)
+- CSV import for bringing in external point data
+- Android share intent for all export formats
+
+### Satellite Skyplot
+Polar chart showing tracked satellites with constellation colors and elevation/azimuth positioning.
+
+### Settings
+- Recording: averaging time, minimum accuracy, RTK-only requirement
+- Connection: baud rate, GGA forwarding interval
+- Display: coordinate format
+- All settings persisted via DataStore
+
+### UI
+- Material 3 Expressive (MaterialExpressiveTheme, MotionScheme.expressive)
+- 6 scrollable tabs: GNSS, Survey, Stake, Export, Transform, Config
+- Persistent fix status pill on map
+- NTRIP disconnect alert vibration
+- Map-centric design with full-screen MapLibre and bottom sheet tool panels
 
 ## Architecture
 
@@ -30,6 +97,7 @@ OpenTopo solves this by implementing the full HEPOS transformation model and pac
 opentopo/
 ├── lib-transform/          Pure Kotlin/JVM library (no Android deps)
 │   └── org.opentopo.transform
+│       ├── Coordinates     Data classes for geographic/projected coords
 │       ├── Ellipsoid       GRS80 constants, XYZ <-> geographic
 │       ├── Helmert         7-parameter similarity transform
 │       ├── TransverseMercator  Forward TM projection
@@ -38,19 +106,27 @@ opentopo/
 │
 └── app/                    Android application
     └── org.opentopo.app
-        ├── gnss/           NmeaParser, BluetoothGnssService, UsbGnssService, GnssState
-        ├── ntrip/          NtripClient, NtripConfig
+        ├── gnss/           NmeaParser, BluetoothGnssService, UsbGnssService,
+        │                   InternalGnssService, GnssState
+        ├── ntrip/          NtripClient (raw TCP), NtripConfig
         ├── survey/         SurveyManager, Stakeout
-        ├── export/         CsvExporter, GeoJsonExporter, DxfExporter
+        ├── export/         CsvExporter, CsvImporter, GeoJsonExporter, DxfExporter
+        ├── prefs/          UserPreferences (DataStore)
         ├── db/             Room database (Projects, Points)
-        └── ui/             Jetpack Compose (MainMapScreen, panels)
+        └── ui/             Jetpack Compose
+            ├── MainMapScreen   Map-centric layout with BottomSheetScaffold
+            ├── ConnectionPanel, SurveyPanel, StakeoutPanel, ExportPanel
+            ├── TransformPanel  Coordinate converter + pipeline inspector
+            ├── SettingsPanel   App configuration
+            ├── Skyplot         Satellite polar chart
+            └── theme/          M3 Expressive theme, colors, typography
 ```
 
 The transformation engine (`lib-transform`) is a pure Kotlin/JVM library with zero Android dependencies. It can be unit-tested on JVM, reused server-side, or published as a standalone library for Greek coordinate transformations.
 
 ## Build
 
-**Prerequisites:** Android Studio (includes JDK) or JDK 17+, Android SDK API 35.
+**Prerequisites:** JDK 17+, Android SDK with compileSdk 36 (AGP 9.1.0, Gradle 9.4.1).
 
 ```bash
 git clone https://github.com/ppapadeas/opentopo.git
