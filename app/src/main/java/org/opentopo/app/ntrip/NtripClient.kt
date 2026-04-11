@@ -87,9 +87,8 @@ class NtripClient(
 
     private suspend fun connectLoop(config: NtripConfig) {
         var reconnectDelay = RECONNECT_BASE_DELAY_MS
-        val scope = kotlinx.coroutines.coroutineScope { this }
 
-        while (scope.isActive) {
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
             try {
                 doConnect(config)
                 reconnectDelay = RECONNECT_BASE_DELAY_MS // reset on success
@@ -107,7 +106,7 @@ class NtripClient(
             closeConnection()
             ggaJob?.cancel()
 
-            if (!scope.isActive) break
+            if (!kotlinx.coroutines.currentCoroutineContext().isActive) break
 
             delay(reconnectDelay)
             reconnectDelay = (reconnectDelay * 2).coerceAtMost(RECONNECT_MAX_DELAY_MS)
@@ -133,13 +132,14 @@ class NtripClient(
         }
 
         connection = conn
-        if (config.sendGga) {
-            outputStream = conn.outputStream
-        }
 
         val responseCode = conn.responseCode
         if (responseCode != HttpURLConnection.HTTP_OK) {
             throw IOException("NTRIP server returned HTTP $responseCode")
+        }
+
+        if (config.sendGga) {
+            outputStream = conn.outputStream
         }
 
         _state.value = _state.value.copy(
@@ -155,9 +155,8 @@ class NtripClient(
         val buffer = ByteArray(READ_BUFFER_SIZE)
         var totalBytes = 0L
         val startTime = System.currentTimeMillis()
-        val scope = kotlinx.coroutines.coroutineScope { this }
 
-        while (scope.isActive) {
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
             val bytesRead = input.read(buffer)
             if (bytesRead == -1) break
             if (bytesRead > 0) {

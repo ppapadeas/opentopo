@@ -42,9 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SecondaryTabRow
@@ -70,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -79,8 +78,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Point
 import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.gnss.BluetoothGnssService
 import org.opentopo.app.gnss.ConnectionStatus
@@ -137,6 +143,42 @@ fun MainMapScreen(
 
     var selectedTab by remember { mutableIntStateOf(TAB_CONNECTION) }
     var fabMenuExpanded by remember { mutableStateOf(false) }
+    var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
+    var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
+
+    // Update user location on map when position changes
+    LaunchedEffect(position.latitude, position.longitude, position.fixQuality) {
+        val map = mapRef ?: return@LaunchedEffect
+        if (!position.hasFix) return@LaunchedEffect
+
+        val point = Point.fromLngLat(position.longitude, position.latitude)
+        val source = map.style?.getSourceAs<GeoJsonSource>("user-location")
+        if (source != null) {
+            source.setGeoJson(point)
+        }
+
+        // Update dot color based on fix quality
+        val fixColor = surveyColors.fixColor(position.fixQuality)
+        val colorHex = String.format("#%06X", fixColor.toArgb() and 0xFFFFFF)
+        map.style?.getLayerAs<CircleLayer>("user-location-dot")?.setProperties(
+            PropertyFactory.circleColor(colorHex),
+        )
+        map.style?.getLayerAs<CircleLayer>("user-location-glow")?.setProperties(
+            PropertyFactory.circleColor(colorHex),
+        )
+
+        // Animate to first fix
+        if (!hasAnimatedToFirstFix) {
+            hasAnimatedToFirstFix = true
+            map.animateCamera(
+                CameraUpdateFactory.newLatLngZoom(
+                    LatLng(position.latitude, position.longitude),
+                    16.0,
+                ),
+                1500,
+            )
+        }
+    }
 
     // Snackbar on point recorded
     LaunchedEffect(recordingState.lastRecordedPoint) {
@@ -242,46 +284,82 @@ fun MainMapScreen(
                 factory = { ctx ->
                     MapView(ctx).apply {
                         getMapAsync { map ->
-                            map.setStyle("https://demotiles.maplibre.org/style.json") {
+                            map.setStyle("https://demotiles.maplibre.org/style.json") { style ->
                                 map.cameraPosition = CameraPosition.Builder()
                                     .target(LatLng(38.5, 23.8)).zoom(6.0).build()
+
+                                // Add user location source + layers
+                                val locationSource = GeoJsonSource(
+                                    "user-location",
+                                    Point.fromLngLat(23.8, 38.5),
+                                )
+                                style.addSource(locationSource)
+
+                                // Glow / accuracy halo
+                                style.addLayer(
+                                    CircleLayer("user-location-glow", "user-location")
+                                        .withProperties(
+                                            PropertyFactory.circleRadius(18f),
+                                            PropertyFactory.circleColor("#1565C0"),
+                                            PropertyFactory.circleOpacity(0.15f),
+                                            PropertyFactory.circleStrokeWidth(0f),
+                                        )
+                                )
+
+                                // Main dot
+                                style.addLayer(
+                                    CircleLayer("user-location-dot", "user-location")
+                                        .withProperties(
+                                            PropertyFactory.circleRadius(8f),
+                                            PropertyFactory.circleColor("#1565C0"),
+                                            PropertyFactory.circleOpacity(1f),
+                                            PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                            PropertyFactory.circleStrokeWidth(2.5f),
+                                        )
+                                )
                             }
+                            mapRef = map
                         }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // ── HorizontalFloatingToolbar: GNSS status overlay ──
-            HorizontalFloatingToolbar(
-                expanded = true,
+            // ── Status overlay pill ──
+            Surface(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(12.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                shape = MaterialTheme.shapes.medium,
+                tonalElevation = 3.dp,
+                shadowElevation = 2.dp,
             ) {
-                IconButton(onClick = {}) {
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     FixTypeBadge(position.fixQuality)
-                }
-                if (position.hasFix) {
-                    Icon(
-                        Icons.Outlined.SatelliteAlt,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        "${position.numSatellites}",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontFamily = CoordinateFont,
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                    )
-                    accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
-                    if (ntripState.status == NtripStatus.CONNECTED) {
-                        Spacer(Modifier.width(4.dp))
-                        NtripIndicator(
-                            surveyColors.correctionAgeColor(ntripState.ageOfCorrectionSeconds),
+                    if (position.hasFix) {
+                        Icon(
+                            Icons.Outlined.SatelliteAlt,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Text(
+                            "${position.numSatellites}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontFamily = CoordinateFont,
+                        )
+                        accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
+                        if (ntripState.status == NtripStatus.CONNECTED) {
+                            NtripIndicator(
+                                surveyColors.correctionAgeColor(ntripState.ageOfCorrectionSeconds),
+                            )
+                        }
                     }
                 }
             }
