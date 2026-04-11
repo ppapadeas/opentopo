@@ -11,12 +11,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -132,54 +135,76 @@ fun MainMapScreen(
 
         // ── Top drawer overlay ──
         Column(modifier = Modifier.fillMaxWidth().align(Alignment.TopStart)) {
-            // Status bar (always visible)
+            // Status bar (always visible) — with system bar insets
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().clickable {
+                    drawerExpanded = !drawerExpanded
+                    if (!drawerExpanded) activePanel = PANEL_NONE
+                },
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                 tonalElevation = 2.dp,
                 shadowElevation = 4.dp,
             ) {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Column(
+                    Modifier
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
                     // Row 1: Fix badge + satellites + expand toggle
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         FixTypeBadge(position.fixQuality)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(10.dp))
                         if (position.hasFix) {
                             SatelliteBreakdown(satellites)
                             Spacer(Modifier.weight(1f))
                             accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(6.dp))
                             // NTRIP indicator
                             if (ntripState.status == NtripStatus.CONNECTED) {
                                 val ageColor = surveyColors.correctionAgeColor(ntripState.ageOfCorrectionSeconds)
-                                Canvas(Modifier.size(8.dp)) { drawCircle(ageColor) }
-                                Spacer(Modifier.width(2.dp))
-                                Text("${ntripState.ageOfCorrectionSeconds}s", style = MaterialTheme.typography.labelSmall, fontFamily = CoordinateFont, color = ageColor)
+                                Canvas(Modifier.size(10.dp)) { drawCircle(ageColor) }
+                                Spacer(Modifier.width(3.dp))
+                                Text("${ntripState.ageOfCorrectionSeconds}s", style = MaterialTheme.typography.labelMedium, fontFamily = CoordinateFont, color = ageColor)
                             }
                         } else {
                             Spacer(Modifier.weight(1f))
                             if (connectionStatus == ConnectionStatus.DISCONNECTED) {
-                                Text("Tap Connection to start", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                Text("Tap to open \u25BC", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                             }
                         }
-                        IconButton(onClick = { drawerExpanded = !drawerExpanded; if (!drawerExpanded) activePanel = PANEL_NONE }) {
-                            Icon(if (drawerExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, "Toggle")
-                        }
+                        Icon(
+                            if (drawerExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            "Toggle drawer",
+                            modifier = Modifier.size(24.dp),
+                        )
                     }
 
-                    // Row 2-3: Coordinates (if fix)
+                    // Row 2: Coordinates (if fix)
                     if (position.hasFix) {
-                        Spacer(Modifier.height(2.dp))
+                        Spacer(Modifier.height(6.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             projectedCoords?.let {
-                                Text("E ${"%.3f".format(it.eastingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                                Text("N ${"%.3f".format(it.northingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("E ${"%.3f".format(it.eastingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                Text("N ${"%.3f".format(it.northingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                             } ?: run {
-                                Text("%.8f\u00B0".format(position.latitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyMedium)
-                                Text("%.8f\u00B0".format(position.longitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyMedium)
+                                Text("%.8f\u00B0".format(position.latitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge)
+                                Text("%.8f\u00B0".format(position.longitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge)
                             }
                             accuracy.altitudeErrorM?.let { AccuracyBadge(it, "V") }
                         }
+                    }
+
+                    // Drag handle indicator
+                    Spacer(Modifier.height(6.dp))
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier
+                                .size(width = 32.dp, height = 4.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                    RoundedCornerShape(2.dp)
+                                )
+                        )
                     }
                 }
             }
