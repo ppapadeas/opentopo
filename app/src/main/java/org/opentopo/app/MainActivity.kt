@@ -54,6 +54,8 @@ class MainActivity : ComponentActivity() {
     private var surveyManager: SurveyManager? = null
     private var stakeout: Stakeout? = null
     private var heposTransform: org.opentopo.transform.HeposTransform? = null
+    lateinit var tileManager: org.opentopo.app.tiles.TileManager
+        private set
 
     /** Incremented on USB attach/detach to trigger recomposition of device list. */
     private val _usbDeviceVersion = MutableStateFlow(0)
@@ -85,6 +87,7 @@ class MainActivity : ComponentActivity() {
 
         db = AppDatabase.getInstance(this)
         prefs = org.opentopo.app.prefs.UserPreferences(this)
+        tileManager = org.opentopo.app.tiles.TileManager(this)
         bluetoothService = BluetoothGnssService(this, gnssState)
         usbService = UsbGnssService(this, gnssState)
         internalService = InternalGnssService(this, gnssState)

@@ -3,6 +3,7 @@ package org.opentopo.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,7 +21,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -234,6 +238,97 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
                         }
                     },
                 )
+            }
+        }
+
+        // ── Offline Maps ──
+        Text(
+            "MAP DATA",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp),
+        )
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            val tm = activity?.tileManager
+            val downloadState by tm?.downloadState?.collectAsState()
+                ?: remember { mutableStateOf(org.opentopo.app.tiles.DownloadState.IDLE) }
+            val downloadProgress by tm?.downloadProgress?.collectAsState()
+                ?: remember { mutableStateOf(0f) }
+            val hasBasemap = tm?.hasGreeceTiles() ?: false
+            val hasContours = tm?.hasContourTiles() ?: false
+
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (hasBasemap) {
+                    ListItem(
+                        headlineContent = { Text("Basemap") },
+                        supportingContent = { Text("${"%.1f".format(tm?.greeceSizeMb() ?: 0.0)} MB") },
+                        trailingContent = {
+                            Text("Downloaded", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                        },
+                    )
+                }
+                if (hasContours) {
+                    ListItem(
+                        headlineContent = { Text("Contours") },
+                        supportingContent = { Text("${"%.1f".format(tm?.contoursSizeMb() ?: 0.0)} MB") },
+                        trailingContent = {
+                            Text("Downloaded", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                        },
+                    )
+                }
+
+                when (downloadState) {
+                    org.opentopo.app.tiles.DownloadState.DOWNLOADING -> {
+                        LinearProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            "Downloading... ${"%.0f".format(downloadProgress * 100)}%",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    org.opentopo.app.tiles.DownloadState.FAILED -> {
+                        Text(
+                            "Download failed. Check your connection.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    else -> {}
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(
+                        onClick = {
+                            scope.launch { tm?.downloadTiles() }
+                        },
+                        enabled = downloadState != org.opentopo.app.tiles.DownloadState.DOWNLOADING,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(if (hasBasemap) "Re-download" else "Download")
+                    }
+                    if (hasBasemap || hasContours) {
+                        OutlinedButton(
+                            onClick = { tm?.deleteTiles() },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("Delete")
+                        }
+                    }
+                }
+
+                if (!hasBasemap) {
+                    Text(
+                        "Download offline map tiles for Greece. Required for use without internet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 
