@@ -3,6 +3,7 @@ package org.opentopo.app.prefs
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -33,6 +34,16 @@ class UserPreferences(private val context: Context) {
 
     // ── Survey ──
     private val KEY_ANTENNA_HEIGHT = stringPreferencesKey("antenna_height")
+    private val KEY_AVERAGING_SECONDS = intPreferencesKey("averaging_seconds")
+    private val KEY_MIN_ACCURACY_M = stringPreferencesKey("min_accuracy_m")
+    private val KEY_REQUIRE_RTK_FIX = booleanPreferencesKey("require_rtk_fix")
+    private val KEY_BAUD_RATE = intPreferencesKey("baud_rate")
+
+    // ── NTRIP extras ──
+    private val KEY_GGA_INTERVAL = intPreferencesKey("gga_interval_seconds")
+
+    // ── Display ──
+    private val KEY_COORD_FORMAT = intPreferencesKey("coord_format") // 0=EGSA87, 1=WGS84 decimal, 2=WGS84 DMS
 
     // ── Flows ──
 
@@ -46,6 +57,12 @@ class UserPreferences(private val context: Context) {
     val ntripPassword: Flow<String> = context.dataStore.data.map { it[KEY_NTRIP_PASSWORD] ?: "" }
     val ntripMountpoint: Flow<String> = context.dataStore.data.map { it[KEY_NTRIP_MOUNTPOINT] ?: "" }
     val antennaHeight: Flow<String> = context.dataStore.data.map { it[KEY_ANTENNA_HEIGHT] ?: "1.80" }
+    val averagingSeconds: Flow<Int> = context.dataStore.data.map { it[KEY_AVERAGING_SECONDS] ?: 5 }
+    val minAccuracyM: Flow<String> = context.dataStore.data.map { it[KEY_MIN_ACCURACY_M] ?: "0.05" }
+    val requireRtkFix: Flow<Boolean> = context.dataStore.data.map { it[KEY_REQUIRE_RTK_FIX] ?: false }
+    val baudRate: Flow<Int> = context.dataStore.data.map { it[KEY_BAUD_RATE] ?: 115200 }
+    val ggaIntervalSeconds: Flow<Int> = context.dataStore.data.map { it[KEY_GGA_INTERVAL] ?: 10 }
+    val coordFormat: Flow<Int> = context.dataStore.data.map { it[KEY_COORD_FORMAT] ?: 0 }
 
     // ── Setters ──
 
@@ -80,5 +97,29 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setAntennaHeight(value: String) {
         context.dataStore.edit { it[KEY_ANTENNA_HEIGHT] = value }
+    }
+
+    suspend fun setAveragingSeconds(value: Int) {
+        context.dataStore.edit { it[KEY_AVERAGING_SECONDS] = value }
+    }
+
+    suspend fun setMinAccuracyM(value: String) {
+        context.dataStore.edit { it[KEY_MIN_ACCURACY_M] = value }
+    }
+
+    suspend fun setRequireRtkFix(value: Boolean) {
+        context.dataStore.edit { it[KEY_REQUIRE_RTK_FIX] = value }
+    }
+
+    suspend fun setBaudRate(value: Int) {
+        context.dataStore.edit { it[KEY_BAUD_RATE] = value }
+    }
+
+    suspend fun setGgaIntervalSeconds(value: Int) {
+        context.dataStore.edit { it[KEY_GGA_INTERVAL] = value }
+    }
+
+    suspend fun setCoordFormat(value: Int) {
+        context.dataStore.edit { it[KEY_COORD_FORMAT] = value }
     }
 }

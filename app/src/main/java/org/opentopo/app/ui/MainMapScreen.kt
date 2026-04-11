@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.RadioButtonChecked
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material3.BottomSheetScaffold
@@ -112,14 +113,16 @@ private const val TAB_CONNECTION = 0
 private const val TAB_SURVEY = 1
 private const val TAB_STAKEOUT = 2
 private const val TAB_EXPORT = 3
+private const val TAB_SETTINGS = 4
 
 private data class TabItem(val title: String, val icon: ImageVector)
 
 private val tabs = listOf(
-    TabItem("Connect", Icons.Outlined.Cable),
+    TabItem("GNSS", Icons.Outlined.Cable),
     TabItem("Survey", Icons.Outlined.Straighten),
-    TabItem("Stakeout", Icons.Outlined.NearMe),
+    TabItem("Stake", Icons.Outlined.NearMe),
     TabItem("Export", Icons.Outlined.FileDownload),
+    TabItem("Config", Icons.Outlined.Settings),
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -309,6 +312,7 @@ fun MainMapScreen(
                             TAB_SURVEY -> SurveyPanel(db, surveyManager)
                             TAB_STAKEOUT -> StakeoutPanel(stakeout)
                             TAB_EXPORT -> ExportPanel(db)
+                            TAB_SETTINGS -> SettingsPanel()
                         }
                     }
                 }
