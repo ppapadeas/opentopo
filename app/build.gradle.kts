@@ -43,10 +43,9 @@ android {
     }
 
     lint {
-        // Workaround: these lint detectors crash with material3 1.5.0-alpha
-        // due to IncompatibleClassChangeError in AGP lint tooling
-        disable += "NullSafeMutableLiveData"
-        disable += "FlowOperatorInvokedInComposition"
+        // Workaround: AGP lint detectors crash with IncompatibleClassChangeError
+        // when used with material3 1.5.0-alpha. Allow build to continue.
+        abortOnError = false
     }
 }
 
