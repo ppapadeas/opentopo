@@ -7,38 +7,34 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.usb.UsbManager
 import android.os.Build
+import android.util.Log
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import com.hoho.android.usbserial.util.SerialInputOutputManager
 import java.io.IOException
 
 /**
  * USB-OTG serial connection to a GNSS receiver.
  *
- * Uses usb-serial-for-android library to communicate with
- * CDC/ACM or FTDI USB serial devices.
+ * Uses usb-serial-for-android's [SerialInputOutputManager] for
+ * reliable event-driven reading from CDC/ACM, FTDI, CP210x, CH340,
+ * and PL2303 USB serial devices.
  */
 class UsbGnssService(
     private val context: Context,
     private val gnssState: GnssState,
-) {
+) : SerialInputOutputManager.Listener {
+
     companion object {
+        private const val TAG = "UsbGnss"
         private const val ACTION_USB_PERMISSION = "org.opentopo.app.USB_PERMISSION"
         private const val DEFAULT_BAUD_RATE = 115200
-        private const val READ_BUFFER_SIZE = 4096
-        private const val READ_TIMEOUT_MS = 100
+        private const val READ_QUEUE_BUFFERS = 8
     }
 
     private var port: UsbSerialPort? = null
-    private var readerJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private var ioManager: SerialInputOutputManager? = null
     private val parser = NmeaParser(gnssState)
 
     /** Pending driver waiting for USB permission grant. */
@@ -84,7 +80,6 @@ class UsbGnssService(
         if (usbManager.hasPermission(driver.device)) {
             connectInternal(driver, baudRate)
         } else {
-            // Store pending connection and request permission
             pendingDriver = driver
             pendingBaudRate = baudRate
             val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
@@ -94,25 +89,29 @@ class UsbGnssService(
             val intent = Intent(ACTION_USB_PERMISSION).apply {
                 setPackage(context.packageName)
             }
-            val permIntent = PendingIntent.getBroadcast(
-                context, 0, intent, flags,
-            )
+            val permIntent = PendingIntent.getBroadcast(context, 0, intent, flags)
             usbManager.requestPermission(driver.device, permIntent)
         }
     }
 
     private fun connectInternal(driver: UsbSerialDriver, baudRate: Int) {
-        android.util.Log.d("UsbGnss", "connectInternal: ${driver.device.productName}, baud=$baudRate")
+        Log.d(TAG, "connectInternal: ${driver.device.productName}, baud=$baudRate")
         val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
         val connection = try {
             usbManager.openDevice(driver.device)
         } catch (e: SecurityException) {
-            android.util.Log.e("UsbGnss", "SecurityException opening device", e)
+            Log.e(TAG, "SecurityException opening device", e)
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
             return
         }
         if (connection == null) {
-            android.util.Log.e("UsbGnss", "openDevice returned null")
+            Log.e(TAG, "openDevice returned null")
+            gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            return
+        }
+
+        if (driver.ports.isEmpty()) {
+            Log.e(TAG, "driver has no ports")
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
             return
         }
@@ -122,22 +121,36 @@ class UsbGnssService(
             usbPort.open(connection)
             usbPort.setParameters(baudRate, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
             port = usbPort
-            gnssState.setConnectionStatus(ConnectionStatus.CONNECTED)
-            android.util.Log.d("UsbGnss", "connected, launching readLoop")
 
-            readerJob = scope.launch {
-                readLoop(usbPort)
-            }
+            // Event-driven I/O manager — handles USB buffering reliably
+            val manager = SerialInputOutputManager(usbPort, this)
+            manager.readTimeout = 0 // blocking read — most reliable for continuous streams
+            manager.start()
+            ioManager = manager
+
+            gnssState.setConnectionStatus(ConnectionStatus.CONNECTED)
+            Log.d(TAG, "connected, SerialInputOutputManager started")
         } catch (e: IOException) {
-            android.util.Log.e("UsbGnss", "IOException during connect", e)
+            Log.e(TAG, "IOException during connect", e)
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
         }
     }
 
+    // ── SerialInputOutputManager.Listener ──
+
+    override fun onNewData(data: ByteArray) {
+        parser.feed(data, 0, data.size)
+    }
+
+    override fun onRunError(e: Exception) {
+        Log.e(TAG, "SerialInputOutputManager error", e)
+        disconnect()
+    }
+
     /** Disconnect from the current device. */
     fun disconnect() {
-        readerJob?.cancel()
-        readerJob = null
+        ioManager?.stop()
+        ioManager = null
         pendingDriver = null
         try {
             port?.close()
@@ -159,31 +172,8 @@ class UsbGnssService(
     /** Write bytes to the connected device (e.g., RTCM3 corrections). */
     fun write(data: ByteArray) {
         try {
-            port?.write(data, READ_TIMEOUT_MS)
-        } catch (_: IOException) {
+            ioManager?.writeAsync(data)
+        } catch (_: Exception) {
         }
-    }
-
-    private suspend fun readLoop(usbPort: UsbSerialPort) {
-        val buffer = ByteArray(READ_BUFFER_SIZE)
-        android.util.Log.d("UsbGnss", "readLoop started")
-        try {
-            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
-                val bytesRead = usbPort.read(buffer, READ_TIMEOUT_MS)
-                if (bytesRead > 0) {
-                    val raw = String(buffer, 0, bytesRead)
-                    android.util.Log.d("UsbGnss", "read $bytesRead bytes: ${raw.take(80)}")
-                    parser.feed(buffer, 0, bytesRead)
-                }
-            }
-        } catch (e: CancellationException) {
-            android.util.Log.d("UsbGnss", "readLoop cancelled")
-        } catch (e: IOException) {
-            android.util.Log.e("UsbGnss", "readLoop IO error", e)
-        } catch (e: Exception) {
-            android.util.Log.e("UsbGnss", "readLoop unexpected error", e)
-        }
-        android.util.Log.d("UsbGnss", "readLoop exited")
-        gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
     }
 }

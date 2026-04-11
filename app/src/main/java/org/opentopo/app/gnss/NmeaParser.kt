@@ -34,7 +34,10 @@ class NmeaParser(private val listener: NmeaListener) {
     /** Parse a single NMEA sentence string (e.g., "$GPGGA,...*XX"). */
     fun parseLine(sentence: String) {
         if (!sentence.startsWith("$")) return
-        if (!verifyChecksum(sentence)) return
+        if (!verifyChecksum(sentence)) {
+            android.util.Log.w("NmeaParser", "checksum fail: ${sentence.take(30)}")
+            return
+        }
 
         // Strip $ and checksum, split fields
         val body = sentence.substring(1).substringBefore('*')
@@ -44,6 +47,8 @@ class NmeaParser(private val listener: NmeaListener) {
         val sentenceId = fields[0]
         // Extract the sentence type (last 3 chars): e.g., "GPGGA" -> "GGA"
         val type = if (sentenceId.length >= 3) sentenceId.takeLast(3) else return
+
+        android.util.Log.d("NmeaParser", "parsed $type: ${sentence.take(60)}")
 
         when (type) {
             "GGA" -> parseGga(fields)
