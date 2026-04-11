@@ -41,6 +41,13 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        // Workaround: these lint detectors crash with material3 1.5.0-alpha
+        // due to IncompatibleClassChangeError in AGP lint tooling
+        disable += "NullSafeMutableLiveData"
+        disable += "FlowOperatorInvokedInComposition"
+    }
 }
 
 dependencies {
