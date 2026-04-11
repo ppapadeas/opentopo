@@ -13,25 +13,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.BufferedInputStream
-import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStream
-import java.io.InputStreamReader
 import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.Socket
 import java.net.URL
 import java.util.Base64
+import kotlin.math.abs
+import kotlin.math.floor
 
 /**
- * NTRIP v1 client using raw sockets for bidirectional communication.
+ * NTRIP v1/v2 client using raw sockets for bidirectional communication.
  *
- * Connects to an NTRIP caster, sends GGA for VRS generation,
- * receives RTCM3 correction data, and forwards it via [onRtcmData] callback.
- *
- * Uses raw TCP sockets instead of HttpURLConnection because NTRIP
- * requires sending GGA data back to the caster on the same connection,
- * and HttpURLConnection's doOutput converts GET to POST.
+ * Connects to an NTRIP caster, sends GGA for VRS position,
+ * receives RTCM3 corrections, and forwards them via [onRtcmData].
  */
 class NtripClient(
     private val onRtcmData: (ByteArray) -> Unit,
@@ -42,6 +38,7 @@ class NtripClient(
         private const val RECONNECT_BASE_DELAY_MS = 2000L
         private const val RECONNECT_MAX_DELAY_MS = 60000L
         private const val USER_AGENT = "NTRIP OpenTopo/0.1"
+        private const val GGA_INTERVAL_MS = 10_000L
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -54,14 +51,29 @@ class NtripClient(
     val state: StateFlow<NtripState> = _state.asStateFlow()
 
     private var currentConfig: NtripConfig? = null
-    private var lastGga: String? = null
 
-    /** Update the GGA sentence to send to the caster for VRS. */
-    fun updateGga(ggaSentence: String) {
-        lastGga = ggaSentence
+    /** Last raw GGA from the GNSS receiver. */
+    @Volatile var lastRawGga: String? = null
+
+    /** Current position for synthetic GGA generation. */
+    @Volatile var currentLat: Double = 0.0
+    @Volatile var currentLon: Double = 0.0
+    @Volatile var currentAlt: Double = 0.0
+    @Volatile var currentFixQuality: Int = 0
+    @Volatile var currentNumSats: Int = 0
+    @Volatile var currentHdop: Double = 1.0
+
+    /** Update position from GnssState for GGA generation. */
+    fun updatePosition(lat: Double, lon: Double, alt: Double, fixQuality: Int, numSats: Int, hdop: Double) {
+        currentLat = lat
+        currentLon = lon
+        currentAlt = alt
+        currentFixQuality = fixQuality
+        currentNumSats = numSats
+        currentHdop = hdop
     }
 
-    /** Fetch the sourcetable (list of mountpoints) from a caster. */
+    /** Fetch the sourcetable from a caster. */
     fun fetchSourcetable(config: NtripConfig, callback: (Result<List<NtripMountpoint>>) -> Unit) {
         scope.launch {
             try {
@@ -76,7 +88,7 @@ class NtripClient(
         }
     }
 
-    /** Connect to a caster/mountpoint and start receiving RTCM data. */
+    /** Connect to a caster/mountpoint. */
     fun connect(config: NtripConfig) {
         disconnect()
         currentConfig = config
@@ -104,12 +116,12 @@ class NtripClient(
             try {
                 doConnect(config)
                 reconnectDelay = RECONNECT_BASE_DELAY_MS
-                startGgaForwarding(config)
+                startGgaForwarding()
                 readRtcmStream()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "connection error", e)
+                Log.e(TAG, "connection error: ${e.message}")
                 _state.value = _state.value.copy(
                     status = NtripStatus.RECONNECTING,
                     error = e.message,
@@ -126,27 +138,20 @@ class NtripClient(
         }
     }
 
-    /**
-     * Connect via raw TCP socket with NTRIP v1 HTTP request.
-     * This allows bidirectional communication (send GGA, receive RTCM).
-     */
     private fun doConnect(config: NtripConfig) {
         Log.d(TAG, "connecting to ${config.host}:${config.port}/${config.mountpoint}")
 
         val sock = Socket(config.host, config.port)
-        sock.soTimeout = 30_000
+        sock.soTimeout = 60_000 // VRS casters can take time after GGA
         socket = sock
 
         val output = sock.getOutputStream()
         socketOutput = output
 
-        // Send NTRIP v1 GET request
+        // Send NTRIP v1 request (HTTP/1.0 for max compatibility)
         val request = buildString {
-            append("GET /${config.mountpoint} HTTP/1.1\r\n")
-            append("Host: ${config.host}\r\n")
+            append("GET /${config.mountpoint} HTTP/1.0\r\n")
             append("User-Agent: $USER_AGENT\r\n")
-            append("Ntrip-Version: Ntrip/2.0\r\n")
-            append("Accept: */*\r\n")
             if (config.username.isNotBlank()) {
                 val credentials = "${config.username}:${config.password}"
                 val encoded = Base64.getEncoder().encodeToString(credentials.toByteArray())
@@ -157,32 +162,25 @@ class NtripClient(
         output.write(request.toByteArray())
         output.flush()
 
-        // Read HTTP response status line
+        // Read response — handle both ICY 200 OK (v1) and HTTP/1.1 200 OK (v2)
         val input = sock.getInputStream()
         val responseLine = readLine(input)
         Log.d(TAG, "response: $responseLine")
 
-        if (responseLine == null || !responseLine.contains("200")) {
-            throw IOException("NTRIP server returned: $responseLine")
+        if (responseLine == null) {
+            throw IOException("No response from NTRIP caster")
+        }
+        if (responseLine.startsWith("SOURCETABLE")) {
+            throw IOException("Mountpoint '${config.mountpoint}' not found")
+        }
+        if (!responseLine.contains("200")) {
+            throw IOException("NTRIP: $responseLine")
         }
 
-        // Skip remaining HTTP headers
+        // Skip remaining headers (if any)
         while (true) {
             val header = readLine(input) ?: break
             if (header.isBlank()) break
-        }
-
-        // Send initial GGA immediately if available
-        if (config.sendGga) {
-            val gga = lastGga
-            if (gga != null) {
-                try {
-                    output.write("$gga\r\n".toByteArray())
-                    output.flush()
-                    Log.d(TAG, "sent initial GGA")
-                } catch (_: IOException) {
-                }
-            }
         }
 
         _state.value = _state.value.copy(
@@ -190,9 +188,51 @@ class NtripClient(
             mountpoint = config.mountpoint,
             error = null,
         )
+
+        // Send initial GGA immediately — VRS casters need this before sending data
+        sendGga(output)
     }
 
-    /** Read a single line from an InputStream (up to \n). */
+    /** Build and send a GGA sentence. Uses raw GGA if available, otherwise generates one. */
+    private fun sendGga(output: OutputStream) {
+        val gga = lastRawGga ?: buildSyntheticGga()
+        if (gga != null) {
+            try {
+                output.write("$gga\r\n".toByteArray())
+                output.flush()
+                Log.d(TAG, "sent GGA: ${gga.take(40)}...")
+            } catch (e: IOException) {
+                Log.w(TAG, "failed to send GGA: ${e.message}")
+            }
+        } else {
+            Log.w(TAG, "no GGA available — VRS caster may not send data")
+        }
+    }
+
+    /** Generate a synthetic GGA from current position if we have a fix. */
+    private fun buildSyntheticGga(): String? {
+        if (currentFixQuality == 0 || (currentLat == 0.0 && currentLon == 0.0)) return null
+
+        val time = java.text.SimpleDateFormat("HHmmss.00", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }.format(java.util.Date())
+
+        val latDeg = floor(abs(currentLat))
+        val latMin = (abs(currentLat) - latDeg) * 60.0
+        val latStr = "%02.0f%09.6f".format(latDeg, latMin)
+        val latHem = if (currentLat >= 0) "N" else "S"
+
+        val lonDeg = floor(abs(currentLon))
+        val lonMin = (abs(currentLon) - lonDeg) * 60.0
+        val lonStr = "%03.0f%09.6f".format(lonDeg, lonMin)
+        val lonHem = if (currentLon >= 0) "E" else "W"
+
+        val body = "GPGGA,$time,$latStr,$latHem,$lonStr,$lonHem,$currentFixQuality,$currentNumSats,${"%.1f".format(currentHdop)},${"%.1f".format(currentAlt)},M,0.0,M,,"
+        var checksum = 0
+        for (c in body) checksum = checksum xor c.code
+        return "\$$body*${"%02X".format(checksum)}"
+    }
+
     private fun readLine(input: InputStream): String? {
         val sb = StringBuilder()
         while (true) {
@@ -230,40 +270,25 @@ class NtripClient(
         }
     }
 
-    private fun startGgaForwarding(config: NtripConfig) {
-        if (!config.sendGga) return
+    private fun startGgaForwarding() {
         ggaJob?.cancel()
         ggaJob = scope.launch {
             while (isActive) {
-                val gga = lastGga
-                val output = socketOutput
-                if (gga != null && output != null) {
-                    try {
-                        output.write("$gga\r\n".toByteArray())
-                        output.flush()
-                    } catch (_: IOException) {
-                        // connection lost — readRtcmStream will handle reconnect
-                    }
-                }
-                delay(config.ggaIntervalSeconds * 1000L)
+                delay(GGA_INTERVAL_MS)
+                val output = socketOutput ?: continue
+                sendGga(output)
             }
         }
     }
 
     private fun closeConnection() {
-        try {
-            socketOutput?.close()
-        } catch (_: IOException) {
-        }
-        try {
-            socket?.close()
-        } catch (_: IOException) {
-        }
+        try { socketOutput?.close() } catch (_: IOException) {}
+        try { socket?.close() } catch (_: IOException) {}
         socketOutput = null
         socket = null
     }
 
-    // ── Sourcetable parsing (uses HttpURLConnection — simple GET, no bidirectional) ──
+    // ── Sourcetable (simple HTTP GET, no bidirectional needed) ──
 
     private fun doFetchSourcetable(config: NtripConfig): List<NtripMountpoint> {
         val url = URL("http://${config.host}:${config.port}/")

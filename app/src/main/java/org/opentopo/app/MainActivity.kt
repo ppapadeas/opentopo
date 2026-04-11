@@ -83,8 +83,13 @@ class MainActivity : ComponentActivity() {
         ntripClient = NtripClient { rtcmData ->
             bluetoothService.write(rtcmData)
             usbService.write(rtcmData)
-            // Feed GGA back to NTRIP for VRS
-            gnssState.lastRawGga?.let { ntripClient.updateGga(it) }
+            // Feed position and raw GGA to NTRIP for VRS
+            val pos = gnssState.position.value
+            ntripClient.lastRawGga = gnssState.lastRawGga
+            ntripClient.updatePosition(
+                pos.latitude, pos.longitude, pos.altitude ?: 0.0,
+                pos.fixQuality, pos.numSatellites, pos.hdop ?: 1.0,
+            )
         }
 
         // Initialize transform-dependent services
