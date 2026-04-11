@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
         private set
     private var surveyManager: SurveyManager? = null
     private var stakeout: Stakeout? = null
+    private var heposTransform: org.opentopo.transform.HeposTransform? = null
 
     /** Incremented on USB attach/detach to trigger recomposition of device list. */
     private val _usbDeviceVersion = MutableStateFlow(0)
@@ -103,6 +104,10 @@ class MainActivity : ComponentActivity() {
             val deStream = assets.open("dE_2km_V1-0.grd")
             val dnStream = assets.open("dN_2km_V1-0.grd")
             surveyManager = SurveyManager(db, gnssState, deStream, dnStream)
+
+            val deStream3 = assets.open("dE_2km_V1-0.grd")
+            val dnStream3 = assets.open("dN_2km_V1-0.grd")
+            heposTransform = org.opentopo.transform.HeposTransform(deStream3, dnStream3)
 
             val deStream2 = assets.open("dE_2km_V1-0.grd")
             val dnStream2 = assets.open("dN_2km_V1-0.grd")
@@ -159,6 +164,7 @@ class MainActivity : ComponentActivity() {
                     db = db,
                     surveyManager = surveyManager,
                     stakeout = stakeout,
+                    heposTransform = heposTransform,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

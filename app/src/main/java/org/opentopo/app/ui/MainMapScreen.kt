@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Cable
+import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.NearMe
@@ -48,7 +49,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -114,7 +115,8 @@ private const val TAB_CONNECTION = 0
 private const val TAB_SURVEY = 1
 private const val TAB_STAKEOUT = 2
 private const val TAB_EXPORT = 3
-private const val TAB_SETTINGS = 4
+private const val TAB_TRANSFORM = 4
+private const val TAB_SETTINGS = 5
 
 private data class TabItem(val title: String, val icon: ImageVector)
 
@@ -123,6 +125,7 @@ private val tabs = listOf(
     TabItem("Survey", Icons.Outlined.Straighten),
     TabItem("Stake", Icons.Outlined.NearMe),
     TabItem("Export", Icons.Outlined.FileDownload),
+    TabItem("Transform", Icons.Outlined.Calculate),
     TabItem("Config", Icons.Outlined.Settings),
 )
 
@@ -136,6 +139,7 @@ fun MainMapScreen(
     db: AppDatabase,
     surveyManager: SurveyManager?,
     stakeout: Stakeout?,
+    heposTransform: org.opentopo.transform.HeposTransform? = null,
     modifier: Modifier = Modifier,
 ) {
     val surveyColors = LocalSurveyColors.current
@@ -273,8 +277,11 @@ fun MainMapScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                // ── Expressive SecondaryTabRow ──
-                SecondaryTabRow(selectedTabIndex = selectedTab) {
+                // ── Scrollable tab row (6 tabs) ──
+                ScrollableTabRow(
+                    selectedTabIndex = selectedTab,
+                    edgePadding = 0.dp,
+                ) {
                     tabs.forEachIndexed { index, tab ->
                         Tab(
                             selected = selectedTab == index,
@@ -314,6 +321,7 @@ fun MainMapScreen(
                             TAB_SURVEY -> SurveyPanel(db, surveyManager)
                             TAB_STAKEOUT -> StakeoutPanel(stakeout)
                             TAB_EXPORT -> ExportPanel(db)
+                            TAB_TRANSFORM -> TransformPanel(heposTransform)
                             TAB_SETTINGS -> SettingsPanel()
                         }
                     }

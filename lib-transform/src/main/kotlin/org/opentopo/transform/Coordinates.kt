@@ -19,3 +19,16 @@ data class ProjectedCoordinate(
     val eastingM: Double,
     val northingM: Double,
 )
+
+/** All intermediate results from the HEPOS transformation pipeline. */
+data class TransformResult(
+    val input: GeographicCoordinate,
+    val cartesianHtrs07: CartesianCoordinate,
+    val cartesianEgsa87: CartesianCoordinate,
+    val geographicEgsa87: GeographicCoordinate,
+    val tm87: ProjectedCoordinate,
+    val tm07: ProjectedCoordinate,
+    val gridCorrectionDeCm: Double,
+    val gridCorrectionDnCm: Double,
+    val output: ProjectedCoordinate,
+)
