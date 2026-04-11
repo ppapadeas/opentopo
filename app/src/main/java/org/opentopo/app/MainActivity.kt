@@ -126,11 +126,10 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         ntripClient.disconnect()
         bluetoothService.disconnect()
-        usbService.disconnect()
+        usbService.destroy()
         try {
             unregisterReceiver(usbReceiver)
         } catch (_: IllegalArgumentException) {
-            // not registered
         }
     }
 

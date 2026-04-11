@@ -484,8 +484,6 @@ private fun UsbPicker(usbService: UsbGnssService) {
             Button(
                 onClick = {
                     selectedDriver?.let { driver ->
-                        // Request USB permission if needed, then connect
-                        activity?.requestUsbPermission(driver.device)
                         usbService.connect(driver)
                     }
                 },
