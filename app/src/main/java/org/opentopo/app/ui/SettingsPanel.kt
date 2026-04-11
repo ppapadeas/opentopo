@@ -68,12 +68,6 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SectionHeader(
-            icon = Icons.Outlined.Settings,
-            title = "Settings",
-            modifier = Modifier.padding(top = 8.dp),
-        )
-
         // ── Recording settings ──
         Text(
             "RECORDING",

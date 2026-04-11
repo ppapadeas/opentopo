@@ -57,12 +57,6 @@ fun TransformPanel(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // ── Header ──
-        SectionHeader(
-            icon = Icons.Outlined.Calculate,
-            title = "Coordinate Transform",
-        )
-
         // ── Converter ──
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,

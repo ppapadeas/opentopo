@@ -103,12 +103,7 @@ fun SurveyPanel(
                 onBack = { selectedProject = null },
             )
         } else {
-            // -- Section header --
-            SectionHeader(
-                icon = Icons.Outlined.Straighten,
-                title = "Survey Projects",
-                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
-            )
+            Spacer(Modifier.height(8.dp))
 
             // -- New project button --
             FilledTonalButton(

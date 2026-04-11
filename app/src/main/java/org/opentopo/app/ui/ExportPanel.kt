@@ -82,12 +82,7 @@ fun ExportPanel(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
 
-        /* ---- Section header ---- */
-        SectionHeader(
-            icon = Icons.Outlined.FileDownload,
-            title = "Export",
-            modifier = Modifier.padding(top = 8.dp),
-        )
+        Spacer(Modifier.height(8.dp))
 
         if (projects.isEmpty()) {
             /* ---- Empty state ---- */

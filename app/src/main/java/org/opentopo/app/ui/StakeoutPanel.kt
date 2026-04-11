@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -65,11 +64,7 @@ fun StakeoutPanel(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SectionHeader(
-            icon = Icons.Outlined.NearMe,
-            title = "Stakeout",
-            modifier = Modifier.padding(top = 8.dp),
-        )
+        Spacer(Modifier.height(8.dp))
 
         if (!hasTarget) {
             // Target input form

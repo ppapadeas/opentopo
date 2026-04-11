@@ -106,23 +106,6 @@ fun ConnectionPanel(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // Section header
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(
-                        if (connectionType == 0) Icons.Outlined.Bluetooth else Icons.Outlined.Usb,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        "GNSS Receiver",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
-
                 // BT / USB / Internal segmented toggle
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
