@@ -1,0 +1,7 @@
+Initial release:
+- HEPOS coordinate transformation (WGS84 to GGRS87/EGSA87)
+- Bluetooth and USB GNSS receiver support
+- NTRIP client with HEPOS, CivilPOS, SmartNet presets
+- Survey point recording with epoch averaging
+- Stakeout navigation
+- CSV, GeoJSON, DXF export

@@ -1,0 +1,12 @@
+OpenTopo is an open-source Android GNSS survey app designed for Greek surveyors and engineers. It connects to any NMEA-compatible GNSS receiver via Bluetooth or USB-OTG, applies RTK corrections via NTRIP, and transforms WGS84/ETRS89 coordinates to GGRS87/EGSA87 (EPSG:2100) using the official HEPOS transformation model published by Ktimatologio S.A.
+
+Features:
+- Full HEPOS transformation (7-parameter Helmert + 2D correction grid) with sub-centimetre accuracy
+- Bluetooth Classic and USB-OTG GNSS receiver support
+- Built-in NTRIP v1/v2 client with presets for HEPOS, CivilPOS, and Hexagon SmartNet Greece
+- Survey project and point management with configurable epoch averaging
+- Stakeout navigation to target coordinates
+- Map-centric interface with MapLibre
+- Export to CSV, GeoJSON, and DXF
+
+OpenTopo is free software licensed under AGPL-3.0. It does not collect any personal data or telemetry.
