@@ -637,7 +637,7 @@ fun MainMapScreen(
                                         .withProperties(
                                             PropertyFactory.visibility(org.maplibre.android.style.layers.Property.NONE),
                                         ),
-                                    "user-location-glow",
+                                    "survey-polygons-layer",  // below all survey layers
                                 )
                             }
                             // Tap survey point to show details
