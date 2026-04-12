@@ -529,7 +529,7 @@ fun MainMapScreen(
                                 // Compass: top-left, below fix pill
                                 map.uiSettings.isCompassEnabled = true
                                 map.uiSettings.compassGravity = android.view.Gravity.TOP or android.view.Gravity.START
-                                map.uiSettings.setCompassMargins(40, 250, 0, 0)
+                                map.uiSettings.setCompassMargins(40, 380, 0, 0)
 
                                 // Add user location source + layers
                                 val locationSource = GeoJsonSource(
