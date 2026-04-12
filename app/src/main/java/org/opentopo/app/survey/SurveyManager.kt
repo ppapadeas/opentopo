@@ -221,6 +221,18 @@ class SurveyManager(
         }
     }
 
+    /** Remove the last recorded vertex for the active feature. */
+    fun undoLastVertex() {
+        val featureId = _activeFeatureId.value ?: return
+        scope.launch {
+            val vertices = db.pointDao().getByFeatureOnce(featureId)
+            if (vertices.isNotEmpty()) {
+                db.pointDao().delete(vertices.last())
+                _vertexCount.value = (_vertexCount.value - 1).coerceAtLeast(0)
+            }
+        }
+    }
+
     /** Finish the active line/polygon feature. */
     fun finishFeature() {
         _activeFeatureId.value = null

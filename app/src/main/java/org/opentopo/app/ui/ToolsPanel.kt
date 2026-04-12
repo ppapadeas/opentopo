@@ -58,6 +58,7 @@ import org.opentopo.app.export.CsvExporter
 import org.opentopo.app.export.CsvImporter
 import org.opentopo.app.export.DxfExporter
 import org.opentopo.app.export.GeoJsonExporter
+import org.opentopo.app.export.ShapefileExporter
 import org.opentopo.app.survey.SurveyManager
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.transform.HeposTransform
@@ -318,6 +319,36 @@ private fun ExportImportSection(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text("Export DXF")
+                    }
+
+                    /* -- Shapefile (ZIP) -- */
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                isExporting = true
+                                exportStatus = null
+                                val file = doToolsExport(context, db, proj, "zip") { pts, out ->
+                                    ShapefileExporter.export(pts, proj.name, out)
+                                }
+                                isExporting = false
+                                if (file != null) {
+                                    shareToolsFile(context, file, "application/zip")
+                                    exportStatus = "Shapefile shared"
+                                } else {
+                                    exportStatus = "No points"
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Code,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Export Shapefile (ZIP)")
                     }
                 }
             }

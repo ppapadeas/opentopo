@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -336,7 +337,41 @@ private fun ProjectDetail(
                         Text("Recording ${if (recordingMode == "line") "Line" else "Polygon"}", style = MaterialTheme.typography.titleMedium)
                         Text("$vertexCount vertices recorded", style = MaterialTheme.typography.bodyMedium, fontFamily = CoordinateFont)
 
+                        val featureScope = rememberCoroutineScope()
+                        var measurement by remember { mutableStateOf("") }
+
+                        LaunchedEffect(vertexCount) {
+                            if (vertexCount >= 2 && recordingMode == "line") {
+                                val dist = surveyManager?.computeLineDistance(activeFeatureId!!)
+                                measurement = if (dist != null) "%.2f m".format(dist) else ""
+                            } else if (vertexCount >= 3 && recordingMode == "polygon") {
+                                val area = surveyManager?.computePolygonArea(activeFeatureId!!)
+                                if (area != null) {
+                                    val stremma = area / 1000.0
+                                    measurement = "%.1f m\u00B2 (%.3f stremma)".format(area, stremma)
+                                }
+                            } else {
+                                measurement = ""
+                            }
+                        }
+
+                        if (measurement.isNotBlank()) {
+                            Text(
+                                measurement,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontFamily = CoordinateFont,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (vertexCount > 0) {
+                                IconButton(
+                                    onClick = { surveyManager?.undoLastVertex() },
+                                ) {
+                                    Icon(Icons.Outlined.Undo, "Undo last vertex", Modifier.size(20.dp))
+                                }
+                            }
                             FilledTonalButton(
                                 onClick = { surveyManager?.recordVertex() },
                                 modifier = Modifier.weight(1f),

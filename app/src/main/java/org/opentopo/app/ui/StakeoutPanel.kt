@@ -1,5 +1,7 @@
 package org.opentopo.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -34,6 +37,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +71,37 @@ fun StakeoutPanel(
         Spacer(Modifier.height(8.dp))
 
         if (!hasTarget) {
+            // Import target from CSV
+            val context = LocalContext.current
+            val importLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.GetContent()
+            ) { uri ->
+                uri?.let {
+                    try {
+                        val input = context.contentResolver.openInputStream(it) ?: return@let
+                        val reader = input.bufferedReader()
+                        val header = reader.readLine() // skip header
+                        val firstLine = reader.readLine() ?: return@let
+                        val fields = firstLine.split(",")
+                        if (fields.size >= 3) {
+                            targetName = fields[0].trim()
+                            targetE = fields[1].trim()
+                            targetN = fields[2].trim()
+                        }
+                        input.close()
+                    } catch (_: Exception) {}
+                }
+            }
+
+            OutlinedButton(
+                onClick = { importLauncher.launch("text/*") },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Outlined.FileUpload, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Import Target from CSV")
+            }
+
             // Target input form
             Surface(
                 modifier = Modifier.fillMaxWidth(),
