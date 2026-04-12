@@ -52,7 +52,19 @@
 - [x] Orthometric height exported in CSV, GeoJSON, DXF, Shapefile
 - [x] CSV import backward compatible with old format
 
-### v1.7.0 -- Extensible Geodesy
+### v1.7.0 -- Vathra.xyz Integration & Trig Point Verification
+**Goal:** Connect OpenTopo with the vathra.xyz trigonometric point database for field verification of Greece's 25,000+ geodetic benchmarks.
+
+- [ ] **Trig point map layer** -- load Greek GYS trigonometric points from vathra.xyz API as a toggleable map layer
+- [ ] **Trig point markers** -- distinct icon (triangle/pillar) with point ID, elevation, and condition status
+- [ ] **Trig point details** -- tap a trig point to see name, coordinates (EGSA87), elevation, GYS sheet, condition report, photos from vathra.xyz
+- [ ] **Stakeout to trig point** -- one-tap to set a trig point as a stakeout target (auto-fills coordinates)
+- [ ] **Verification workflow** -- record a point at the trig mark, compare measured vs published coordinates, compute residuals (dE, dN, dH)
+- [ ] **Verification report** -- generate a summary with point ID, measured/published coords, deltas, fix quality, date/time
+- [ ] **Submit condition update** -- optionally report trig point condition (intact/damaged/destroyed/missing) back to vathra.xyz
+- [ ] **Offline trig point cache** -- download trig point database for a region for field use without connectivity
+
+### v1.8.0 -- Extensible Geodesy
 **Goal:** Support custom coordinate systems, grids, and geoid models beyond Greece.
 
 - [ ] **Custom correction grids** -- import user-provided dE/dN grids (same .grd format)
@@ -64,7 +76,7 @@
 - [ ] **Grid manager** -- list loaded grids, import/delete, show coverage and metadata
 - [ ] **Inverse transformation** -- EGSA87 → WGS84 (iterative grid interpolation)
 
-### v1.8.0 -- Receiver Intelligence
+### v1.9.0 -- Receiver Intelligence
 **Goal:** Better hardware integration and receiver management.
 
 - [ ] **Receiver profiles** -- presets for ArduSimple, u-blox ZED-F9P, Emlid Reach
@@ -74,7 +86,7 @@
 - [ ] **u-blox UBX protocol** -- configure receiver message rates, dynamic model
 - [ ] **Custom attribute fields** per project (user-defined columns per geometry type)
 
-### v1.9.0 -- Offline & Performance
+### v1.10.0 -- Offline & Performance
 **Goal:** Full field capability without connectivity.
 
 - [ ] **Offline map tiles** -- download PMTiles for Greece to device storage
