@@ -10,7 +10,7 @@ Thank you for your interest in contributing to OpenTopo! This guide will help yo
    cd opentopo
    ```
 
-2. **Install Android Studio** (recommended) or ensure you have JDK 17+ and Android SDK API 35.
+2. **Install Android Studio** (recommended) or ensure you have JDK 17+ and Android SDK with compileSdk 36 (AGP 9.1.0, Kotlin 2.3.0, Gradle 9.4.1).
 
 3. **Run the tests:**
    ```bash

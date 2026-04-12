@@ -16,10 +16,13 @@ MAP DISPLAY
 Vector basemap with Greek labels, roads, buildings, and contour lines. Ktimatologio orthophoto overlay. Recorded points displayed with fix-quality color coding.
 
 STAKEOUT NAVIGATION
-Enter target coordinates and navigate to the point with a compass bearing arrow, distance display, and delta E/N readout.
+Enter target coordinates and navigate to the point with a compass bearing arrow, distance display, and delta E/N readout. Immersive full-screen mode provides a dark HUD with extra-large distance text and a 240dp compass for heads-up field navigation.
 
 DATA EXPORT
 Export survey projects to CSV, GeoJSON, or DXF. Import points from CSV files. Share via any Android app.
+
+MODERN DESIGN
+Material 3 Expressive UI with animated record button, active layer indicators, and optimized field readability. Designed for outdoor use with high-contrast colors and large touch targets.
 
 OPEN SOURCE
 No ads, no tracking, no cloud dependency. All data stays on your device. Source code available on GitHub under GNU AGPLv3.

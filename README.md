@@ -71,16 +71,25 @@ Full 6-step pipeline: geographic-to-Cartesian, 7-parameter Helmert, Cartesian-to
 - Haptic and audio feedback on point recorded
 
 ### Stakeout Navigation
-Navigate to target EGSA87 coordinates with live compass, distance, bearing, and delta E/N display.
+Navigate to target EGSA87 coordinates with live compass, distance, bearing, and delta E/N display. Immersive full-screen mode with dark background, extra-large distance readout, 240 dp compass, and fix status pill for heads-up field navigation.
+
+### Geoid & Height Support
+- Orthometric height (H = h - N) from receiver-reported geoid separation
+- Dual height display in status bar (ellipsoidal and MSL)
+- Geoid fields exported in all formats (CSV, GeoJSON, DXF, Shapefile)
 
 ### Coordinate Tools
 - Interactive coordinate converter (WGS84 to EGSA87) with full pipeline visualization
 - Transform parameter inspector showing Helmert parameters, TM constants, and grid metadata
+- Geoid undulation inspector step in pipeline
 
 ### Export and Import
-- Export CSV (both WGS84 and EGSA87), GeoJSON (EPSG:2100), DXF (AutoCAD R14)
-- CSV import for bringing in external point data
+- Export CSV (both WGS84 and EGSA87), GeoJSON (EPSG:2100), DXF (AutoCAD R12), Shapefile (SHP/DBF/SHX/PRJ ZIP)
+- CSV import for bringing in external point data, CSV stakeout target import
 - Android share intent for all export formats
+
+### Trigonometric Point Integration
+25,259 Greek GYS trig points from vathra.xyz API displayed as status-colored markers on the map. Tap for details (name, EGSA87 coordinates, elevation, status). "Nearby Trig Points" in stakeout for quick target selection.
 
 ### Satellite Skyplot
 Polar chart showing tracked satellites with constellation colors and elevation/azimuth positioning.
@@ -92,7 +101,10 @@ Polar chart showing tracked satellites with constellation colors and elevation/a
 - All settings persisted via DataStore
 
 ### UI
-- Material 3 Expressive (MaterialExpressiveTheme, MotionScheme.expressive)
+- Material 3 Expressive Direction C visual overhaul (MaterialExpressiveTheme, MotionScheme.expressive)
+- Record button pulse ring animation during point recording
+- FAB always visible (dimmed when disabled)
+- Active layer indicators in map layer switcher
 - 6 scrollable tabs: GNSS, Survey, Stake, Export, Transform, Config
 - Persistent fix status pill on map
 - NTRIP disconnect alert vibration
@@ -125,6 +137,7 @@ opentopo/
             ├── ConnectionPanel, SurveyPanel, StakeoutPanel, ExportPanel
             ├── TransformPanel  Coordinate converter + pipeline inspector
             ├── SettingsPanel   App configuration
+            ├── StakeoutImmersiveOverlay  Full-screen dark stakeout HUD
             ├── Skyplot         Satellite polar chart
             └── theme/          M3 Expressive theme, colors, typography
 ```

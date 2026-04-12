@@ -32,7 +32,7 @@
 - [x] Line/polygon recording with map rendering
 - [x] Point/Line/Area mode switcher, brand logo
 
-### v1.5.0 -- Data & Measurement (current)
+### v1.5.0 -- Data & Measurement
 - [x] Shapefile export (SHP/DBF/SHX/PRJ as ZIP)
 - [x] Import stakeout targets from CSV
 - [x] Real-time distance and area during recording
@@ -40,11 +40,7 @@
 - [x] DXF R12 export fixed for AutoCAD
 - [x] F-Droid fdroiddata submission (MR #36364)
 
----
-
-## Development Path Forward
-
-### v1.6.0 -- Geoid & Heights (current)
+### v1.6.0 -- Geoid & Heights
 - [x] Geoid undulation from GGA receiver used for orthometric height computation
 - [x] Dual height display: H (orthometric/MSL) and h (ellipsoidal) in status bar
 - [x] Geoid separation and orthometric height stored in PointEntity (DB migration v5)
@@ -52,7 +48,11 @@
 - [x] Orthometric height exported in CSV, GeoJSON, DXF, Shapefile
 - [x] CSV import backward compatible with old format
 
-### v1.7.0 -- Vathra.xyz Integration & Trig Point Verification (current)
+---
+
+## Development Path Forward
+
+### v1.7.0 -- Vathra.xyz Integration & Trig Point Verification
 - [x] Trig point map layer — 25,259 GYS points from vathra.xyz API with status-colored markers
 - [x] Trig point details — tap for name, EGSA87 coords, elevation, GYS sheet, status
 - [x] Stakeout to trig point — nearby points list, one-tap to set as target
@@ -63,7 +63,7 @@
 - [ ] Submit condition update to vathra.xyz
 - [ ] Offline trig point cache
 
-### v1.8.0 -- Direction C: M3 Expressive Showcase (current)
+### v1.8.0 -- Direction C: M3 Expressive Showcase
 - [x] Compressed single-row status bar (fix + accuracy only in peek)
 - [x] FAB always visible (dimmed when disabled)
 - [x] DGPS color distinguished from Float

@@ -11,18 +11,19 @@
 │  │ Connection   │ │ USB Service   │ │ NtripConfig         │  │
 │  │ Survey       │ │ Internal GPS  │ │                     │  │
 │  │ Stakeout     │ │ NmeaParser    │ │                     │  │
-│  │ ToolsPanel   │ │ GnssState     │ │                     │  │
+│  │ StakeoutImm. │ │ GnssState     │ │                     │  │
+│  │ ToolsPanel   │ │               │ │                     │  │
 │  │ Skyplot      │ │               │ │                     │  │
 │  │ components/  │ │               │ │                     │  │
 │  │ theme/       │ │               │ │                     │  │
 │  └──────────────┘ └───────────────┘ └─────────────────────┘  │
 │  ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐  │
 │  │ survey/      │ │ export/       │ │ db/                 │  │
-│  │ Manager      │ │ CsvExporter   │ │ Room (SQLite v4)    │  │
+│  │ Manager      │ │ CsvExporter   │ │ Room (SQLite v5)    │  │
 │  │ Stakeout     │ │ CsvImporter   │ │ Projects, Points    │  │
 │  │ Lines/Polys  │ │ GeoJSON, DXF  │ │ Lines, Polygons     │  │
-│  │              │ │ GeoJSON       │ │                     │  │
-│  │              │ │ DXF           │ │                     │  │
+│  │              │ │ Shapefile     │ │                     │  │
+│  │              │ │               │ │                     │  │
 │  └──────────────┘ └───────────────┘ └─────────────────────┘  │
 │  ┌──────────────┐                                             │
 │  │ prefs/       │                                             │
@@ -54,7 +55,7 @@ NmeaParser ──► GnssState (StateFlows)
                           HeposTransform ──► EGSA87 (E, N)
                                │
                                ▼
-                          Room Database ──► Export (CSV/GeoJSON/DXF)
+                          Room Database ──► Export (CSV/GeoJSON/DXF/SHP)
 
 GnssState ──► Synthetic GGA ──► NtripClient (GGA forwarding for VRS)
 
@@ -94,10 +95,18 @@ The app uses Material 3 Expressive with a map-centric single-screen design.
 |-----|-------|---------|
 | GNSS | `ConnectionPanel` | BT/USB/Internal GPS connection, satellite skyplot |
 | Survey | `SurveyPanel` | Project management, point list, edit/delete, photos |
-| Stake | `StakeoutPanel` | Target navigation with compass, distance, deltas |
-| Export | `ExportPanel` | CSV/GeoJSON/DXF export, CSV import, share |
+| Stake | `StakeoutPanel` | Target navigation with compass, distance, deltas; immersive full-screen overlay |
+| Export | `ExportPanel` | CSV/GeoJSON/DXF/Shapefile export, CSV import, share |
 | Transform | `TransformPanel` | Coordinate converter (WGS84 to EGSA87), pipeline inspector |
 | Config | `SettingsPanel` | Averaging, accuracy, baud rate, GGA interval, format |
+
+### Stakeout Immersive Overlay
+`StakeoutImmersiveOverlay` provides a full-screen dark HUD for heads-up stakeout navigation. Uses `inverseSurface` background, `displayLarge` distance text, a 240 dp compass, delta E/N readout, and a fix status pill. Entered via "Full Screen" button from the StakeoutPanel.
+
+### Animation System
+- **Pulse ring** on the record FAB: expanding/fading ring (`Animatable` alpha + scale) during epoch averaging
+- **Spring motion** planned for sheet/tab transitions (`MotionScheme.expressive`)
+- Fix status pill pulsing dot animation
 
 ### Satellite Skyplot
 `Skyplot.kt` renders a polar chart of tracked satellites with constellation-based colors (GPS, GLONASS, Galileo, BeiDou), elevation rings, and azimuth grid. Drawn on a Compose `Canvas`.

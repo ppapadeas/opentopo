@@ -15,14 +15,14 @@ RepoType: git
 Repo: https://github.com/ppapadeas/opentopo.git
 
 Builds:
-  - versionName: 1.6.0
-    versionCode: 6
-    commit: a1229ecc6443e56a38c2929da1ddae9b641f3fd8
+  - versionName: 1.8.0
+    versionCode: 8
+    commit: v1.8.0
     subdir: app
     gradle:
       - yes
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.6.0
-CurrentVersionCode: 6
+CurrentVersion: 1.8.0
+CurrentVersionCode: 8
