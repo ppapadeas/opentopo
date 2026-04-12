@@ -1,6 +1,10 @@
-# OpenTopo
+<p align="center">
+  <img src="docs/logo.svg" width="200" alt="OpenTopo logo">
+</p>
 
-**Open-source Android GNSS survey app with HEPOS/GGRS87 grid transformation for Greece.**
+<h1 align="center">OpenTopo</h1>
+
+<p align="center"><strong>Open-source Android GNSS survey app with HEPOS/GGRS87 grid transformation for Greece.</strong></p>
 
 [![CI](https://github.com/ppapadeas/opentopo/actions/workflows/ci.yml/badge.svg)](https://github.com/ppapadeas/opentopo/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
