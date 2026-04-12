@@ -525,6 +525,10 @@ fun MainMapScreen(
                                 map.cameraPosition = CameraPosition.Builder()
                                     .target(LatLng(38.5, 23.8)).zoom(6.0).build()
 
+                                // Move compass to avoid overlap with fix status pill
+                                map.uiSettings.isCompassEnabled = true
+                                map.uiSettings.setCompassMargins(0, 200, 40, 0) // left, top, right, bottom (px)
+
                                 // Add user location source + layers
                                 val locationSource = GeoJsonSource(
                                     "user-location",
