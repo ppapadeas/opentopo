@@ -550,39 +550,39 @@ fun MainMapScreen(
                                 val pointsSource = GeoJsonSource("survey-points")
                                 style.addSource(pointsSource)
 
-                                // Point markers - colored circles based on fix quality
+                                // Point markers - colored circles with thick white border for ortho visibility
                                 style.addLayerBelow(
                                     CircleLayer("survey-points-circle", "survey-points")
                                         .withProperties(
-                                            PropertyFactory.circleRadius(6f),
+                                            PropertyFactory.circleRadius(8f),
                                             PropertyFactory.circleColor(
                                                 Expression.match(
                                                     Expression.get("fixQuality"),
-                                                    Expression.literal("#C62828"),  // default: no fix red
-                                                    Expression.stop(4, "#2E7D32"),  // RTK fix green
-                                                    Expression.stop(5, "#EF6C00"),  // RTK float orange
-                                                    Expression.stop(2, "#F9A825"),  // DGPS yellow
-                                                    Expression.stop(1, "#1565C0"),  // GPS blue
+                                                    Expression.literal("#FF1744"),  // default: bright red
+                                                    Expression.stop(4, "#00E676"),  // RTK fix: bright green
+                                                    Expression.stop(5, "#FFAB00"),  // RTK float: bright amber
+                                                    Expression.stop(2, "#FFD600"),  // DGPS: bright yellow
+                                                    Expression.stop(1, "#448AFF"),  // GPS: bright blue
                                                 )
                                             ),
                                             PropertyFactory.circleStrokeColor("#FFFFFF"),
-                                            PropertyFactory.circleStrokeWidth(1.5f),
+                                            PropertyFactory.circleStrokeWidth(3f),
                                         ),
                                     "user-location-glow",
                                 )
 
-                                // Point labels
+                                // Point labels - white halo for ortho readability
                                 style.addLayerBelow(
                                     org.maplibre.android.style.layers.SymbolLayer(
                                         "survey-points-labels", "survey-points",
                                     ).withProperties(
                                         PropertyFactory.textField(Expression.get("id")),
                                         PropertyFactory.textFont(arrayOf("Noto Sans Medium")),
-                                        PropertyFactory.textSize(11f),
-                                        PropertyFactory.textOffset(arrayOf(0f, -1.5f)),
-                                        PropertyFactory.textColor("#333333"),
-                                        PropertyFactory.textHaloColor("#FFFFFF"),
-                                        PropertyFactory.textHaloWidth(1.5f),
+                                        PropertyFactory.textSize(12f),
+                                        PropertyFactory.textOffset(arrayOf(0f, -1.8f)),
+                                        PropertyFactory.textColor("#FFFFFF"),
+                                        PropertyFactory.textHaloColor("#000000"),
+                                        PropertyFactory.textHaloWidth(2f),
                                         PropertyFactory.textAllowOverlap(true),
                                     ),
                                     "user-location-glow",
@@ -594,9 +594,9 @@ fun MainMapScreen(
                                 style.addLayerBelow(
                                     LineLayer("survey-lines-layer", "survey-lines")
                                         .withProperties(
-                                            PropertyFactory.lineColor("#006B5E"),
-                                            PropertyFactory.lineWidth(3f),
-                                            PropertyFactory.lineOpacity(0.8f),
+                                            PropertyFactory.lineColor("#00E5FF"),
+                                            PropertyFactory.lineWidth(4f),
+                                            PropertyFactory.lineOpacity(0.9f),
                                         ),
                                     "survey-points-circle",
                                 )
@@ -607,7 +607,7 @@ fun MainMapScreen(
                                 style.addLayerBelow(
                                     FillLayer("survey-polygons-layer", "survey-polygons")
                                         .withProperties(
-                                            PropertyFactory.fillColor("#006B5E"),
+                                            PropertyFactory.fillColor("#00E5FF"),
                                             PropertyFactory.fillOpacity(0.15f),
                                         ),
                                     "survey-lines-layer",
@@ -615,8 +615,8 @@ fun MainMapScreen(
                                 style.addLayerBelow(
                                     LineLayer("survey-polygons-outline", "survey-polygons")
                                         .withProperties(
-                                            PropertyFactory.lineColor("#006B5E"),
-                                            PropertyFactory.lineWidth(2f),
+                                            PropertyFactory.lineColor("#00E5FF"),
+                                            PropertyFactory.lineWidth(3f),
                                             PropertyFactory.lineOpacity(0.6f),
                                         ),
                                     "survey-lines-layer",
