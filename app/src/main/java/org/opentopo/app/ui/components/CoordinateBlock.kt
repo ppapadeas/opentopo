@@ -36,8 +36,8 @@ fun CoordinateBlock(
             )
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("E $easting", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.W600)
-                Text("N $northing", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.W600)
+                Text("E $easting", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.W700)
+                Text("N $northing", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.W700)
             }
         }
     }

@@ -62,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import java.io.File
@@ -325,6 +326,7 @@ private fun ProjectDetail(
                 FilledTonalButton(
                     onClick = { featureScope.launch { surveyManager?.startFeature() } },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(percent = 50),
                 ) {
                     Icon(if (recordingMode == "line") Icons.Outlined.Timeline else Icons.Outlined.Pentagon, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -375,6 +377,7 @@ private fun ProjectDetail(
                             FilledTonalButton(
                                 onClick = { surveyManager?.recordVertex() },
                                 modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(percent = 50),
                             ) {
                                 Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
@@ -383,6 +386,7 @@ private fun ProjectDetail(
                             OutlinedButton(
                                 onClick = { surveyManager?.finishFeature() },
                                 modifier = Modifier.weight(1f),
+                                shape = MaterialTheme.shapes.extraLarge,
                             ) {
                                 Icon(Icons.Outlined.Check, null, Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
@@ -493,6 +497,7 @@ private fun RecordingControls(
                 OutlinedButton(
                     onClick = { surveyManager?.cancelRecording() },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
                 ) {
                     Text("Cancel")
                 }
@@ -525,6 +530,7 @@ private fun RecordingControls(
                     },
                     enabled = surveyManager != null,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(percent = 50),
                 ) {
                     Icon(
                         Icons.Outlined.RadioButtonChecked,

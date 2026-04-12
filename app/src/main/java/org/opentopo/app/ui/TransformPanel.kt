@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.transform.GeographicCoordinate
@@ -123,7 +124,7 @@ fun TransformPanel(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
+                    shape = RoundedCornerShape(percent = 50),
                 ) {
                     Icon(Icons.Outlined.SwapVert, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))

@@ -17,7 +17,7 @@ fun TonalCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), content = content)
     }

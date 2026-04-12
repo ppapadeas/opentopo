@@ -50,6 +50,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -113,6 +114,7 @@ fun StakeoutPanel(
             OutlinedButton(
                 onClick = { importLauncher.launch("text/*") },
                 modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
             ) {
                 Icon(Icons.Outlined.FileUpload, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
@@ -141,6 +143,7 @@ fun StakeoutPanel(
                     },
                     enabled = currentPos?.hasFix == true && !loadingNearby,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
                 ) {
                     Icon(Icons.Outlined.PinDrop, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -253,7 +256,7 @@ fun StakeoutPanel(
                         },
                         enabled = targetE.toDoubleOrNull() != null && targetN.toDoubleOrNull() != null,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.small,
+                        shape = RoundedCornerShape(percent = 50),
                     ) {
                         Text("Start")
                     }
@@ -331,7 +334,7 @@ fun StakeoutPanel(
                 FilledTonalButton(
                     onClick = onImmersiveRequest,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.small,
+                    shape = RoundedCornerShape(percent = 50),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Fullscreen,
@@ -350,7 +353,7 @@ fun StakeoutPanel(
                     hasTarget = false
                 },
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.small,
+                shape = MaterialTheme.shapes.extraLarge,
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Close,

@@ -2,12 +2,13 @@ package org.opentopo.app.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.EaseInOut
-import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -348,15 +349,16 @@ fun MainMapScreen(
         modifier = modifier,
         sheetPeekHeight = 148.dp,
         sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        sheetTonalElevation = 0.dp,
         sheetShadowElevation = 8.dp,
         sheetDragHandle = {
             Surface(
-                modifier = Modifier.padding(vertical = 12.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                shape = MaterialTheme.shapes.extraLarge,
+                modifier = Modifier.padding(vertical = 14.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(percent = 50),
             ) {
-                Box(Modifier.size(width = 32.dp, height = 4.dp))
+                Box(Modifier.size(width = 40.dp, height = 5.dp))
             }
         },
         snackbarHost = {
@@ -467,12 +469,12 @@ fun MainMapScreen(
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
-                            text = { Text(tab.title, style = MaterialTheme.typography.labelMedium) },
+                            text = { Text(tab.title, style = MaterialTheme.typography.labelLarge) },
                             icon = {
                                 Icon(
                                     tab.icon,
                                     contentDescription = tab.title,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(24.dp),
                                 )
                             },
                         )
@@ -482,7 +484,10 @@ fun MainMapScreen(
                 // ── Panel content with animated transitions ──
                 AnimatedContent(
                     targetState = selectedTab,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    transitionSpec = {
+                        fadeIn(animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)) togetherWith
+                            fadeOut(animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f))
+                    },
                     label = "panel",
                 ) { tab ->
                     Box(
@@ -790,7 +795,7 @@ fun MainMapScreen(
                         initialValue = 1f,
                         targetValue = 1.4f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(2000, easing = EaseInOut),
+                            animation = tween(1500, easing = FastOutSlowInEasing),
                             repeatMode = RepeatMode.Restart,
                         ),
                         label = "ringScale",
@@ -799,7 +804,7 @@ fun MainMapScreen(
                         initialValue = 0.3f,
                         targetValue = 0f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(2000, easing = EaseOut),
+                            animation = tween(1500, easing = LinearOutSlowInEasing),
                             repeatMode = RepeatMode.Restart,
                         ),
                         label = "ringAlpha",

@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import org.opentopo.app.gnss.BluetoothGnssService
@@ -164,6 +165,7 @@ fun ConnectionPanel(
                         modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
                         shape = MaterialTheme.shapes.large,
+                        tonalElevation = 2.dp,
                     ) {
                         Column(Modifier.padding(14.dp)) {
                             // Connection method badge
@@ -210,7 +212,7 @@ fun ConnectionPanel(
                                         usbService.disconnect()
                                         internalService.disconnect()
                                     },
-                                    shape = MaterialTheme.shapes.medium,
+                                    shape = MaterialTheme.shapes.extraLarge,
                                 ) {
                                     Text("Disconnect")
                                 }
@@ -296,7 +298,7 @@ fun ConnectionPanel(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
+                            shape = RoundedCornerShape(percent = 50),
                         ) {
                             Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
@@ -359,7 +361,7 @@ fun ConnectionPanel(
                                 }
                                 OutlinedButton(
                                     onClick = { ntripClient.disconnect() },
-                                    shape = MaterialTheme.shapes.medium,
+                                    shape = MaterialTheme.shapes.extraLarge,
                                 ) {
                                     Text("Stop")
                                 }
@@ -474,7 +476,7 @@ private fun BluetoothPicker(bluetoothService: BluetoothGnssService) {
             onClick = { selectedDevice?.let { bluetoothService.connect(it) } },
             enabled = selectedDevice != null,
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
+            shape = RoundedCornerShape(percent = 50),
         ) {
             Icon(
                 Icons.Outlined.Bluetooth,
@@ -537,7 +539,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
             OutlinedButton(
                 onClick = { activity?.refreshUsbDevices() },
                 modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.medium,
+                shape = MaterialTheme.shapes.extraLarge,
             ) {
                 Icon(
                     Icons.Outlined.Refresh,
@@ -556,7 +558,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
                 },
                 enabled = selectedDriver != null,
                 modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.medium,
+                shape = RoundedCornerShape(percent = 50),
             ) {
                 Icon(
                     Icons.Outlined.Usb,
@@ -774,7 +776,7 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 },
                 enabled = !fetchingSourcetable && host.isNotBlank(),
                 modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.medium,
+                shape = MaterialTheme.shapes.extraLarge,
             ) {
                 if (fetchingSourcetable) {
                     ContainedLoadingIndicator(modifier = Modifier.size(20.dp))
@@ -805,7 +807,7 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 },
                 enabled = host.isNotBlank() && mountpoint.isNotBlank(),
                 modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.medium,
+                shape = RoundedCornerShape(percent = 50),
             ) {
                 Text("Connect")
             }

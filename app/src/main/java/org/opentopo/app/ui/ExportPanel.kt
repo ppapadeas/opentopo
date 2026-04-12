@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
@@ -179,7 +180,7 @@ fun ExportPanel(
                 OutlinedButton(
                     onClick = { importLauncher.launch("text/*") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
+                    shape = MaterialTheme.shapes.extraLarge,
                 ) {
                     Icon(
                         Icons.Outlined.FileUpload,
@@ -237,7 +238,7 @@ fun ExportPanel(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
+                            shape = RoundedCornerShape(percent = 50),
                         ) {
                             Icon(
                                 Icons.Outlined.TableChart,
@@ -267,7 +268,7 @@ fun ExportPanel(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
+                            shape = MaterialTheme.shapes.extraLarge,
                         ) {
                             Icon(
                                 Icons.Outlined.Map,
@@ -297,7 +298,7 @@ fun ExportPanel(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
+                            shape = MaterialTheme.shapes.extraLarge,
                         ) {
                             Icon(
                                 Icons.Outlined.Architecture,

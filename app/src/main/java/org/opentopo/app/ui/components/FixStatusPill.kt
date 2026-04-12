@@ -1,6 +1,6 @@
 package org.opentopo.app.ui.components
 
-import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -54,7 +54,7 @@ fun FixStatusPill(fixQuality: Int, modifier: Modifier = Modifier) {
         initialValue = 1f,
         targetValue = 0.4f,
         animationSpec = infiniteRepeatable(
-            animation = tween(750, easing = EaseInOut),
+            animation = tween(600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "dotPulse",
