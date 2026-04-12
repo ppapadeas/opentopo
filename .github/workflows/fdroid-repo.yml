@@ -6,71 +6,53 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 jobs:
   update-repo:
     name: Update F-Droid Repository
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install fdroidserver
         run: |
           sudo apt-get update
-          sudo apt-get install -y fdroidserver apksigner
+          sudo apt-get install -y fdroidserver
 
-      - name: Download release APK
+      - name: Download latest release APK
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p repo
-          # Download latest release APK
-          gh release download --pattern "*.apk" --dir repo/ || true
-          ls -la repo/
+          mkdir -p docs/fdroid/repo
+          gh release download --pattern "*.apk" --dir docs/fdroid/repo/ || echo "No APK found"
+          ls -la docs/fdroid/repo/
 
-      - name: Initialize F-Droid repo
+      - name: Generate F-Droid repo index
         run: |
-          mkdir -p fdroid-repo/repo
-          cp repo/*.apk fdroid-repo/repo/ 2>/dev/null || true
+          cd docs/fdroid
 
-          # Copy metadata
-          mkdir -p fdroid-repo/metadata/en-US
-          cp fastlane/metadata/android/en-US/full_description.txt fdroid-repo/metadata/en-US/ 2>/dev/null || true
-          cp fastlane/metadata/android/en-US/short_description.txt fdroid-repo/metadata/en-US/ 2>/dev/null || true
-
-          cd fdroid-repo
-
-          # Create minimal config
+          # Create config
+          mkdir -p config
           cat > config.yml << 'CONF'
           repo_url: https://ppapadeas.github.io/opentopo/fdroid/repo
           repo_name: OpenTopo F-Droid Repo
-          repo_description: Open-source GNSS survey app for Greece
+          repo_description: >-
+            Open-source GNSS survey app with HEPOS transformation for Greece.
+            This is the developer's own F-Droid repository.
           archive_older: 3
           CONF
 
-          # Generate repo index
-          fdroid update --create-metadata 2>/dev/null || echo "fdroid update completed"
+          # Generate index from APKs
+          fdroid update --create-metadata --rename-apks 2>&1 || echo "fdroid update done"
+          ls -la repo/
 
-      - name: Prepare Pages
+      - name: Commit and push repo index
         run: |
-          mkdir -p _site/fdroid
-          cp -r fdroid-repo/repo _site/fdroid/ 2>/dev/null || true
-          # Also serve the privacy policy and docs
-          cp docs/privacy-policy.html _site/ 2>/dev/null || true
-          cp docs/logo.svg _site/ 2>/dev/null || true
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/fdroid/
+          git diff --cached --quiet && echo "No changes" || (git commit -m "Update F-Droid repo index [skip ci]" && git push)
