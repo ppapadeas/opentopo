@@ -4,22 +4,27 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.PinDrop
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -47,12 +52,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.StakeoutTarget
 import org.opentopo.app.survey.TrigPoint
 import org.opentopo.app.survey.TrigPointService
+import org.opentopo.app.ui.components.FixStatusPill
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
 
@@ -62,6 +69,7 @@ fun StakeoutPanel(
     stakeout: Stakeout?,
     trigPointService: TrigPointService? = null,
     gnssState: GnssState? = null,
+    onImmersiveRequest: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val surveyColors = LocalSurveyColors.current
@@ -318,6 +326,23 @@ fun StakeoutPanel(
                 }
             }
 
+            // Full Screen button (when target is active and has fix)
+            if (result != null && onImmersiveRequest != null) {
+                FilledTonalButton(
+                    onClick = onImmersiveRequest,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.small,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Fullscreen,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Full Screen")
+                }
+            }
+
             // Clear Target button (always visible when target is set)
             OutlinedButton(
                 onClick = {
@@ -405,6 +430,230 @@ private fun StakeoutArrow(bearingDeg: Double, distance: Double) {
                 lineTo(center.x - 14.dp.toPx(), center.y - innerRadius * 0.15f) // left
                 lineTo(center.x, center.y - innerRadius * 0.30f)               // notch
                 lineTo(center.x + 14.dp.toPx(), center.y - innerRadius * 0.15f) // right
+                close()
+            }
+            drawPath(arrowPath, color)
+        }
+    }
+}
+
+// ── Stakeout immersive full-screen overlay ──
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun StakeoutImmersiveOverlay(
+    stakeout: Stakeout,
+    gnssState: GnssState,
+    onExit: () -> Unit,
+) {
+    val surveyColors = LocalSurveyColors.current
+    val result by stakeout.result.collectAsState(initial = null)
+    val position by gnssState.position.collectAsState()
+    val accuracy by gnssState.accuracy.collectAsState()
+
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(100f),
+        color = MaterialTheme.colorScheme.inverseSurface,
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+        ) {
+            // Top-left: fix status pill
+            FixStatusPill(
+                position.fixQuality,
+                Modifier.align(Alignment.TopStart),
+            )
+
+            // Top-right row: accuracy + exit button
+            Row(
+                modifier = Modifier.align(Alignment.TopEnd),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                accuracy.horizontalAccuracyM?.let { h ->
+                    Text(
+                        "\u00B1${"%.3f".format(h)}m",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontFamily = CoordinateFont,
+                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                    )
+                }
+                IconButton(onClick = onExit) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Exit full screen",
+                        tint = MaterialTheme.colorScheme.inverseOnSurface,
+                    )
+                }
+            }
+
+            // Centre content
+            val r = result
+            if (r != null) {
+                val distColor = surveyColors.stakeoutColor(r.distance)
+
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    // Large distance display
+                    Text(
+                        "%.3f".format(r.distance),
+                        style = MaterialTheme.typography.displayLarge,
+                        fontFamily = CoordinateFont,
+                        color = distColor,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        "metres",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.6f),
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // Larger compass arrow (240dp)
+                    ImmersiveStakeoutArrow(
+                        bearingDeg = r.bearingDeg,
+                        distance = r.distance,
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // Bearing text
+                    Text(
+                        "${r.bearingCardinal} (${"%.1f".format(r.bearingDeg)}\u00B0)",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                    )
+                }
+
+                // Bottom: delta E / delta N
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 48.dp),
+                    horizontalArrangement = Arrangement.spacedBy(48.dp),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "%.3f".format(r.deltaEasting),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontFamily = CoordinateFont,
+                            color = MaterialTheme.colorScheme.inversePrimary,
+                        )
+                        Text(
+                            "\u0394E",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.5f),
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "%.3f".format(r.deltaNorthing),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontFamily = CoordinateFont,
+                            color = MaterialTheme.colorScheme.inversePrimary,
+                        )
+                        Text(
+                            "\u0394N",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.5f),
+                        )
+                    }
+                }
+            } else {
+                // Waiting for fix
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    ContainedLoadingIndicator(modifier = Modifier.size(48.dp))
+                    Text(
+                        "Waiting for fix\u2026",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.inverseOnSurface,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Larger stakeout arrow (240dp) for the immersive overlay.
+ * Uses inverse colour scheme to work on dark backgrounds.
+ */
+@Composable
+private fun ImmersiveStakeoutArrow(bearingDeg: Double, distance: Double) {
+    val surveyColors = LocalSurveyColors.current
+    val color = surveyColors.stakeoutColor(distance)
+    val outlineVariant = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.3f)
+    val onSurfaceVariant = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
+
+    val textMeasurer = rememberTextMeasurer()
+    val cardinalStyle = TextStyle(
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = onSurfaceVariant,
+    )
+
+    Canvas(modifier = Modifier.size(240.dp)) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val radius = size.minDimension / 2
+        val innerRadius = radius - 20.dp.toPx()
+
+        // Outer ring
+        drawCircle(
+            color = outlineVariant,
+            radius = radius,
+            center = center,
+            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
+        )
+
+        // Fill circle with stakeout color at low alpha
+        drawCircle(
+            color = color.copy(alpha = 0.10f),
+            radius = radius,
+            center = center,
+        )
+
+        // Cardinal direction labels
+        val cardinals = listOf("N" to 0f, "E" to 90f, "S" to 180f, "W" to 270f)
+        for ((label, deg) in cardinals) {
+            val measured = textMeasurer.measure(label, cardinalStyle)
+            val angleRad = Math.toRadians((deg - 90).toDouble())
+            val labelRadius = radius - 12.dp.toPx()
+            val lx = center.x + (labelRadius * kotlin.math.cos(angleRad)).toFloat() - measured.size.width / 2f
+            val ly = center.y + (labelRadius * kotlin.math.sin(angleRad)).toFloat() - measured.size.height / 2f
+            drawText(measured, topLeft = Offset(lx, ly))
+        }
+
+        // Tick marks at cardinal directions
+        val tickLen = 8.dp.toPx()
+        for (deg in listOf(0f, 90f, 180f, 270f)) {
+            rotate(deg, pivot = center) {
+                drawLine(
+                    outlineVariant,
+                    Offset(center.x, center.y - radius),
+                    Offset(center.x, center.y - radius + tickLen),
+                    strokeWidth = 2f.dp.toPx(),
+                )
+            }
+        }
+
+        // Arrow pointing in bearing direction
+        rotate(bearingDeg.toFloat(), pivot = center) {
+            val arrowPath = Path().apply {
+                moveTo(center.x, center.y - innerRadius * 0.85f)
+                lineTo(center.x - 18.dp.toPx(), center.y - innerRadius * 0.15f)
+                lineTo(center.x, center.y - innerRadius * 0.30f)
+                lineTo(center.x + 18.dp.toPx(), center.y - innerRadius * 0.15f)
                 close()
             }
             drawPath(arrowPath, color)

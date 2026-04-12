@@ -2,6 +2,13 @@ package org.opentopo.app.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -27,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Build
@@ -74,6 +82,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.painter.Painter
@@ -120,7 +129,6 @@ import org.opentopo.app.ntrip.NtripStatus
 import org.opentopo.app.survey.RecordingState
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.SurveyManager
-import org.opentopo.app.ui.components.ConstellationChip
 import org.opentopo.app.ui.components.CoordinateBlock
 import org.opentopo.app.ui.components.FixStatusPill
 import org.opentopo.app.ui.theme.CoordinateFont
@@ -178,6 +186,7 @@ fun MainMapScreen(
     val coordFormat by activity?.prefs?.coordFormat?.collectAsState(initial = 0) ?: remember { mutableStateOf(0) }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
+    var stakeoutImmersive by remember { mutableStateOf(false) }
 
     // Observe active project's survey points for map display
     val activeProjectId by surveyManager?.activeProjectId?.collectAsState()
@@ -377,7 +386,7 @@ fun MainMapScreen(
             ) {
                 // ── Status bar (visible in peek) ──
                 StatusBar(
-                    position, accuracy, satellites,
+                    position, accuracy,
                     connectionStatus, ntripState, projectedCoords, surveyColors, coordFormat,
                 )
 
@@ -490,6 +499,9 @@ fun MainMapScreen(
                                 stakeout,
                                 trigPointService = trigPointService,
                                 gnssState = gnssState,
+                                onImmersiveRequest = {
+                                    stakeoutImmersive = true
+                                },
                             )
                             TAB_TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
                         }
@@ -509,6 +521,8 @@ fun MainMapScreen(
     ) { paddingValues ->
         // ── Map fills the screen ──
         var layerMenuExpanded by remember { mutableStateOf(false) }
+        var orthoVisible by remember { mutableStateOf(false) }
+        var contoursVisible by remember { mutableStateOf(true) }
 
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             AndroidView(
@@ -715,8 +729,12 @@ fun MainMapScreen(
                 ) {
                     DropdownMenuItem(
                         text = { Text("Street Map") },
+                        leadingIcon = {
+                            if (!orthoVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                        },
                         onClick = {
                             layerMenuExpanded = false
+                            orthoVisible = false
                             mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
                                 PropertyFactory.visibility(org.maplibre.android.style.layers.Property.NONE),
                             )
@@ -724,47 +742,78 @@ fun MainMapScreen(
                     )
                     DropdownMenuItem(
                         text = { Text("Orthophoto (Ktimatologio)") },
+                        leadingIcon = {
+                            if (orthoVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                        },
                         onClick = {
                             layerMenuExpanded = false
+                            orthoVisible = true
                             mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
                                 PropertyFactory.visibility(org.maplibre.android.style.layers.Property.VISIBLE),
                             )
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Toggle Contours") },
+                        text = { Text("Contours") },
+                        leadingIcon = {
+                            if (contoursVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                        },
                         onClick = {
                             layerMenuExpanded = false
-                            val layer = mapRef?.style?.getLayer("contours-lines")
-                            val labelsLayer = mapRef?.style?.getLayer("contours-labels")
-                            val currentVis = layer?.visibility?.value
-                            val newVis = if (currentVis == org.maplibre.android.style.layers.Property.VISIBLE)
-                                org.maplibre.android.style.layers.Property.NONE
-                            else
+                            contoursVisible = !contoursVisible
+                            val newVis = if (contoursVisible)
                                 org.maplibre.android.style.layers.Property.VISIBLE
-                            layer?.setProperties(PropertyFactory.visibility(newVis))
-                            labelsLayer?.setProperties(PropertyFactory.visibility(newVis))
+                            else
+                                org.maplibre.android.style.layers.Property.NONE
+                            mapRef?.style?.getLayer("contours-lines")?.setProperties(PropertyFactory.visibility(newVis))
+                            mapRef?.style?.getLayer("contours-labels")?.setProperties(PropertyFactory.visibility(newVis))
                         },
                     )
                 }
             }
 
             // ── FloatingActionButtonMenu: Record actions ──
-            val showFab = position.hasFix
+            val fabEnabled = position.hasFix
                     && surveyManager != null
                     && surveyManager.activeProjectId.collectAsState().value != null
 
-            AnimatedVisibility(
-                visible = showFab,
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 8.dp),
-                enter = scaleIn() + fadeIn(),
-                exit = scaleOut() + fadeOut(),
+                    .padding(end = 16.dp, bottom = 8.dp)
+                    .alpha(if (fabEnabled) 1f else 0.4f),
             ) {
                 if (recordingState.isRecording) {
-                    // Recording in progress: show a standalone FAB with progress
+                    // Recording in progress: show a standalone FAB with progress + pulse ring
+                    val pulseTransition = rememberInfiniteTransition(label = "recordPulse")
+                    val ringScale by pulseTransition.animateFloat(
+                        initialValue = 1f,
+                        targetValue = 1.4f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(2000, easing = EaseInOut),
+                            repeatMode = RepeatMode.Restart,
+                        ),
+                        label = "ringScale",
+                    )
+                    val ringAlpha by pulseTransition.animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 0f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(2000, easing = EaseOut),
+                            repeatMode = RepeatMode.Restart,
+                        ),
+                        label = "ringAlpha",
+                    )
+
                     Box(contentAlignment = Alignment.Center) {
+                        // Pulsing ring behind the FAB
+                        Canvas(Modifier.size(96.dp)) {
+                            drawCircle(
+                                color = Color(0xFFD1416A),
+                                radius = size.minDimension / 2 * ringScale,
+                                alpha = ringAlpha,
+                            )
+                        }
                         LoadingIndicator(
                             progress = { recordingState.progress },
                             modifier = Modifier.size(80.dp),
@@ -795,7 +844,7 @@ fun MainMapScreen(
                         button = {
                             ToggleFloatingActionButton(
                                 checked = fabMenuExpanded,
-                                onCheckedChange = { fabMenuExpanded = !fabMenuExpanded },
+                                onCheckedChange = { if (fabEnabled) fabMenuExpanded = !fabMenuExpanded },
                             ) {
                                 val imageVector by remember {
                                     derivedStateOf {
@@ -854,6 +903,15 @@ fun MainMapScreen(
             }
         }
     }
+
+    // ── Stakeout immersive full-screen overlay ──
+    if (stakeoutImmersive && stakeout != null) {
+        StakeoutImmersiveOverlay(
+            stakeout = stakeout,
+            gnssState = gnssState,
+            onExit = { stakeoutImmersive = false },
+        )
+    }
 }
 
 // ── Status bar shown in bottom sheet peek ──
@@ -862,7 +920,6 @@ fun MainMapScreen(
 private fun StatusBar(
     position: org.opentopo.app.gnss.PositionState,
     accuracy: org.opentopo.app.gnss.AccuracyState,
-    satellites: org.opentopo.app.gnss.SatelliteState,
     connectionStatus: ConnectionStatus,
     ntripState: org.opentopo.app.ntrip.NtripState,
     projectedCoords: org.opentopo.transform.ProjectedCoordinate?,
@@ -896,17 +953,9 @@ private fun StatusBar(
             }
         }
 
-        // Row 2: Constellation chips
-        if (position.hasFix && satellites.byConstellation.isNotEmpty()) {
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                satellites.byConstellation.forEach { (constellation, sats) ->
-                    ConstellationChip(constellation, sats.size)
-                }
-            }
-        }
+        // Constellation chips moved to ConnectionPanel
 
-        // Row 3: Coordinates
+        // Row 2: Coordinates
         if (position.hasFix) {
             Spacer(Modifier.height(8.dp))
             when (coordFormat) {

@@ -69,7 +69,7 @@ val md_theme_dark_scrim = Color(0xFF000000)
 // ── Fix quality colors (light) ──
 val FixRtkGreen = Color(0xFF1B6D2F)       // success
 val FixFloatOrange = Color(0xFF7B5800)    // warning
-val FixDgpsYellow = Color(0xFF7B5800)     // same as warning
+val FixDgpsYellow = Color(0xFFF9A825)     // distinct bright yellow
 val FixGpsBlue = Color(0xFF1565C0)
 val FixNoneRed = Color(0xFFBA1A1A)        // error
 val OnFixColor = Color(0xFFFFFFFF)
@@ -77,7 +77,7 @@ val OnFixColor = Color(0xFFFFFFFF)
 // ── Fix quality colors (dark) ──
 val FixRtkGreenDark = Color(0xFFA1F5A3)
 val FixFloatOrangeDark = Color(0xFFFFDEA6)
-val FixDgpsYellowDark = Color(0xFFFFDEA6)
+val FixDgpsYellowDark = Color(0xFFFFD54F)
 val FixGpsBlueDark = Color(0xFF90CAF9)
 val FixNoneRedDark = Color(0xFFFFB4AB)
 

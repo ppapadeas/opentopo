@@ -21,8 +21,8 @@ val OpenTopoTypography = Typography(
     titleSmall = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.W600, letterSpacing = 0.1.sp),
     bodyLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.W400, letterSpacing = 0.sp),
     bodyMedium = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.W400, letterSpacing = 0.sp),
-    bodySmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.W400, letterSpacing = 0.sp),
+    bodySmall = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.W400, letterSpacing = 0.sp),
     labelLarge = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.W600, letterSpacing = 0.2.sp),
-    labelMedium = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.W600, letterSpacing = 0.3.sp),
-    labelSmall = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.W600, letterSpacing = 0.8.sp),
+    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.W600, letterSpacing = 0.3.sp),
+    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.W600, letterSpacing = 0.8.sp),
 )

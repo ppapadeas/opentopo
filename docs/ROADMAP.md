@@ -63,47 +63,67 @@
 - [ ] Submit condition update to vathra.xyz
 - [ ] Offline trig point cache
 
-### v1.8.0 -- Extensible Geodesy
+### v1.8.0 -- Direction C: M3 Expressive Showcase (current)
+- [x] Compressed single-row status bar (fix + accuracy only in peek)
+- [x] FAB always visible (dimmed when disabled)
+- [x] DGPS color distinguished from Float
+- [x] 12sp minimum font sizes for field readability
+- [x] Active layer indicators in layer switcher
+- [x] Stakeout immersive full-screen mode (dark, huge numbers, 240dp compass)
+- [x] Record button pulse ring animation
+- [ ] Glassmorphism bottom sheet (semi-transparent, blur)
+- [ ] Spring-based motion on all sheet/tab transitions
+- [ ] Shape morphing record button (circle → squircle when recording)
+
+### v1.9.0 -- Quick Win Innovations
+**Goal:** Implement the easiest high-impact innovative features.
+
+- [ ] **Accuracy convergence ring** — animated shrinking circle as RTK converges (difficulty: 3, impact: 8)
+- [ ] **Glove mode** — single toggle: 64dp targets, volume buttons for store/undo, +4sp fonts (difficulty: 3, impact: 9)
+- [ ] **PiP floating stakeout** — picture-in-picture compass visible over other apps (difficulty: 4, impact: 8)
+- [ ] **Ambient-adaptive theme** — auto light/dark from ambient light sensor with hysteresis (difficulty: 5, impact: 7)
+
+### v1.10.0 -- Advanced Innovations
+**Goal:** Differentiating features no competitor has.
+
+- [ ] **Haptic stakeout guidance** — directional vibration patterns for hands-free navigation (difficulty: 5, impact: 9)
+- [ ] **Radial/pie context menu** — long-press on map features for circular action menu (difficulty: 6, impact: 7)
+- [ ] **Home screen widget** — Glance API widget with live survey status (difficulty: 5, impact: 5)
+- [ ] **Survey coverage heatmap** — density overlay revealing spatial gaps (difficulty: 7, impact: 6)
+
+### v2.0.0 -- Extensible Geodesy
 **Goal:** Support custom coordinate systems, grids, and geoid models beyond Greece.
 
-- [ ] **Custom correction grids** -- import user-provided dE/dN grids (same .grd format)
-- [ ] **Custom geoid models** -- import geoid undulation grids for any country
-- [ ] **Custom Helmert parameters** -- user-defined 7-parameter datum transformations
-- [ ] **Custom TM projection** -- configurable central meridian, scale factor, false E/N
-- [ ] **Kastellorizo zone** -- separate TM07 parameters (central meridian 30°, scale 1.0)
-- [ ] **Predefined coordinate systems** -- dropdown with EGSA87, HTRS07, UTM zones, HATT zones
-- [ ] **Grid manager** -- list loaded grids, import/delete, show coverage and metadata
-- [ ] **Inverse transformation** -- EGSA87 → WGS84 (iterative grid interpolation)
+- [ ] **Custom correction grids** — import user-provided dE/dN grids (same .grd format)
+- [ ] **Custom geoid models** — import geoid undulation grids for any country
+- [ ] **Custom Helmert parameters** — user-defined 7-parameter datum transformations
+- [ ] **Custom TM projection** — configurable central meridian, scale factor, false E/N
+- [ ] **Kastellorizo zone** — separate TM07 parameters (central meridian 30°, scale 1.0)
+- [ ] **Predefined coordinate systems** — dropdown with EGSA87, HTRS07, UTM zones, HATT zones
+- [ ] **Grid manager** — list loaded grids, import/delete, show coverage and metadata
+- [ ] **Inverse transformation** — EGSA87 → WGS84 (iterative grid interpolation)
 
-### v1.9.0 -- Receiver Intelligence
+### v2.1.0 -- Receiver Intelligence
 **Goal:** Better hardware integration and receiver management.
 
-- [ ] **Receiver profiles** -- presets for ArduSimple, u-blox ZED-F9P, Emlid Reach
-- [ ] **Auto-detect baud rate** -- try common rates on USB connect
-- [ ] **RTCM message inspector** -- show correction types, ages, base station ID
+- [ ] **Receiver profiles** — presets for ArduSimple, u-blox ZED-F9P, Emlid Reach
+- [ ] **Auto-detect baud rate** — try common rates on USB connect
+- [ ] **RTCM message inspector** — show correction types, ages, base station ID
 - [ ] **Raw observation logging (RINEX)** for post-processing
-- [ ] **u-blox UBX protocol** -- configure receiver message rates, dynamic model
+- [ ] **u-blox UBX protocol** — configure receiver message rates, dynamic model
 - [ ] **Custom attribute fields** per project (user-defined columns per geometry type)
 
-### v1.10.0 -- Offline & Performance
-**Goal:** Full field capability without connectivity.
+### v2.2.0 -- Platform Expansion
+**Goal:** Professional-grade multi-country platform with advanced innovations.
 
-- [ ] **Offline map tiles** -- download PMTiles for Greece to device storage
-- [ ] **Background GNSS service** -- keep tracking when app is backgrounded
-- [ ] **Battery optimization** -- reduce GPS polling when stationary
-- [ ] **Map tile cache** -- aggressive caching for field areas
-
-### v2.0.0 -- Platform Expansion
-**Goal:** Professional-grade multi-country surveying platform.
-
-- [ ] **Tablet layout** -- side-by-side map and panels (NavigationRail)
-- [ ] **Country packs** -- downloadable bundles (grid files + geoid + Helmert + TM params) for:
-  - Greece (HEPOS/GGRS87/EGSA87) -- built-in
-  - Cyprus (LTM, OSGB-like)
-  - Other Balkan countries
-  - Any user-submitted pack
-- [ ] **Localization** -- Greek, English, and community translations
-- [ ] **Dark/light theme toggle** -- per-user preference
-- [ ] **Onboarding tutorial** -- first-run walkthrough with grid/CRS selection
-- [ ] **F-Droid stable publication** -- official inclusion
-- [ ] **Cloud project sync** -- optional backup/share via WebDAV or S3-compatible storage
+- [ ] Tablet layout (NavigationRail dual-pane)
+- [ ] Foldable dual-pane mode (Samsung/Pixel Fold)
+- [ ] Country packs (downloadable grid + geoid + Helmert bundles)
+- [ ] Voice commands for hands-free field operation
+- [ ] Wear OS companion (RTK status on wrist)
+- [ ] Cross-section profile (swipe for elevation profile)
+- [ ] Offline map tiles (PMTiles download)
+- [ ] Localization (Greek, English)
+- [ ] F-Droid stable publication
+- [ ] Cloud project sync (WebDAV/S3)
+- [ ] Onboarding tutorial

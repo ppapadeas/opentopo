@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-04-13
+
+### Added
+- **Stakeout immersive full-screen mode** — dark inverseSurface background, displayLarge distance, 240dp compass, delta E/N, fix pill. Enter via "Full Screen" button during stakeout
+- **Record button pulse ring** — animated expanding/fading ring around FAB during point recording
+- **Active layer indicators** — checkmarks in layer switcher dropdown showing current state
+- **FAB always visible** — dimmed at 40% opacity when disabled instead of hidden
+
+### Changed
+- **DGPS color** distinguished from Float — now bright yellow (#F9A825) vs amber (#7B5800)
+- **Minimum font sizes** increased for field readability — bodySmall 12sp, labelMedium 12sp, labelSmall 11sp
+- **Status bar compressed** — constellation chips removed from peek (shown in GNSS panel instead)
+- Roadmap reorganized with M3 Expressive showcase (v1.8.0), Quick Win Innovations (v1.9.0), Advanced Innovations (v1.10.0)
+
 ## [1.7.0] - 2026-04-12
 
 ### Added
@@ -163,7 +177,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - NTRIP VRS GGA forwarding, USB serial data corruption, PendingIntent crash on Android 14+
 
-[Unreleased]: https://github.com/ppapadeas/opentopo/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/ppapadeas/opentopo/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/ppapadeas/opentopo/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/ppapadeas/opentopo/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/ppapadeas/opentopo/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/ppapadeas/opentopo/compare/v1.4.0...v1.5.0
