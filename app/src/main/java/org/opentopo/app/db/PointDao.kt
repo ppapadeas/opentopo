@@ -32,4 +32,19 @@ interface PointDao {
 
     @Query("SELECT * FROM points WHERE projectId = :projectId ORDER BY timestamp ASC")
     suspend fun getByProjectOnce(projectId: Long): List<PointEntity>
+
+    @Query("SELECT * FROM points WHERE projectId = :projectId AND layerType = :layerType ORDER BY timestamp ASC")
+    fun getByProjectAndType(projectId: Long, layerType: String): Flow<List<PointEntity>>
+
+    @Query("SELECT DISTINCT featureId FROM points WHERE projectId = :projectId AND layerType = :layerType AND featureId IS NOT NULL")
+    suspend fun getFeatureIds(projectId: Long, layerType: String): List<Long>
+
+    @Query("SELECT * FROM points WHERE featureId = :featureId ORDER BY timestamp ASC")
+    fun getByFeature(featureId: Long): Flow<List<PointEntity>>
+
+    @Query("SELECT * FROM points WHERE featureId = :featureId ORDER BY timestamp ASC")
+    suspend fun getByFeatureOnce(featureId: Long): List<PointEntity>
+
+    @Query("SELECT MAX(featureId) FROM points WHERE projectId = :projectId")
+    suspend fun getMaxFeatureId(projectId: Long): Long?
 }

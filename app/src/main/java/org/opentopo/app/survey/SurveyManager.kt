@@ -39,6 +39,18 @@ class SurveyManager(
     private val _projectedPosition = MutableStateFlow<ProjectedCoordinate?>(null)
     val projectedPosition: StateFlow<ProjectedCoordinate?> = _projectedPosition.asStateFlow()
 
+    // Active recording mode
+    private val _recordingMode = MutableStateFlow("point") // "point", "line", "polygon"
+    val recordingMode: StateFlow<String> = _recordingMode.asStateFlow()
+
+    // Active feature being recorded (line or polygon)
+    private val _activeFeatureId = MutableStateFlow<Long?>(null)
+    val activeFeatureId: StateFlow<Long?> = _activeFeatureId.asStateFlow()
+
+    // Vertex count for active feature
+    private val _vertexCount = MutableStateFlow(0)
+    val vertexCount: StateFlow<Int> = _vertexCount.asStateFlow()
+
     private var averagingJob: Job? = null
 
     /** Settings for point recording. */
@@ -149,6 +161,113 @@ class SurveyManager(
     fun cancelRecording() {
         averagingJob?.cancel()
         _recordingState.value = RecordingState()
+    }
+
+    fun setRecordingMode(mode: String) {
+        _recordingMode.value = mode
+    }
+
+    /** Start a new line or polygon feature. Returns the featureId. */
+    suspend fun startFeature(): Long {
+        val projectId = _activeProjectId.value ?: return -1
+        val maxId = db.pointDao().getMaxFeatureId(projectId) ?: 0
+        val featureId = maxId + 1
+        _activeFeatureId.value = featureId
+        _vertexCount.value = 0
+        return featureId
+    }
+
+    /** Record a vertex for the active line/polygon. */
+    fun recordVertex(remarks: String = "") {
+        val projectId = _activeProjectId.value ?: return
+        val featureId = _activeFeatureId.value ?: return
+        val mode = _recordingMode.value
+        val layerType = if (mode == "line") "line_vertex" else "polygon_vertex"
+
+        // Use quick mark (1 epoch) for vertices
+        scope.launch {
+            val pos = gnssState.position.value
+            val acc = gnssState.accuracy.value
+            if (!pos.hasFix) return@launch
+
+            val projected = try {
+                transform.forward(GeographicCoordinate(pos.latitude, pos.longitude, pos.altitude ?: 0.0))
+            } catch (_: Exception) { null }
+
+            val vertexNum = _vertexCount.value + 1
+            val pointId = if (mode == "line") "L${featureId}-V${vertexNum}" else "PG${featureId}-V${vertexNum}"
+
+            val point = PointEntity(
+                projectId = projectId,
+                pointId = pointId,
+                latitude = pos.latitude,
+                longitude = pos.longitude,
+                altitude = pos.altitude,
+                easting = projected?.eastingM,
+                northing = projected?.northingM,
+                horizontalAccuracy = acc.horizontalAccuracyM,
+                verticalAccuracy = acc.altitudeErrorM,
+                fixQuality = pos.fixQuality,
+                numSatellites = pos.numSatellites,
+                hdop = acc.hdop ?: pos.hdop,
+                averagingSeconds = 1,
+                antennaHeight = antennaHeight,
+                remarks = remarks,
+                layerType = layerType,
+                featureId = featureId,
+            )
+            db.pointDao().insert(point)
+            _vertexCount.value = vertexNum
+        }
+    }
+
+    /** Finish the active line/polygon feature. */
+    fun finishFeature() {
+        _activeFeatureId.value = null
+        _vertexCount.value = 0
+    }
+
+    /** Compute the total distance of a line feature in meters. */
+    suspend fun computeLineDistance(featureId: Long): Double {
+        val vertices = db.pointDao().getByFeatureOnce(featureId)
+        if (vertices.size < 2) return 0.0
+        var total = 0.0
+        for (i in 1 until vertices.size) {
+            val prev = vertices[i - 1]
+            val curr = vertices[i]
+            total += haversineDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude)
+        }
+        return total
+    }
+
+    /** Compute the area of a polygon feature in square meters (Shoelace formula on projected coords). */
+    suspend fun computePolygonArea(featureId: Long): Double {
+        val vertices = db.pointDao().getByFeatureOnce(featureId)
+        if (vertices.size < 3) return 0.0
+        // Use EGSA87 projected coordinates for area (meters)
+        val coords = vertices.mapNotNull { pt ->
+            if (pt.easting != null && pt.northing != null) pt.easting to pt.northing else null
+        }
+        if (coords.size < 3) return 0.0
+        // Shoelace formula
+        var area = 0.0
+        for (i in coords.indices) {
+            val j = (i + 1) % coords.size
+            area += coords[i].first * coords[j].second
+            area -= coords[j].first * coords[i].second
+        }
+        return kotlin.math.abs(area) / 2.0
+    }
+
+    private fun haversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val R = 6371000.0 // Earth radius in meters
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = kotlin.math.sin(dLat / 2).let { it * it } +
+                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+                kotlin.math.sin(dLon / 2).let { it * it }
+        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+        return R * c
     }
 
     private suspend fun averageAndStore(

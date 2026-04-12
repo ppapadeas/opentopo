@@ -18,13 +18,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Pentagon
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -38,6 +43,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,6 +70,7 @@ import org.opentopo.app.db.PointEntity
 import org.opentopo.app.db.ProjectEntity
 import org.opentopo.app.survey.RecordingState
 import org.opentopo.app.survey.SurveyManager
+import org.opentopo.app.ui.components.TonalCard
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
 
@@ -262,6 +271,34 @@ private fun ProjectDetail(
     ) {
         Spacer(Modifier.height(8.dp))
 
+        // Recording mode switcher
+        val recordingMode by surveyManager?.recordingMode?.collectAsState() ?: remember { mutableStateOf("point") }
+        val activeFeatureId by surveyManager?.activeFeatureId?.collectAsState() ?: remember { mutableStateOf(null) }
+        val vertexCount by surveyManager?.vertexCount?.collectAsState() ?: remember { mutableStateOf(0) }
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SegmentedButton(
+                selected = recordingMode == "point",
+                onClick = { surveyManager?.setRecordingMode("point") },
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                icon = { SegmentedButtonDefaults.Icon(active = recordingMode == "point") { Icon(Icons.Outlined.LocationOn, null, Modifier.size(18.dp)) } },
+            ) { Text("Point") }
+            SegmentedButton(
+                selected = recordingMode == "line",
+                onClick = { surveyManager?.setRecordingMode("line") },
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                icon = { SegmentedButtonDefaults.Icon(active = recordingMode == "line") { Icon(Icons.Outlined.Timeline, null, Modifier.size(18.dp)) } },
+            ) { Text("Line") }
+            SegmentedButton(
+                selected = recordingMode == "polygon",
+                onClick = { surveyManager?.setRecordingMode("polygon") },
+                shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                icon = { SegmentedButtonDefaults.Icon(active = recordingMode == "polygon") { Icon(Icons.Outlined.Pentagon, null, Modifier.size(18.dp)) } },
+            ) { Text("Area") }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
         // -- Recording controls --
         RecordingControls(
             project = project,
@@ -276,6 +313,51 @@ private fun ProjectDetail(
             onRemarksChange = { remarks = it },
             onRecorded = { remarks = "" },
         )
+
+        if (recordingMode == "line" || recordingMode == "polygon") {
+            Spacer(Modifier.height(8.dp))
+
+            // Line/Polygon recording controls
+            if (activeFeatureId == null) {
+                // Not recording — show "Start" button
+                val featureScope = rememberCoroutineScope()
+                FilledTonalButton(
+                    onClick = { featureScope.launch { surveyManager?.startFeature() } },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(if (recordingMode == "line") Icons.Outlined.Timeline else Icons.Outlined.Pentagon, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Start ${if (recordingMode == "line") "Line" else "Polygon"}")
+                }
+            } else {
+                // Recording active — show vertex count + add vertex + finish
+                TonalCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Recording ${if (recordingMode == "line") "Line" else "Polygon"}", style = MaterialTheme.typography.titleMedium)
+                        Text("$vertexCount vertices recorded", style = MaterialTheme.typography.bodyMedium, fontFamily = CoordinateFont)
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilledTonalButton(
+                                onClick = { surveyManager?.recordVertex() },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Add Vertex")
+                            }
+                            OutlinedButton(
+                                onClick = { surveyManager?.finishFeature() },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(Icons.Outlined.Check, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Finish")
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         Spacer(Modifier.height(16.dp))
 

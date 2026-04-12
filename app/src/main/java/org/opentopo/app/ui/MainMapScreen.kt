@@ -98,6 +98,8 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.FillLayer
+import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.RasterSource
@@ -106,6 +108,8 @@ import org.maplibre.android.style.layers.RasterLayer
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.LineString
+import org.maplibre.geojson.Polygon
 import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.gnss.BluetoothGnssService
 import org.opentopo.app.gnss.ConnectionStatus
@@ -285,6 +289,40 @@ fun MainMapScreen(
         if (source != null) {
             source.setGeoJson(fc)
         }
+    }
+
+    // Update line and polygon features on map
+    LaunchedEffect(activePoints) {
+        val map = mapRef ?: return@LaunchedEffect
+        val style = map.style ?: return@LaunchedEffect
+
+        // Group points by featureId for lines
+        val lineVertices = activePoints.filter { it.layerType == "line_vertex" && it.featureId != null }
+        val lineFeatures = lineVertices.groupBy { it.featureId }
+        val lineGeoJsonFeatures = lineFeatures.map { (_, vertices) ->
+            val coords = vertices.map { Point.fromLngLat(it.longitude, it.latitude) }
+            if (coords.size >= 2) {
+                Feature.fromGeometry(LineString.fromLngLats(coords))
+            } else null
+        }.filterNotNull()
+        style.getSourceAs<GeoJsonSource>("survey-lines")?.setGeoJson(
+            FeatureCollection.fromFeatures(lineGeoJsonFeatures)
+        )
+
+        // Group points by featureId for polygons
+        val polyVertices = activePoints.filter { it.layerType == "polygon_vertex" && it.featureId != null }
+        val polyFeatures = polyVertices.groupBy { it.featureId }
+        val polyGeoJsonFeatures = polyFeatures.map { (_, vertices) ->
+            val coords = vertices.map { Point.fromLngLat(it.longitude, it.latitude) }
+            if (coords.size >= 3) {
+                // Close the polygon
+                val closed = coords + listOf(coords.first())
+                Feature.fromGeometry(Polygon.fromLngLats(listOf(closed)))
+            } else null
+        }.filterNotNull()
+        style.getSourceAs<GeoJsonSource>("survey-polygons")?.setGeoJson(
+            FeatureCollection.fromFeatures(polyGeoJsonFeatures)
+        )
     }
 
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -547,6 +585,40 @@ fun MainMapScreen(
                                         PropertyFactory.textAllowOverlap(true),
                                     ),
                                     "user-location-glow",
+                                )
+
+                                // Survey lines source + layer
+                                val linesSource = GeoJsonSource("survey-lines")
+                                style.addSource(linesSource)
+                                style.addLayerBelow(
+                                    LineLayer("survey-lines-layer", "survey-lines")
+                                        .withProperties(
+                                            PropertyFactory.lineColor("#006B5E"),
+                                            PropertyFactory.lineWidth(3f),
+                                            PropertyFactory.lineOpacity(0.8f),
+                                        ),
+                                    "survey-points-circle",
+                                )
+
+                                // Survey polygons source + layer
+                                val polygonsSource = GeoJsonSource("survey-polygons")
+                                style.addSource(polygonsSource)
+                                style.addLayerBelow(
+                                    FillLayer("survey-polygons-layer", "survey-polygons")
+                                        .withProperties(
+                                            PropertyFactory.fillColor("#006B5E"),
+                                            PropertyFactory.fillOpacity(0.15f),
+                                        ),
+                                    "survey-lines-layer",
+                                )
+                                style.addLayerBelow(
+                                    LineLayer("survey-polygons-outline", "survey-polygons")
+                                        .withProperties(
+                                            PropertyFactory.lineColor("#006B5E"),
+                                            PropertyFactory.lineWidth(2f),
+                                            PropertyFactory.lineOpacity(0.6f),
+                                        ),
+                                    "survey-lines-layer",
                                 )
 
                                 // Prepare Ktimatologio orthophoto WMS as hidden raster source
