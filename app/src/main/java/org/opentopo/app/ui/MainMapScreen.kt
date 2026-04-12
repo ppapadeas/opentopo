@@ -526,9 +526,10 @@ fun MainMapScreen(
                                     .target(LatLng(38.5, 23.8)).zoom(6.0).build()
 
                                 // Move compass to avoid overlap with fix status pill
-                                // Compass: top-left, below fix pill, clear of layer button
+                                // Compass: top-left, below fix pill
                                 map.uiSettings.isCompassEnabled = true
-                                map.uiSettings.setCompassMargins(40, 200, 0, 0)
+                                map.uiSettings.compassGravity = android.view.Gravity.TOP or android.view.Gravity.START
+                                map.uiSettings.setCompassMargins(40, 250, 0, 0)
 
                                 // Add user location source + layers
                                 val locationSource = GeoJsonSource(
