@@ -26,53 +26,74 @@
 - [x] ToolsPanel (Export + Transform + Settings), F-Droid metadata
 
 ### v1.3.0 -- M3 Expressive Theme
-- [x] Teal-green palette (#006B5E), light-first design
-- [x] Component library: FixStatusPill, TonalCard, ConstellationChip, etc.
-- [x] Quick Mark (1-epoch), inverse countdown, VIBRATE permission fix
+- [x] Teal-green palette, component library, Quick Mark, inverse countdown
 
-### v1.4.0 -- Measurement & Layers (current)
-- [x] Line recording with vertex tapping and distance computation
-- [x] Polygon recording with Shoelace area computation
-- [x] Point/Line/Area mode switcher in Survey panel
-- [x] LineLayer + FillLayer map rendering
-- [x] OpenTopo brand logo in all app assets
+### v1.4.0 -- Measurement & Layers
+- [x] Line/polygon recording with map rendering
+- [x] Point/Line/Area mode switcher, brand logo
+
+### v1.5.0 -- Data & Measurement (current)
+- [x] Shapefile export (SHP/DBF/SHX/PRJ as ZIP)
+- [x] Import stakeout targets from CSV
+- [x] Real-time distance and area during recording
+- [x] Undo last vertex
+- [x] DXF R12 export fixed for AutoCAD
+- [x] F-Droid fdroiddata submission (MR #36364)
 
 ---
 
 ## Development Path Forward
 
-### v1.5.0 -- F-Droid & Data (next)
-**Goal:** F-Droid publication and professional data handling.
+### v1.6.0 -- Geoid & Heights (next)
+**Goal:** Proper orthometric height computation for professional surveying.
 
-- [ ] **F-Droid publication** -- submit to fdroiddata (Fastlane metadata ready)
-- [ ] **Shapefile export** (SHP/DBF/SHX/PRJ) for CAD/GIS interop
-- [ ] **Import stakeout points** from CSV or GeoJSON file
-- [ ] **Custom attribute fields** per project (user-defined columns)
-- [ ] **Line/polygon distance and area** shown in real-time during recording
-- [ ] **Undo last vertex** during line/polygon recording
+- [ ] **HEPOS geoid model** -- load geoid undulation grid, compute orthometric height (H = h - N)
+- [ ] **Display orthometric height** alongside ellipsoidal height in status bar and point details
+- [ ] **Geoid undulation inspector** -- show N value for current position in Transform panel
+- [ ] **Store orthometric height** in PointEntity alongside ellipsoidal height
+- [ ] **Export orthometric height** in CSV, GeoJSON, DXF, Shapefile
 
-### v1.6.0 -- Receiver Intelligence
+### v1.7.0 -- Extensible Geodesy
+**Goal:** Support custom coordinate systems, grids, and geoid models beyond Greece.
+
+- [ ] **Custom correction grids** -- import user-provided dE/dN grids (same .grd format)
+- [ ] **Custom geoid models** -- import geoid undulation grids for any country
+- [ ] **Custom Helmert parameters** -- user-defined 7-parameter datum transformations
+- [ ] **Custom TM projection** -- configurable central meridian, scale factor, false E/N
+- [ ] **Kastellorizo zone** -- separate TM07 parameters (central meridian 30°, scale 1.0)
+- [ ] **Predefined coordinate systems** -- dropdown with EGSA87, HTRS07, UTM zones, HATT zones
+- [ ] **Grid manager** -- list loaded grids, import/delete, show coverage and metadata
+- [ ] **Inverse transformation** -- EGSA87 → WGS84 (iterative grid interpolation)
+
+### v1.8.0 -- Receiver Intelligence
 **Goal:** Better hardware integration and receiver management.
 
 - [ ] **Receiver profiles** -- presets for ArduSimple, u-blox ZED-F9P, Emlid Reach
 - [ ] **Auto-detect baud rate** -- try common rates on USB connect
-- [ ] **RTCM message inspector** -- show correction types and ages
+- [ ] **RTCM message inspector** -- show correction types, ages, base station ID
 - [ ] **Raw observation logging (RINEX)** for post-processing
+- [ ] **u-blox UBX protocol** -- configure receiver message rates, dynamic model
+- [ ] **Custom attribute fields** per project (user-defined columns per geometry type)
 
-### v1.7.0 -- Offline & Performance
+### v1.9.0 -- Offline & Performance
 **Goal:** Full field capability without connectivity.
 
 - [ ] **Offline map tiles** -- download PMTiles for Greece to device storage
 - [ ] **Background GNSS service** -- keep tracking when app is backgrounded
 - [ ] **Battery optimization** -- reduce GPS polling when stationary
+- [ ] **Map tile cache** -- aggressive caching for field areas
 
 ### v2.0.0 -- Platform Expansion
-**Goal:** Professional-grade surveying platform.
+**Goal:** Professional-grade multi-country surveying platform.
 
 - [ ] **Tablet layout** -- side-by-side map and panels (NavigationRail)
-- [ ] **Kastellorizo grid** -- separate TM07 parameters
-- [ ] **Custom Helmert parameters** -- support other national datums
-- [ ] **User-provided correction grids** -- import grids for other countries
-- [ ] **Localization** -- Greek and English UI
+- [ ] **Country packs** -- downloadable bundles (grid files + geoid + Helmert + TM params) for:
+  - Greece (HEPOS/GGRS87/EGSA87) -- built-in
+  - Cyprus (LTM, OSGB-like)
+  - Other Balkan countries
+  - Any user-submitted pack
+- [ ] **Localization** -- Greek, English, and community translations
 - [ ] **Dark/light theme toggle** -- per-user preference
-- [ ] **Onboarding tutorial** -- first-run walkthrough
+- [ ] **Onboarding tutorial** -- first-run walkthrough with grid/CRS selection
+- [ ] **F-Droid stable publication** -- official inclusion
+- [ ] **Cloud project sync** -- optional backup/share via WebDAV or S3-compatible storage
