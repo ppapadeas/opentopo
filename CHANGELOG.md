@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-04-12
+
+### Added
+- **Vathra.xyz trig point integration** — 25,259 Greek GYS trigonometric points loaded from vathra.xyz API
+- **Trig point map layer** — status-colored markers (green=OK, orange=damaged, red=destroyed, purple=missing, gray=unknown) with toggleable visibility
+- **Trig point tap details** — snackbar showing GYS ID, name, status, elevation, EGSA87 coordinates
+- **Stakeout to trig point** — "Nearby Trig Points" button fetches points within 10km, tap to auto-fill stakeout target
+- **Project credits** — comprehensive About section with developer, transformation engine, map data, library, and license attribution
+- Survey points now visible on orthophoto (bright neon colors, thick borders, layer ordering fix)
+- Connection method badge (BT/USB/Internal) shown when connected, segmented selector hidden
+
+### Fixed
+- Orthophoto layer z-order: now renders below survey features
+- Internal GPS no longer auto-connects (requires explicit tap)
+- About version double "v" prefix
+
 ## [1.6.0] - 2026-04-12
 
 ### Added
@@ -147,7 +163,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - NTRIP VRS GGA forwarding, USB serial data corruption, PendingIntent crash on Android 14+
 
-[Unreleased]: https://github.com/ppapadeas/opentopo/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/ppapadeas/opentopo/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/ppapadeas/opentopo/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/ppapadeas/opentopo/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/ppapadeas/opentopo/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ppapadeas/opentopo/compare/v1.3.0...v1.4.0

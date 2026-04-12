@@ -36,6 +36,7 @@ import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.SurveyManager
 import org.opentopo.app.ui.MainMapScreen
 import org.opentopo.app.ui.theme.OpenTopoTheme
+import org.opentopo.app.survey.TrigPointService
 
 class MainActivity : ComponentActivity() {
 
@@ -54,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private var surveyManager: SurveyManager? = null
     private var stakeout: Stakeout? = null
     private var heposTransform: org.opentopo.transform.HeposTransform? = null
+    val trigPointService = TrigPointService()
 
     /** Incremented on USB attach/detach to trigger recomposition of device list. */
     private val _usbDeviceVersion = MutableStateFlow(0)
@@ -169,6 +171,7 @@ class MainActivity : ComponentActivity() {
                     surveyManager = surveyManager,
                     stakeout = stakeout,
                     heposTransform = heposTransform,
+                    trigPointService = trigPointService,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

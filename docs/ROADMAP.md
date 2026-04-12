@@ -52,17 +52,16 @@
 - [x] Orthometric height exported in CSV, GeoJSON, DXF, Shapefile
 - [x] CSV import backward compatible with old format
 
-### v1.7.0 -- Vathra.xyz Integration & Trig Point Verification
-**Goal:** Connect OpenTopo with the vathra.xyz trigonometric point database for field verification of Greece's 25,000+ geodetic benchmarks.
-
-- [ ] **Trig point map layer** -- load Greek GYS trigonometric points from vathra.xyz API as a toggleable map layer
-- [ ] **Trig point markers** -- distinct icon (triangle/pillar) with point ID, elevation, and condition status
-- [ ] **Trig point details** -- tap a trig point to see name, coordinates (EGSA87), elevation, GYS sheet, condition report, photos from vathra.xyz
-- [ ] **Stakeout to trig point** -- one-tap to set a trig point as a stakeout target (auto-fills coordinates)
-- [ ] **Verification workflow** -- record a point at the trig mark, compare measured vs published coordinates, compute residuals (dE, dN, dH)
-- [ ] **Verification report** -- generate a summary with point ID, measured/published coords, deltas, fix quality, date/time
-- [ ] **Submit condition update** -- optionally report trig point condition (intact/damaged/destroyed/missing) back to vathra.xyz
-- [ ] **Offline trig point cache** -- download trig point database for a region for field use without connectivity
+### v1.7.0 -- Vathra.xyz Integration & Trig Point Verification (current)
+- [x] Trig point map layer — 25,259 GYS points from vathra.xyz API with status-colored markers
+- [x] Trig point details — tap for name, EGSA87 coords, elevation, GYS sheet, status
+- [x] Stakeout to trig point — nearby points list, one-tap to set as target
+- [x] Layer toggle in map switcher
+- [x] Project credits in About section
+- [ ] Verification workflow — record at mark, compare measured vs published, compute residuals
+- [ ] Verification report — summary with deltas, fix quality, timestamp
+- [ ] Submit condition update to vathra.xyz
+- [ ] Offline trig point cache
 
 ### v1.8.0 -- Extensible Geodesy
 **Goal:** Support custom coordinate systems, grids, and geoid models beyond Greece.

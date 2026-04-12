@@ -262,22 +262,32 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
                     Spacer(Modifier.width(6.dp))
                     Text("Source code on GitHub")
                 }
+                Spacer(Modifier.height(8.dp))
+                Text("CREDITS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "Map data: OpenStreetMap contributors",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                )
-                Text(
-                    "Orthophoto: Hellenic Cadastre (Ktimatologio)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                )
-                Text(
-                    "Contours: vathra.xyz",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                )
+
+                Text("Developed by Pierros Papadeas", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(4.dp))
+
+                Text("Transformation engine", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("HEPOS parameters: Ktimatologio S.A.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text("Correction grids: dE/dN V1.0 (2km), Ktimatologio S.A.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+                Spacer(Modifier.height(4.dp))
+                Text("Map data", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Basemap: OpenStreetMap contributors (via vathra.xyz)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text("Orthophoto: Hellenic Cadastre (Ktimatologio)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text("Contours: SRTM elevation data (via vathra.xyz)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text("Trig points: Hellenic Army Geographical Service (GYS) via vathra.xyz", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+                Spacer(Modifier.height(4.dp))
+                Text("Libraries", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("MapLibre GL Native (BSD-2-Clause)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text("usb-serial-for-android (MIT)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Text("Jetpack Compose, Room, DataStore (Apache-2.0)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+                Spacer(Modifier.height(4.dp))
+                Text("License: GNU AGPL v3.0", style = MaterialTheme.typography.bodySmall)
             }
         }
 

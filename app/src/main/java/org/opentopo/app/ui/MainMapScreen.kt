@@ -125,6 +125,7 @@ import org.opentopo.app.ui.components.CoordinateBlock
 import org.opentopo.app.ui.components.FixStatusPill
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
+import org.opentopo.app.survey.TrigPointService
 
 private const val TAB_CONNECTION = 0
 private const val TAB_SURVEY = 1
@@ -152,6 +153,7 @@ fun MainMapScreen(
     surveyManager: SurveyManager?,
     stakeout: Stakeout?,
     heposTransform: org.opentopo.transform.HeposTransform? = null,
+    trigPointService: TrigPointService? = null,
     modifier: Modifier = Modifier,
 ) {
     val surveyColors = LocalSurveyColors.current
@@ -484,7 +486,11 @@ fun MainMapScreen(
                                 gnssState, bluetoothService, usbService, internalService, ntripClient,
                             )
                             TAB_SURVEY -> SurveyPanel(db, surveyManager)
-                            TAB_STAKEOUT -> StakeoutPanel(stakeout)
+                            TAB_STAKEOUT -> StakeoutPanel(
+                                stakeout,
+                                trigPointService = trigPointService,
+                                gnssState = gnssState,
+                            )
                             TAB_TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
                         }
                     }
@@ -639,6 +645,7 @@ fun MainMapScreen(
                                         ),
                                     "survey-polygons-layer",  // below all survey layers
                                 )
+
                             }
                             // Tap survey point to show details
                             map.addOnMapClickListener { latLng ->

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileUpload
+import androidx.compose.material.icons.outlined.PinDrop
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -29,10 +30,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -44,8 +47,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.StakeoutTarget
+import org.opentopo.app.survey.TrigPoint
+import org.opentopo.app.survey.TrigPointService
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
 
@@ -53,6 +60,8 @@ import org.opentopo.app.ui.theme.LocalSurveyColors
 @Composable
 fun StakeoutPanel(
     stakeout: Stakeout?,
+    trigPointService: TrigPointService? = null,
+    gnssState: GnssState? = null,
     modifier: Modifier = Modifier,
 ) {
     val surveyColors = LocalSurveyColors.current
@@ -100,6 +109,84 @@ fun StakeoutPanel(
                 Icon(Icons.Outlined.FileUpload, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Import Target from CSV")
+            }
+
+            // Nearby trig points
+            if (trigPointService != null) {
+                val scope = rememberCoroutineScope()
+                val positionState = gnssState?.position?.collectAsState()
+                val currentPos = positionState?.value
+                var nearbyPoints by remember { mutableStateOf<List<TrigPoint>>(emptyList()) }
+                var loadingNearby by remember { mutableStateOf(false) }
+
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            loadingNearby = true
+                            val lat = currentPos?.latitude ?: 0.0
+                            val lon = currentPos?.longitude ?: 0.0
+                            if (lat != 0.0 && lon != 0.0) {
+                                nearbyPoints = trigPointService.getNearby(lat, lon, 10000)
+                            }
+                            loadingNearby = false
+                        }
+                    },
+                    enabled = currentPos?.hasFix == true && !loadingNearby,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Outlined.PinDrop, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (loadingNearby) "Loading\u2026" else "Nearby Trig Points")
+                }
+
+                nearbyPoints.take(5).forEach { tp ->
+                    Surface(
+                        onClick = {
+                            targetName = "GYS ${tp.gysId}"
+                            targetE = tp.egsa87E?.let { "%.3f".format(it) } ?: ""
+                            targetN = tp.egsa87N?.let { "%.3f".format(it) } ?: ""
+                        },
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val statusColor = when (tp.status) {
+                                "OK" -> Color(0xFF4CAF50)
+                                "DAMAGED" -> Color(0xFFFF9800)
+                                "DESTROYED" -> Color(0xFFF44336)
+                                "MISSING" -> Color(0xFF9C27B0)
+                                else -> Color(0xFF9E9E9E)
+                            }
+                            Canvas(Modifier.size(10.dp)) { drawCircle(statusColor) }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "GYS ${tp.gysId}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontFamily = CoordinateFont,
+                                )
+                                tp.name?.let {
+                                    Text(
+                                        it,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            tp.elevation?.let {
+                                Text(
+                                    "${it.toInt()}m",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontFamily = CoordinateFont,
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Target input form
