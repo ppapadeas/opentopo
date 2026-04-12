@@ -5,54 +5,99 @@ import java.io.OutputStream
 import java.io.OutputStreamWriter
 
 /**
- * Exports survey points to DXF format.
- * Points are exported as POINT entities with EGSA87 coordinates.
- * Point IDs are placed as TEXT entities next to each point.
+ * Exports survey points to DXF R12 (AC1009).
+ *
+ * DXF R12 is the most universally compatible format — no handles,
+ * no CLASSES/BLOCKS/OBJECTS sections required. Group codes are
+ * right-justified to 3 characters per DXF spec.
  */
 object DxfExporter {
 
     fun export(points: List<PointEntity>, output: OutputStream) {
-        val writer = OutputStreamWriter(output, Charsets.UTF_8)
+        val sb = StringBuilder()
 
-        // Header
-        writer.write("0\nSECTION\n2\nHEADER\n")
-        writer.write("9\n\$ACADVER\n1\nAC1014\n")  // AutoCAD R14
-        writer.write("0\nENDSEC\n")
+        // ── HEADER ──
+        sb.g(0, "SECTION"); sb.g(2, "HEADER")
+        sb.g(9, "\$ACADVER"); sb.g(1, "AC1009")
+        sb.g(0, "ENDSEC")
 
-        // Tables (minimal — define a layer)
-        writer.write("0\nSECTION\n2\nTABLES\n")
-        writer.write("0\nTABLE\n2\nLAYER\n70\n1\n")
-        writer.write("0\nLAYER\n2\nPOINTS\n70\n0\n62\n7\n6\nCONTINUOUS\n")
-        writer.write("0\nENDTAB\n")
-        writer.write("0\nENDSEC\n")
+        // ── TABLES ──
+        sb.g(0, "SECTION"); sb.g(2, "TABLES")
 
-        // Entities
-        writer.write("0\nSECTION\n2\nENTITIES\n")
+        // VPORT table (required by AutoCAD)
+        sb.g(0, "TABLE"); sb.g(2, "VPORT"); sb.g(70, "0"); sb.g(0, "ENDTAB")
+
+        // LTYPE table
+        sb.g(0, "TABLE"); sb.g(2, "LTYPE"); sb.g(70, "1")
+        sb.g(0, "LTYPE"); sb.g(2, "CONTINUOUS"); sb.g(70, "0")
+        sb.g(3, "Solid line"); sb.g(72, "65"); sb.g(73, "0"); sb.g(40, "0.0")
+        sb.g(0, "ENDTAB")
+
+        // LAYER table
+        sb.g(0, "TABLE"); sb.g(2, "LAYER"); sb.g(70, "1")
+        sb.g(0, "LAYER"); sb.g(2, "SURVEY"); sb.g(70, "0"); sb.g(62, "3"); sb.g(6, "CONTINUOUS")
+        sb.g(0, "ENDTAB")
+
+        // STYLE table
+        sb.g(0, "TABLE"); sb.g(2, "STYLE"); sb.g(70, "1")
+        sb.g(0, "STYLE"); sb.g(2, "STANDARD"); sb.g(70, "0")
+        sb.g(40, "0.0"); sb.g(41, "1.0"); sb.g(50, "0.0"); sb.g(71, "0"); sb.g(42, "2.5")
+        sb.g(3, "txt"); sb.g(4, "")
+        sb.g(0, "ENDTAB")
+
+        // VIEW table (required by AutoCAD)
+        sb.g(0, "TABLE"); sb.g(2, "VIEW"); sb.g(70, "0"); sb.g(0, "ENDTAB")
+
+        // UCS table (required by AutoCAD)
+        sb.g(0, "TABLE"); sb.g(2, "UCS"); sb.g(70, "0"); sb.g(0, "ENDTAB")
+
+        // APPID table (required by AutoCAD)
+        sb.g(0, "TABLE"); sb.g(2, "APPID"); sb.g(70, "1")
+        sb.g(0, "APPID"); sb.g(2, "ACAD"); sb.g(70, "0")
+        sb.g(0, "ENDTAB")
+
+        // DIMSTYLE table (required by AutoCAD)
+        sb.g(0, "TABLE"); sb.g(2, "DIMSTYLE"); sb.g(70, "0"); sb.g(0, "ENDTAB")
+
+        sb.g(0, "ENDSEC")
+
+        // ── BLOCKS (empty, some readers require it) ──
+        sb.g(0, "SECTION"); sb.g(2, "BLOCKS"); sb.g(0, "ENDSEC")
+
+        // ── ENTITIES ──
+        sb.g(0, "SECTION"); sb.g(2, "ENTITIES")
 
         for (p in points) {
+            if (p.layerType != "point") continue
             val e = p.easting ?: continue
             val n = p.northing ?: continue
             val z = p.altitude ?: 0.0
 
             // POINT entity
-            writer.write("0\nPOINT\n")
-            writer.write("8\nPOINTS\n")  // layer
-            writer.write("10\n${"%.3f".format(e)}\n")  // X
-            writer.write("20\n${"%.3f".format(n)}\n")  // Y
-            writer.write("30\n${"%.3f".format(z)}\n")  // Z
+            sb.g(0, "POINT"); sb.g(8, "SURVEY")
+            sb.g(10, "%.3f".format(e))
+            sb.g(20, "%.3f".format(n))
+            sb.g(30, "%.3f".format(z))
 
-            // TEXT entity for label
-            writer.write("0\nTEXT\n")
-            writer.write("8\nPOINTS\n")
-            writer.write("10\n${"%.3f".format(e + 0.5)}\n")
-            writer.write("20\n${"%.3f".format(n + 0.5)}\n")
-            writer.write("30\n0.0\n")
-            writer.write("40\n1.0\n")  // text height
-            writer.write("1\n${p.pointId}\n")
+            // TEXT label
+            sb.g(0, "TEXT"); sb.g(8, "SURVEY"); sb.g(7, "STANDARD")
+            sb.g(10, "%.3f".format(e + 1.0))
+            sb.g(20, "%.3f".format(n + 1.0))
+            sb.g(30, "%.3f".format(z))
+            sb.g(40, "1.5")
+            sb.g(1, p.pointId)
         }
 
-        writer.write("0\nENDSEC\n")
-        writer.write("0\nEOF\n")
-        writer.flush()
+        sb.g(0, "ENDSEC")
+        sb.g(0, "EOF")
+
+        // Write as ASCII (DXF R12 spec)
+        output.write(sb.toString().toByteArray(Charsets.US_ASCII))
+        output.flush()
+    }
+
+    /** Append a DXF group code (right-justified to 3 chars) + value. */
+    private fun StringBuilder.g(code: Int, value: String) {
+        append("%3d\n%s\n".format(code, value))
     }
 }
