@@ -26,20 +26,22 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Cable
-import androidx.compose.material.icons.outlined.Calculate
-import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.RadioButtonChecked
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -49,13 +51,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -119,19 +122,15 @@ import org.opentopo.app.ui.theme.LocalSurveyColors
 private const val TAB_CONNECTION = 0
 private const val TAB_SURVEY = 1
 private const val TAB_STAKEOUT = 2
-private const val TAB_EXPORT = 3
-private const val TAB_TRANSFORM = 4
-private const val TAB_SETTINGS = 5
+private const val TAB_TOOLS = 3
 
 private data class TabItem(val title: String, val icon: ImageVector)
 
 private val tabs = listOf(
     TabItem("GNSS", Icons.Outlined.Cable),
     TabItem("Survey", Icons.Outlined.Straighten),
-    TabItem("Stake", Icons.Outlined.NearMe),
-    TabItem("Export", Icons.Outlined.FileDownload),
-    TabItem("Transform", Icons.Outlined.Calculate),
-    TabItem("Config", Icons.Outlined.Settings),
+    TabItem("Stakeout", Icons.Outlined.NearMe),
+    TabItem("Tools", Icons.Outlined.Build),
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -311,6 +310,19 @@ fun MainMapScreen(
             )
         },
         sheetContent = {
+            // Project header state
+            val projects by db.projectDao().getAll().collectAsState(initial = emptyList())
+            val headerActiveProjectId by surveyManager?.activeProjectId?.collectAsState()
+                ?: remember { mutableStateOf(null) }
+            val headerActiveProject = projects.find { it.id == headerActiveProjectId }
+            val headerActivePointCount by headerActiveProjectId?.let {
+                db.pointDao().getByProject(it).collectAsState(initial = emptyList())
+            }?.let { state -> remember { derivedStateOf { state.value.size } } }
+                ?: remember { mutableStateOf(0) }
+
+            var projectMenuExpanded by remember { mutableStateOf(false) }
+            var showNewProjectDialog by remember { mutableStateOf(false) }
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -324,10 +336,76 @@ fun MainMapScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                // ── Scrollable tab row (6 tabs) ──
-                ScrollableTabRow(
+                // ── Active project header ──
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // Project name (tappable to switch)
+                        Box(Modifier.weight(1f)) {
+                            TextButton(onClick = { projectMenuExpanded = true }) {
+                                Icon(Icons.Outlined.Folder, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    headerActiveProject?.name ?: "No project",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                )
+                                Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp))
+                            }
+                            // Project switcher dropdown
+                            DropdownMenu(
+                                expanded = projectMenuExpanded,
+                                onDismissRequest = { projectMenuExpanded = false },
+                            ) {
+                                projects.forEach { project ->
+                                    DropdownMenuItem(
+                                        text = { Text(project.name) },
+                                        onClick = {
+                                            surveyManager?.setActiveProject(project.id)
+                                            projectMenuExpanded = false
+                                        },
+                                        leadingIcon = { Icon(Icons.Outlined.Folder, null) },
+                                    )
+                                }
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("New Project") },
+                                    onClick = {
+                                        showNewProjectDialog = true
+                                        projectMenuExpanded = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.Add, null)
+                                    },
+                                )
+                            }
+                        }
+
+                        // Point count badge
+                        if (headerActiveProject != null) {
+                            Text(
+                                "$headerActivePointCount pts",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontFamily = CoordinateFont,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // ── Fixed tab row (4 tabs) ──
+                SecondaryTabRow(
                     selectedTabIndex = selectedTab,
-                    edgePadding = 0.dp,
                 ) {
                     tabs.forEachIndexed { index, tab ->
                         Tab(
@@ -362,12 +440,19 @@ fun MainMapScreen(
                             )
                             TAB_SURVEY -> SurveyPanel(db, surveyManager)
                             TAB_STAKEOUT -> StakeoutPanel(stakeout)
-                            TAB_EXPORT -> ExportPanel(db)
-                            TAB_TRANSFORM -> TransformPanel(heposTransform)
-                            TAB_SETTINGS -> SettingsPanel()
+                            TAB_TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
                         }
                     }
                 }
+            }
+
+            // New project dialog (triggered from header dropdown)
+            if (showNewProjectDialog) {
+                NewProjectHeaderDialog(
+                    db = db,
+                    surveyManager = surveyManager,
+                    onDismiss = { showNewProjectDialog = false },
+                )
             }
         },
     ) { paddingValues ->
@@ -885,4 +970,72 @@ private fun decimalToDms(decimal: Double, isLatitude: Boolean): String {
     val sec = (minFloat - min) * 60
     val dir = if (isLatitude) { if (decimal >= 0) "N" else "S" } else { if (decimal >= 0) "E" else "W" }
     return "%d\u00B0%02d\u2032%06.3f\u2033%s".format(deg, min, sec, dir)
+}
+
+// ── New project dialog (used from project header) ──
+
+@Composable
+private fun NewProjectHeaderDialog(
+    db: AppDatabase,
+    surveyManager: SurveyManager?,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Outlined.Folder,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        title = { Text("New Project") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                androidx.compose.material3.OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        scope.launch {
+                            val project = org.opentopo.app.db.ProjectEntity(
+                                name = name,
+                                description = description,
+                            )
+                            val id = db.projectDao().insert(project)
+                            surveyManager?.setActiveProject(id)
+                            onDismiss()
+                        }
+                    }
+                },
+                enabled = name.isNotBlank(),
+            ) {
+                Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }

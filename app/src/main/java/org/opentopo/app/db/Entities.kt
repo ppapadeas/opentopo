@@ -45,5 +45,7 @@ data class PointEntity(
     val antennaHeight: Double? = null, // metres, instrument height
     val remarks: String = "",
     @ColumnInfo(name = "photoPath") val photoPath: String? = null,
+    @ColumnInfo(name = "layerType") val layerType: String = "point", // "point", "line_vertex", "polygon_vertex"
+    @ColumnInfo(name = "featureId") val featureId: Long? = null, // groups vertices into lines/polygons
     val timestamp: Long = System.currentTimeMillis(),
 )

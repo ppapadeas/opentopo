@@ -23,36 +23,40 @@
 ### v1.0.0 -- Public Release
 - [x] Play Store assets, M3 Expressive UI overhaul
 
-### v1.1.0 -- Field Tools (current)
+### v1.1.0 -- Field Tools
 - [x] Internal GPS (Android LocationManager)
 - [x] Satellite skyplot, transform panel + coordinate converter
 - [x] Haptic/audio feedback, NTRIP disconnect alert
 - [x] Persistent fix status pill, coordinate format setting
 
+### v1.2.0 -- Project-First UX (current)
+- [x] Project header with active project indicator
+- [x] 4-tab consolidation (GNSS/Survey/Stakeout/Tools)
+- [x] Export/Import from project overflow menu
+- [x] Layer data model foundation
+- [x] F-Droid metadata
+
 ---
 
 ## Development Path Forward
 
-### v1.2.0 -- Measurement Tools (next)
+### v1.3.0 -- Measurement & Layers (next)
 **Goal:** Enable field measurements beyond point collection.
 
 - [ ] **Line recording** -- tap vertices on map, show cumulative distance
 - [ ] **Polygon recording** -- close line to polygon, compute area (m2, stremma)
-- [ ] **Distance/bearing tool** -- tap two points on map, show distance and azimuth
-- [ ] **Map point tap details** -- tap a recorded point to see full info card (not just snackbar)
-- [ ] **Undo last vertex** during line/polygon recording
+- [ ] **Layer toggles on map** -- show/hide point, line, polygon layers
+- [ ] **Context-sensitive record button** -- switch between point/line/polygon mode
 
-### v1.3.0 -- Data Management
-**Goal:** Professional import/export and data handling.
+### v1.4.0 -- F-Droid & Data
+**Goal:** F-Droid publication and professional data handling.
 
-- [ ] **Import stakeout points** from CSV or GeoJSON file
+- [ ] **F-Droid publication** -- submit to fdroiddata
 - [ ] **Shapefile export** (SHP/DBF/SHX/PRJ) for CAD/GIS interop
+- [ ] **Import stakeout points** from CSV or GeoJSON file
 - [ ] **Custom attribute fields** per project (user-defined columns)
-- [ ] **Bulk point operations** -- select multiple, delete, export
-- [ ] **Project templates** -- save and reuse project configurations
-- [ ] **Photo viewer** -- view attached photos inline in point details
 
-### v1.4.0 -- Receiver Intelligence
+### v1.5.0 -- Receiver Intelligence
 **Goal:** Better hardware integration and receiver management.
 
 - [ ] **Receiver profiles** -- presets for ArduSimple, u-blox ZED-F9P, Emlid Reach
@@ -61,7 +65,7 @@
 - [ ] **Raw observation logging (RINEX)** for post-processing
 - [ ] **u-blox UBX protocol** -- configure receiver settings directly
 
-### v1.5.0 -- Offline & Performance
+### v1.6.0 -- Offline & Performance
 **Goal:** Full field capability without connectivity.
 
 - [ ] **Offline map tiles** -- download PMTiles for Greece to device storage
@@ -78,6 +82,5 @@
 - [ ] **Custom Helmert parameters** -- support other national datums
 - [ ] **User-provided correction grids** -- import grids for other countries
 - [ ] **Localization** -- Greek and English UI
-- [ ] **F-Droid publication**
 - [ ] **Onboarding tutorial** -- first-run walkthrough
 - [ ] **Dark/light theme toggle** -- per-user preference instead of system

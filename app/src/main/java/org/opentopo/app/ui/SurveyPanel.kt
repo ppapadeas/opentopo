@@ -18,13 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material.icons.outlined.Straighten
@@ -32,7 +29,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -48,7 +44,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,17 +72,10 @@ fun SurveyPanel(
     surveyManager: SurveyManager?,
     modifier: Modifier = Modifier,
 ) {
+    val activeProjectId by surveyManager?.activeProjectId?.collectAsState()
+        ?: remember { mutableStateOf(null) }
     val projects by db.projectDao().getAll().collectAsState(initial = emptyList())
-    var selectedProject by remember { mutableStateOf<ProjectEntity?>(null) }
-    var showNewProjectDialog by remember { mutableStateOf(false) }
-
-    // Load point counts per project
-    val pointCounts = remember { mutableStateMapOf<Long, Int>() }
-    LaunchedEffect(projects) {
-        projects.forEach { project ->
-            pointCounts[project.id] = db.pointDao().countByProject(project.id)
-        }
-    }
+    val activeProject = projects.find { it.id == activeProjectId }
 
     Column(
         modifier = modifier
@@ -95,55 +83,38 @@ fun SurveyPanel(
             .padding(horizontal = 16.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        if (selectedProject != null) {
+        if (activeProject != null) {
             ProjectDetail(
-                project = selectedProject!!,
+                project = activeProject,
                 db = db,
                 surveyManager = surveyManager,
-                onBack = { selectedProject = null },
             )
         } else {
-            Spacer(Modifier.height(8.dp))
-
-            // -- New project button --
-            FilledTonalButton(
-                onClick = { showNewProjectDialog = true },
-                modifier = Modifier.fillMaxWidth(),
+            // No project selected — prompt user
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 48.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    Icons.Outlined.AddCircleOutline,
+                    Icons.Outlined.Inventory2,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(56.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 )
-                Spacer(Modifier.width(8.dp))
-                Text("New Project")
+                Text(
+                    "Select a project from the header above",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "Use the project dropdown to select or create a project.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            if (projects.isEmpty()) {
-                EmptyProjectsState()
-            } else {
-                projects.forEach { project ->
-                    ProjectCard(
-                        project = project,
-                        pointCount = pointCounts[project.id],
-                        onClick = {
-                            selectedProject = project
-                            surveyManager?.setActiveProject(project.id)
-                        },
-                    )
-                    Spacer(Modifier.height(12.dp))
-                }
-            }
-        }
-
-        if (showNewProjectDialog) {
-            NewProjectDialog(
-                db = db,
-                onDismiss = { showNewProjectDialog = false },
-                onCreated = { showNewProjectDialog = false },
-            )
         }
 
         Spacer(Modifier.height(16.dp))
@@ -271,7 +242,6 @@ private fun ProjectDetail(
     project: ProjectEntity,
     db: AppDatabase,
     surveyManager: SurveyManager?,
-    onBack: () -> Unit,
 ) {
     val points by db.pointDao().getByProject(project.id).collectAsState(initial = emptyList())
     val recordingState = surveyManager?.recordingState?.collectAsState()?.value ?: RecordingState()
@@ -290,32 +260,7 @@ private fun ProjectDetail(
             .fillMaxWidth()
             .animateContentSize(),
     ) {
-        // -- Header with back button --
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Icon(
-                Icons.Outlined.FolderOpen,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                project.name,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
         // -- Recording controls --
         RecordingControls(
