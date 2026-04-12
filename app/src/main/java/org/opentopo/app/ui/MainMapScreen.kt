@@ -116,6 +116,9 @@ import org.opentopo.app.ntrip.NtripStatus
 import org.opentopo.app.survey.RecordingState
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.SurveyManager
+import org.opentopo.app.ui.components.ConstellationChip
+import org.opentopo.app.ui.components.CoordinateBlock
+import org.opentopo.app.ui.components.FixStatusPill
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
 
@@ -588,33 +591,13 @@ fun MainMapScreen(
             )
 
             // ── Persistent fix status pill (always visible on map) ──
-            Surface(
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(12.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                shape = MaterialTheme.shapes.large,
-                tonalElevation = 2.dp,
-                shadowElevation = 2.dp,
             ) {
-                Row(
-                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    // Colored fix dot
-                    Canvas(Modifier.size(12.dp)) {
-                        drawCircle(color = surveyColors.fixColor(position.fixQuality))
-                    }
-                    // Fix label
-                    Text(
-                        surveyColors.fixLabel(position.fixQuality),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = CoordinateFont,
-                    )
-                }
+                FixStatusPill(position.fixQuality)
             }
 
             // ── Map layer switcher (top-right) ──
@@ -808,10 +791,14 @@ private fun StatusBar(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            FixTypeBadge(position.fixQuality)
+            FixStatusPill(position.fixQuality)
             Spacer(Modifier.width(8.dp))
             if (position.hasFix) {
-                SatelliteBreakdown(satellites)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    satellites.byConstellation.forEach { (constellation, sats) ->
+                        ConstellationChip(constellation, sats.size)
+                    }
+                }
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
                     accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
@@ -831,36 +818,12 @@ private fun StatusBar(
         // Row 2: Coordinates
         if (position.hasFix) {
             Spacer(Modifier.height(8.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = MaterialTheme.shapes.small,
-            ) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                when (coordFormat) {
-                    0 -> { // EGSA87
-                        projectedCoords?.let {
-                            Text("E ${"%.3f".format(it.eastingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("N ${"%.3f".format(it.northingM)}", fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        } ?: run {
-                            Text("%.8f\u00B0".format(position.latitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                            Text("%.8f\u00B0".format(position.longitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                        }
-                    }
-                    1 -> { // WGS84 decimal
-                        Text("%.8f\u00B0".format(position.latitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Text("%.8f\u00B0".format(position.longitude), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                    2 -> { // WGS84 DMS
-                        Text(decimalToDms(position.latitude, true), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                        Text(decimalToDms(position.longitude, false), fontFamily = CoordinateFont, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-            }
+            when (coordFormat) {
+                0 -> projectedCoords?.let {
+                    CoordinateBlock("EGSA87", "%.3f".format(it.eastingM), "%.3f".format(it.northingM))
+                } ?: CoordinateBlock("WGS84", "%.8f\u00B0".format(position.latitude), "%.8f\u00B0".format(position.longitude))
+                1 -> CoordinateBlock("WGS84", "%.8f\u00B0".format(position.latitude), "%.8f\u00B0".format(position.longitude))
+                2 -> CoordinateBlock("WGS84 DMS", decimalToDms(position.latitude, true), decimalToDms(position.longitude, false))
             }
 
             // Row 3: Alt + NTRIP status

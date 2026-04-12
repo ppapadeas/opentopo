@@ -15,7 +15,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
-import androidx.compose.material.icons.outlined.CellTower
+import org.opentopo.app.ui.components.ConstellationChip
+import org.opentopo.app.ui.components.SectionLabel
+import org.opentopo.app.ui.components.TonalCard
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Refresh
@@ -35,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.TextField
@@ -101,9 +102,9 @@ fun ConnectionPanel(
         Spacer(Modifier.height(0.dp))
 
         // -- GNSS Receiver --
-        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        SectionLabel("GNSS Receiver")
+        TonalCard {
             Column(
-                Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 // BT / USB / Internal segmented toggle
@@ -144,14 +145,13 @@ fun ConnectionPanel(
                 val isConnecting = connectionStatus == ConnectionStatus.CONNECTING
 
                 if (isConnected || isConnecting) {
-                    // Connected / connecting state surface
+                    // Connected / connecting state
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = MaterialTheme.shapes.medium,
-                        tonalElevation = 1.dp,
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        shape = MaterialTheme.shapes.large,
                     ) {
-                        Column(Modifier.padding(12.dp)) {
+                        Column(Modifier.padding(14.dp)) {
                             Row(
                                 Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -195,13 +195,22 @@ fun ConnectionPanel(
 
                             if (isConnected && position.hasFix) {
                                 Spacer(Modifier.height(8.dp))
-                                SurveyStatusRow(
-                                    "Satellites",
-                                    "${position.numSatellites}",
-                                    satellites.byConstellation.entries.joinToString(" ") {
-                                        "${it.value.size}${it.key.name.take(2)}"
-                                    },
-                                )
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "Satellites",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        satellites.byConstellation.forEach { (c, s) ->
+                                            ConstellationChip(c, s.size)
+                                        }
+                                    }
+                                }
                                 SurveyStatusRow(
                                     "H-Accuracy",
                                     accuracy.horizontalAccuracyM?.let {
@@ -276,27 +285,11 @@ fun ConnectionPanel(
         }
 
         // -- NTRIP Corrections --
-        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        SectionLabel("NTRIP Corrections")
+        TonalCard {
             Column(
-                Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // Section header
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(
-                        Icons.Outlined.CellTower,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        "NTRIP Corrections",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
 
                 val isNtripConnected = ntripState.status == NtripStatus.CONNECTED
                 val isNtripConnecting = ntripState.status == NtripStatus.CONNECTING ||
