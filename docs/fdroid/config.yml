@@ -1,0 +1,6 @@
+repo_url: https://ppapadeas.github.io/opentopo/fdroid/repo
+repo_name: OpenTopo F-Droid Repo
+repo_description: >-
+  Open-source GNSS survey app with HEPOS transformation for Greece.
+  This is the developer's own F-Droid repository.
+archive_older: 3
