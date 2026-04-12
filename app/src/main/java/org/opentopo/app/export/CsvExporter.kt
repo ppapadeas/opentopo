@@ -16,7 +16,7 @@ object CsvExporter {
 
     fun export(points: List<PointEntity>, output: OutputStream) {
         val writer = OutputStreamWriter(output, Charsets.UTF_8)
-        writer.write("ID,Easting_EGSA87,Northing_EGSA87,Latitude_WGS84,Longitude_WGS84,Altitude,H_Accuracy,V_Accuracy,Fix,Satellites,HDOP,Averaging_s,DateTime,Remarks\n")
+        writer.write("ID,Easting_EGSA87,Northing_EGSA87,Latitude_WGS84,Longitude_WGS84,Altitude,Ortho_Height,Geoid_N,H_Accuracy,V_Accuracy,Fix,Satellites,HDOP,Averaging_s,DateTime,Remarks\n")
 
         for (p in points) {
             writer.write(buildString {
@@ -26,6 +26,8 @@ object CsvExporter {
                 append("%.10f".format(p.latitude)).append(',')
                 append("%.10f".format(p.longitude)).append(',')
                 append(p.altitude?.let { "%.3f".format(it) } ?: "").append(',')
+                append(p.orthometricHeight?.let { "%.3f".format(it) } ?: "").append(',')
+                append(p.geoidSeparation?.let { "%.3f".format(it) } ?: "").append(',')
                 append(p.horizontalAccuracy?.let { "%.3f".format(it) } ?: "").append(',')
                 append(p.verticalAccuracy?.let { "%.3f".format(it) } ?: "").append(',')
                 append(fixLabel(p.fixQuality)).append(',')

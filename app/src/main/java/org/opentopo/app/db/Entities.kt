@@ -47,5 +47,7 @@ data class PointEntity(
     @ColumnInfo(name = "photoPath") val photoPath: String? = null,
     @ColumnInfo(name = "layerType") val layerType: String = "point", // "point", "line_vertex", "polygon_vertex"
     @ColumnInfo(name = "featureId") val featureId: Long? = null, // groups vertices into lines/polygons
+    @ColumnInfo(name = "geoidSeparation") val geoidSeparation: Double? = null,
+    @ColumnInfo(name = "orthometricHeight") val orthometricHeight: Double? = null,
     val timestamp: Long = System.currentTimeMillis(),
 )

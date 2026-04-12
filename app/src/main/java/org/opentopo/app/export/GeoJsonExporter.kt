@@ -30,6 +30,8 @@ object GeoJsonExporter {
             writer.write(""","lat_wgs84":${p.latitude}""")
             writer.write(""","lon_wgs84":${p.longitude}""")
             p.altitude?.let { writer.write(""","altitude":${"%.3f".format(it)}""") }
+            p.orthometricHeight?.let { writer.write(""","ortho_height":${"%.3f".format(it)}""") }
+            p.geoidSeparation?.let { writer.write(""","geoid_n":${"%.3f".format(it)}""") }
             p.horizontalAccuracy?.let { writer.write(""","h_accuracy":${"%.3f".format(it)}""") }
             p.verticalAccuracy?.let { writer.write(""","v_accuracy":${"%.3f".format(it)}""") }
             writer.write(""","fix":"${fixLabel(p.fixQuality)}"""")

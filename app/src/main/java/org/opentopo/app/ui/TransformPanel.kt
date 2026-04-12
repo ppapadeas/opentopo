@@ -92,6 +92,15 @@ fun TransformPanel(
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = CoordinateFont),
                 )
+                var geoidSepInput by remember { mutableStateOf("") }
+                OutlinedTextField(
+                    value = geoidSepInput,
+                    onValueChange = { geoidSepInput = it },
+                    label = { Text("Geoid N (m)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = CoordinateFont),
+                )
                 FilledTonalButton(
                     onClick = {
                         val lat = latInput.toDoubleOrNull()
@@ -101,6 +110,7 @@ fun TransformPanel(
                             try {
                                 result = transform.forwardDetailed(
                                     GeographicCoordinate(lat, lon, h),
+                                    geoidSeparation = geoidSepInput.toDoubleOrNull(),
                                 )
                                 errorMsg = null
                                 showPipeline = true
@@ -196,6 +206,17 @@ fun TransformPanel(
                     PipelineStep("7. Grid Corrections") {
                         CoordRow("\u0394E", "%.2f cm".format(r.gridCorrectionDeCm))
                         CoordRow("\u0394N", "%.2f cm".format(r.gridCorrectionDnCm))
+                    }
+
+                    r.geoidUndulation?.let { n ->
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        PipelineStep("8. Geoid Undulation") {
+                            CoordRow("N (geoid)", "%.3f m".format(n))
+                            CoordRow("h (ellipsoidal)", "%.3f m".format(r.input.heightM))
+                            r.orthometricHeight?.let { h ->
+                                CoordRow("H (orthometric)", "%.3f m".format(h))
+                            }
+                        }
                     }
                 }
             }

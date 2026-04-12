@@ -133,6 +133,8 @@ object ShapefileExporter {
             DbfField("EASTING", 'N', 12, 3),
             DbfField("NORTHING", 'N', 12, 3),
             DbfField("ELEVATION", 'N', 10, 3),
+            DbfField("ORTHO_H", 'N', 10, 3),
+            DbfField("GEOID_N", 'N', 8, 3),
             DbfField("FIX_QUAL", 'N', 2, 0),
             DbfField("REMARKS", 'C', 50, 0),
         )
@@ -171,6 +173,8 @@ object ShapefileExporter {
             dos.write("%.3f".format(pt.easting ?: 0.0).padStart(12).substring(0, 12).toByteArray(Charsets.US_ASCII))
             dos.write("%.3f".format(pt.northing ?: 0.0).padStart(12).substring(0, 12).toByteArray(Charsets.US_ASCII))
             dos.write("%.3f".format(pt.altitude ?: 0.0).padStart(10).substring(0, 10).toByteArray(Charsets.US_ASCII))
+            dos.write("%.3f".format(pt.orthometricHeight ?: 0.0).padStart(10).substring(0, 10).toByteArray(Charsets.US_ASCII))
+            dos.write("%.3f".format(pt.geoidSeparation ?: 0.0).padStart(8).substring(0, 8).toByteArray(Charsets.US_ASCII))
             dos.write("${pt.fixQuality}".padStart(2).substring(0, 2).toByteArray(Charsets.US_ASCII))
             dos.write(pt.remarks.padEnd(50).substring(0, 50).toByteArray(Charsets.US_ASCII))
         }

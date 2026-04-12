@@ -127,6 +127,7 @@ class SurveyManager(
                                 fixQuality = pos.fixQuality,
                                 numSatellites = pos.numSatellites,
                                 hdop = acc.hdop,
+                                geoidSeparation = gnssState.position.value.geoidSeparation,
                             )
                         )
                         _recordingState.value = _recordingState.value.copy(
@@ -215,6 +216,8 @@ class SurveyManager(
                 remarks = remarks,
                 layerType = layerType,
                 featureId = featureId,
+                geoidSeparation = gnssState.position.value.geoidSeparation,
+                orthometricHeight = pos.altitude, // GGA altitude = MSL
             )
             db.pointDao().insert(point)
             _vertexCount.value = vertexNum
@@ -290,6 +293,9 @@ class SurveyManager(
         val avgLat = epochs.map { it.latitude }.average()
         val avgLon = epochs.map { it.longitude }.average()
         val avgAlt = epochs.mapNotNull { it.altitude }.takeIf { it.isNotEmpty() }?.average()
+        val avgGeoidSep = epochs.mapNotNull { it.geoidSeparation }
+            .takeIf { it.isNotEmpty() }?.average()
+        val orthoHeight = avgAlt // GGA altitude is nominally MSL
         val avgHAcc = epochs.mapNotNull { it.horizontalAccuracy }.takeIf { it.isNotEmpty() }?.average()
         val avgVAcc = epochs.mapNotNull { it.verticalAccuracy }.takeIf { it.isNotEmpty() }?.average()
         val bestFix = epochs.maxOf { it.fixQuality }
@@ -319,6 +325,8 @@ class SurveyManager(
             averagingSeconds = epochs.size,
             antennaHeight = antennaHeight,
             remarks = remarks,
+            geoidSeparation = avgGeoidSep,
+            orthometricHeight = orthoHeight,
         )
 
         val id = db.pointDao().insert(point)
@@ -335,6 +343,7 @@ private data class EpochSample(
     val fixQuality: Int,
     val numSatellites: Int,
     val hdop: Double?,
+    val geoidSeparation: Double?,
 )
 
 data class RecordingState(

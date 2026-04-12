@@ -2,6 +2,9 @@ package org.opentopo.transform
 
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class HeposTransformTest {
@@ -70,4 +73,25 @@ class HeposTransformTest {
     @Test fun `Lamia`() = assertTransform(
         "Lamia", 38.8991, 22.4342, 50.0, 364068.124759, 4306457.554471,
     )
+
+    @Test
+    fun `forwardDetailed with geoid separation computes orthometric height`() {
+        val transform = createTransform()
+        val result = transform.forwardDetailed(
+            GeographicCoordinate(37.9715, 23.7267, 150.0),
+            geoidSeparation = 36.5,
+        )
+        assertNotNull(result.geoidUndulation)
+        assertEquals(36.5, result.geoidUndulation!!, 0.001)
+        assertNotNull(result.orthometricHeight)
+        assertEquals(113.5, result.orthometricHeight!!, 0.001)
+    }
+
+    @Test
+    fun `forwardDetailed without geoid separation has null geoid fields`() {
+        val transform = createTransform()
+        val result = transform.forwardDetailed(GeographicCoordinate(37.9715, 23.7267, 150.0))
+        assertNull(result.geoidUndulation)
+        assertNull(result.orthometricHeight)
+    }
 }

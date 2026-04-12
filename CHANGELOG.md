@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-04-12
+
+### Added
+- **Geoid undulation support** — orthometric height (H = h - N) computed from receiver-reported GGA geoid separation
+- **Dual height display** — status bar shows H (MSL) and h (ellipsoidal) when geoid separation available
+- **Geoid fields in database** — geoidSeparation and orthometricHeight columns (migration v4→v5)
+- **Geoid step in Transform panel** — step 8 showing N, h, and H with user-editable geoid input
+- **Height info in point cards** — H and N values shown below coordinates
+- **Export orthometric height** — CSV (Ortho_Height, Geoid_N columns), GeoJSON (ortho_height, geoid_n), DXF (Z = orthometric), Shapefile (ORTHO_H, GEOID_N fields)
+- CSV import backward compatible with old format (auto-detects column layout)
+
+## [1.5.0] - 2026-04-12
+
+### Added
+- **Shapefile export** (SHP/SHX/DBF/PRJ packed as ZIP) with EGSA87 coordinates and EPSG:2100 projection
+- **Import stakeout targets** from CSV files
+- **Real-time measurements** — line distance and polygon area shown during vertex recording
+- **Undo last vertex** during line/polygon recording
+- **F-Droid submission** — fdroiddata MR #36364
+
+### Fixed
+- DXF export rewritten as R12 (AC1009) with all required tables for AutoCAD compatibility
+- Dynamic versionName from `git describe --tags --always --dirty`
+
 ## [1.4.0] - 2026-04-12
 
 ### Added
@@ -123,7 +147,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - NTRIP VRS GGA forwarding, USB serial data corruption, PendingIntent crash on Android 14+
 
-[Unreleased]: https://github.com/ppapadeas/opentopo/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/ppapadeas/opentopo/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/ppapadeas/opentopo/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/ppapadeas/opentopo/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ppapadeas/opentopo/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/ppapadeas/opentopo/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/ppapadeas/opentopo/compare/v1.1.0...v1.2.0

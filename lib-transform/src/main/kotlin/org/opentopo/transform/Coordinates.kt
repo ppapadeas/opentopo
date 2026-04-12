@@ -31,4 +31,6 @@ data class TransformResult(
     val gridCorrectionDeCm: Double,
     val gridCorrectionDnCm: Double,
     val output: ProjectedCoordinate,
+    val geoidUndulation: Double? = null,
+    val orthometricHeight: Double? = null,
 )

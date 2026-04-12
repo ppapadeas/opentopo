@@ -21,7 +21,7 @@ class HeposTransform(
     private val gridDn = CorrectionGrid(gridDnStream)
 
     /** Forward transform with all intermediate results exposed. */
-    fun forwardDetailed(coord: GeographicCoordinate): TransformResult {
+    fun forwardDetailed(coord: GeographicCoordinate, geoidSeparation: Double? = null): TransformResult {
         val xyz = Ellipsoid.geographicToCartesian(coord)
         val xyzEgsa = Helmert.forward(xyz)
         val geoEgsa = Ellipsoid.cartesianToGeographic(xyzEgsa)
@@ -30,7 +30,8 @@ class HeposTransform(
         val deCm = gridDe.interpolate(tm07.eastingM, tm07.northingM)
         val dnCm = gridDn.interpolate(tm07.eastingM, tm07.northingM)
         val output = ProjectedCoordinate(tm87.eastingM + deCm / 100.0, tm87.northingM + dnCm / 100.0)
-        return TransformResult(coord, xyz, xyzEgsa, geoEgsa, tm87, tm07, deCm, dnCm, output)
+        val orthoHeight = if (geoidSeparation != null) coord.heightM - geoidSeparation else null
+        return TransformResult(coord, xyz, xyzEgsa, geoEgsa, tm87, tm07, deCm, dnCm, output, geoidSeparation, orthoHeight)
     }
 
     fun forward(coord: GeographicCoordinate): ProjectedCoordinate {

@@ -589,6 +589,19 @@ private fun PointCard(point: PointEntity, db: AppDatabase) {
                     fontFamily = CoordinateFont,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Height info
+                val heightText = buildString {
+                    point.orthometricHeight?.let { append("H=${"%.3f".format(it)}") }
+                    point.geoidSeparation?.let { append(" N=${"%.2f".format(it)}") }
+                }
+                if (heightText.isNotBlank()) {
+                    Text(
+                        heightText,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = CoordinateFont,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,

@@ -1,0 +1,1 @@
+Geoid undulation support: orthometric height (H) from receiver-reported GGA geoid separation. Dual height display (H and h). Geoid values stored, exported in all formats. Transform panel step 8 with geoid inspector.

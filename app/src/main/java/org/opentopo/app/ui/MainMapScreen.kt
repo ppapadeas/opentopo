@@ -240,8 +240,9 @@ fun MainMapScreen(
                 toneGen.release()
             } catch (_: Exception) {}
 
+            val heightInfo = pt.orthometricHeight?.let { " H=${"%.3f".format(it)}m" } ?: ""
             snackbarHostState.showSnackbar(
-                "Recorded ${pt.pointId}: E=${"%.3f".format(pt.easting)} N=${"%.3f".format(pt.northing)} \u00B1${"%.3f".format(pt.horizontalAccuracy ?: 0.0)}m"
+                "Recorded ${pt.pointId}: E=${"%.3f".format(pt.easting)} N=${"%.3f".format(pt.northing)}$heightInfo \u00B1${"%.3f".format(pt.horizontalAccuracy ?: 0.0)}m"
             )
         }
     }
@@ -911,12 +912,25 @@ private fun StatusBar(
                     .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                position.altitude?.let {
-                    Text(
-                        "Alt: ${"%.2f".format(it)}m",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                // Dual height display
+                position.altitude?.let { alt ->
+                    val geoidN = position.geoidSeparation
+                    if (geoidN != null) {
+                        // Show both: H (MSL) and h (ellipsoidal)
+                        val ellipsoidal = alt + geoidN
+                        Text(
+                            "H:${"%.2f".format(alt)}m  h:${"%.2f".format(ellipsoidal)}m",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontFamily = CoordinateFont,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text(
+                            "Alt: ${"%.2f".format(alt)}m",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 } ?: Spacer(Modifier.width(1.dp))
 
                 if (ntripState.status == NtripStatus.CONNECTED) {

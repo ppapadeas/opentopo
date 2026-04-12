@@ -10,8 +10,10 @@ import java.util.Locale
  *
  * Expected column order (matching CsvExporter):
  * ID, Easting_EGSA87, Northing_EGSA87, Latitude_WGS84, Longitude_WGS84,
- * Altitude, H_Accuracy, V_Accuracy, Fix, Satellites, HDOP, Averaging_s,
- * DateTime, Remarks
+ * Altitude, Ortho_Height, Geoid_N, H_Accuracy, V_Accuracy, Fix, Satellites,
+ * HDOP, Averaging_s, DateTime, Remarks
+ *
+ * Legacy format (without Ortho_Height/Geoid_N) is also supported.
  */
 object CsvImporter {
 
@@ -20,16 +22,20 @@ object CsvImporter {
     fun import(input: InputStream, projectId: Long): List<PointEntity> {
         val reader = input.bufferedReader()
         val header = reader.readLine() ?: return emptyList() // skip header
+        val hasGeoid = header.contains("Ortho_Height")
 
         return reader.lineSequence()
             .filter { it.isNotBlank() }
-            .mapNotNull { line -> parseLine(line, projectId) }
+            .mapNotNull { line -> parseLine(line, projectId, hasGeoid) }
             .toList()
     }
 
-    private fun parseLine(line: String, projectId: Long): PointEntity? {
+    private fun parseLine(line: String, projectId: Long, hasGeoid: Boolean): PointEntity? {
         val fields = parseCsvFields(line)
         if (fields.size < 5) return null
+        // When hasGeoid is true, columns 6-7 are Ortho_Height and Geoid_N,
+        // shifting subsequent fields by 2.
+        val offset = if (hasGeoid) 2 else 0
         return try {
             PointEntity(
                 projectId = projectId,
@@ -39,15 +45,17 @@ object CsvImporter {
                 latitude = fields[3].trim().toDoubleOrNull() ?: return null,
                 longitude = fields[4].trim().toDoubleOrNull() ?: return null,
                 altitude = fields.getOrNull(5)?.trim()?.toDoubleOrNull(),
-                horizontalAccuracy = fields.getOrNull(6)?.trim()?.toDoubleOrNull(),
-                verticalAccuracy = fields.getOrNull(7)?.trim()?.toDoubleOrNull(),
-                fixQuality = fields.getOrNull(8)?.trim()?.let { parseFixLabel(it) } ?: 0,
-                numSatellites = fields.getOrNull(9)?.trim()?.toIntOrNull() ?: 0,
-                hdop = fields.getOrNull(10)?.trim()?.toDoubleOrNull(),
-                averagingSeconds = fields.getOrNull(11)?.trim()?.toIntOrNull() ?: 0,
-                timestamp = fields.getOrNull(12)?.trim()?.let { parseTimestamp(it) }
+                orthometricHeight = if (hasGeoid) fields.getOrNull(6)?.trim()?.toDoubleOrNull() else null,
+                geoidSeparation = if (hasGeoid) fields.getOrNull(7)?.trim()?.toDoubleOrNull() else null,
+                horizontalAccuracy = fields.getOrNull(6 + offset)?.trim()?.toDoubleOrNull(),
+                verticalAccuracy = fields.getOrNull(7 + offset)?.trim()?.toDoubleOrNull(),
+                fixQuality = fields.getOrNull(8 + offset)?.trim()?.let { parseFixLabel(it) } ?: 0,
+                numSatellites = fields.getOrNull(9 + offset)?.trim()?.toIntOrNull() ?: 0,
+                hdop = fields.getOrNull(10 + offset)?.trim()?.toDoubleOrNull(),
+                averagingSeconds = fields.getOrNull(11 + offset)?.trim()?.toIntOrNull() ?: 0,
+                timestamp = fields.getOrNull(12 + offset)?.trim()?.let { parseTimestamp(it) }
                     ?: System.currentTimeMillis(),
-                remarks = fields.getOrNull(13)?.trim() ?: "",
+                remarks = fields.getOrNull(13 + offset)?.trim() ?: "",
             )
         } catch (_: Exception) {
             null

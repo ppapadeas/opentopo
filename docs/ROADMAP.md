@@ -44,14 +44,13 @@
 
 ## Development Path Forward
 
-### v1.6.0 -- Geoid & Heights (next)
-**Goal:** Proper orthometric height computation for professional surveying.
-
-- [ ] **HEPOS geoid model** -- load geoid undulation grid, compute orthometric height (H = h - N)
-- [ ] **Display orthometric height** alongside ellipsoidal height in status bar and point details
-- [ ] **Geoid undulation inspector** -- show N value for current position in Transform panel
-- [ ] **Store orthometric height** in PointEntity alongside ellipsoidal height
-- [ ] **Export orthometric height** in CSV, GeoJSON, DXF, Shapefile
+### v1.6.0 -- Geoid & Heights (current)
+- [x] Geoid undulation from GGA receiver used for orthometric height computation
+- [x] Dual height display: H (orthometric/MSL) and h (ellipsoidal) in status bar
+- [x] Geoid separation and orthometric height stored in PointEntity (DB migration v5)
+- [x] Geoid undulation inspector in Transform panel (step 8 in pipeline)
+- [x] Orthometric height exported in CSV, GeoJSON, DXF, Shapefile
+- [x] CSV import backward compatible with old format
 
 ### v1.7.0 -- Extensible Geodesy
 **Goal:** Support custom coordinate systems, grids, and geoid models beyond Greece.

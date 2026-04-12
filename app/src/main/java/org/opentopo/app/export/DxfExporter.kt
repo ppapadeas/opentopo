@@ -71,7 +71,7 @@ object DxfExporter {
             if (p.layerType != "point") continue
             val e = p.easting ?: continue
             val n = p.northing ?: continue
-            val z = p.altitude ?: 0.0
+            val z = p.orthometricHeight ?: p.altitude ?: 0.0
 
             // POINT entity
             sb.g(0, "POINT"); sb.g(8, "SURVEY")
