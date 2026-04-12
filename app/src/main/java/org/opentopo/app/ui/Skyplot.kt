@@ -1,9 +1,16 @@
 package org.opentopo.app.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -19,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.opentopo.app.gnss.Constellation
 import org.opentopo.app.gnss.SatelliteInfo
+import org.opentopo.app.ui.theme.ConstellationColors
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -37,9 +45,10 @@ fun Skyplot(
     val textMeasurer = rememberTextMeasurer()
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val bgColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val bgColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
-    Canvas(modifier = modifier.size(220.dp)) {
+    Column(modifier = modifier) {
+    Canvas(modifier = Modifier.size(220.dp)) {
         val cx = size.width / 2
         val cy = size.height / 2
         val radius = size.minDimension / 2 - 16.dp.toPx()
@@ -122,12 +131,34 @@ fun Skyplot(
             drawText(prnText, topLeft = Offset(sx - prnText.size.width / 2, sy + dotRadius + 1.dp.toPx()))
         }
     }
+
+    // Legend row
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        val bySat = satellites.groupBy { it.constellation }
+        bySat.forEach { (constellation, sats) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Canvas(Modifier.size(8.dp)) { drawCircle(constellationColor(constellation)) }
+                val label = when (constellation) {
+                    Constellation.GPS -> "GPS"
+                    Constellation.GLONASS -> "GLO"
+                    Constellation.GALILEO -> "GAL"
+                    Constellation.BEIDOU -> "BDS"
+                    else -> "?"
+                }
+                Text("$label (${sats.size})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+    } // Column
 }
 
 private fun constellationColor(c: Constellation): Color = when (c) {
-    Constellation.GPS -> Color(0xFF1565C0)       // Blue
-    Constellation.GLONASS -> Color(0xFFC62828)    // Red
-    Constellation.GALILEO -> Color(0xFF2E7D32)    // Green
-    Constellation.BEIDOU -> Color(0xFFEF6C00)     // Orange
-    Constellation.UNKNOWN -> Color(0xFF757575)    // Gray
+    Constellation.GPS -> ConstellationColors.gps         // #558B2F green
+    Constellation.GLONASS -> ConstellationColors.glonass  // #1565C0 blue
+    Constellation.GALILEO -> ConstellationColors.galileo  // #6A1B9A purple
+    Constellation.BEIDOU -> ConstellationColors.beidou    // #E65100 orange
+    Constellation.UNKNOWN -> Color(0xFF757575)
 }
