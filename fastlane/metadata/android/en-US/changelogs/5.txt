@@ -1,0 +1,1 @@
+Line and polygon recording with map rendering. M3 Expressive teal-green theme. Component library. Quick Mark instant capture. Satellite skyplot. Transform panel. Internal GPS. F-Droid ready.
