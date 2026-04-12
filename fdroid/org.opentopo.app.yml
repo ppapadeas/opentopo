@@ -9,6 +9,8 @@ SourceCode: https://github.com/ppapadeas/opentopo
 IssueTracker: https://github.com/ppapadeas/opentopo/issues
 Changelog: https://github.com/ppapadeas/opentopo/blob/main/CHANGELOG.md
 
+AutoName: OpenTopo
+
 RepoType: git
 Repo: https://github.com/ppapadeas/opentopo.git
 
