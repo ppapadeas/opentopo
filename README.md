@@ -61,8 +61,11 @@ Full 6-step pipeline: geographic-to-Cartesian, 7-parameter Helmert, Cartesian-to
 
 ### Survey Data Collection
 - Create projects, record points with configurable epoch averaging (1-60 s)
+- **Quick Mark** — single-epoch instant capture for waypoints
+- **Line recording** — tap vertices, compute cumulative distance
+- **Polygon recording** — close to polygon, compute area (m², Shoelace formula on EGSA87)
+- Point/Line/Area mode switcher with context-sensitive recording
 - Quality filters: minimum accuracy threshold, RTK-only mode
-- Auto-incrementing point IDs
 - Point edit and delete with confirmation dialogs
 - Photo attachments on recorded points
 - Haptic and audio feedback on point recorded

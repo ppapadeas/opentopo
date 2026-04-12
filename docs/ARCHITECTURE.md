@@ -11,16 +11,16 @@
 │  │ Connection   │ │ USB Service   │ │ NtripConfig         │  │
 │  │ Survey       │ │ Internal GPS  │ │                     │  │
 │  │ Stakeout     │ │ NmeaParser    │ │                     │  │
-│  │ Export       │ │ GnssState     │ │                     │  │
-│  │ Transform    │ │               │ │                     │  │
-│  │ Settings     │ │               │ │                     │  │
+│  │ ToolsPanel   │ │ GnssState     │ │                     │  │
 │  │ Skyplot      │ │               │ │                     │  │
+│  │ components/  │ │               │ │                     │  │
 │  │ theme/       │ │               │ │                     │  │
 │  └──────────────┘ └───────────────┘ └─────────────────────┘  │
 │  ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐  │
 │  │ survey/      │ │ export/       │ │ db/                 │  │
-│  │ Manager      │ │ CsvExporter   │ │ Room (SQLite)       │  │
+│  │ Manager      │ │ CsvExporter   │ │ Room (SQLite v4)    │  │
 │  │ Stakeout     │ │ CsvImporter   │ │ Projects, Points    │  │
+│  │ Lines/Polys  │ │ GeoJSON, DXF  │ │ Lines, Polygons     │  │
 │  │              │ │ GeoJSON       │ │                     │  │
 │  │              │ │ DXF           │ │                     │  │
 │  └──────────────┘ └───────────────┘ └─────────────────────┘  │
