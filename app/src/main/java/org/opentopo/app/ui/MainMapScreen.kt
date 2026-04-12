@@ -218,13 +218,15 @@ fun MainMapScreen(
     LaunchedEffect(recordingState.lastRecordedPoint) {
         recordingState.lastRecordedPoint?.let { pt ->
             // Strong haptic confirmation
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(300)
-            }
+            try {
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(300)
+                }
+            } catch (_: Exception) {}
 
             // Audio chime
             try {
@@ -245,11 +247,12 @@ fun MainMapScreen(
         if (ntripState.status == NtripStatus.RECONNECTING || ntripState.status == NtripStatus.DISCONNECTED) {
             // Only alert if we were previously connected (not on initial state)
             if (ntripState.lastDataTime > 0) {
-                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    // Alert pattern: short-short-long
-                    vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 100, 100, 100, 400), -1))
-                }
+                try {
+                    val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 100, 100, 100, 400), -1))
+                    }
+                } catch (_: Exception) {}
                 try {
                     val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
                     toneGen.startTone(ToneGenerator.TONE_PROP_NACK, 500)
@@ -786,26 +789,18 @@ private fun StatusBar(
             .padding(horizontal = 16.dp)
             .padding(bottom = 12.dp),
     ) {
-        // Row 1: Fix badge + sats + accuracy
+        // Row 1: Fix pill + accuracy
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FixStatusPill(position.fixQuality)
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.weight(1f))
             if (position.hasFix) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    satellites.byConstellation.forEach { (constellation, sats) ->
-                        ConstellationChip(constellation, sats.size)
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                Column(horizontalAlignment = Alignment.End) {
-                    accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
-                    accuracy.altitudeErrorM?.let { AccuracyBadge(it, "V") }
-                }
+                accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
+                Spacer(Modifier.width(6.dp))
+                accuracy.altitudeErrorM?.let { AccuracyBadge(it, "V") }
             } else {
-                Spacer(Modifier.weight(1f))
                 Text(
                     if (connectionStatus == ConnectionStatus.CONNECTED) "Waiting for fix\u2026"
                     else "Swipe up to connect",
@@ -815,7 +810,17 @@ private fun StatusBar(
             }
         }
 
-        // Row 2: Coordinates
+        // Row 2: Constellation chips
+        if (position.hasFix && satellites.byConstellation.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                satellites.byConstellation.forEach { (constellation, sats) ->
+                    ConstellationChip(constellation, sats.size)
+                }
+            }
+        }
+
+        // Row 3: Coordinates
         if (position.hasFix) {
             Spacer(Modifier.height(8.dp))
             when (coordFormat) {
