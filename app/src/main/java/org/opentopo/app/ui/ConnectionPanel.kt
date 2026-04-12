@@ -107,7 +107,11 @@ fun ConnectionPanel(
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // BT / USB / Internal segmented toggle
+                val isConnected = connectionStatus == ConnectionStatus.CONNECTED
+                val isConnecting = connectionStatus == ConnectionStatus.CONNECTING
+
+                // Show connection method selector only when disconnected
+                if (!isConnected && !isConnecting) {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         selected = connectionType == 0,
@@ -140,11 +144,21 @@ fun ConnectionPanel(
                         },
                     ) { Text("Internal") }
                 }
-
-                val isConnected = connectionStatus == ConnectionStatus.CONNECTED
-                val isConnecting = connectionStatus == ConnectionStatus.CONNECTING
+                } // end if (!isConnected && !isConnecting)
 
                 if (isConnected || isConnecting) {
+                    // Show which connection method is active
+                    val methodLabel = when (connectionType) {
+                        0 -> "Bluetooth"
+                        1 -> "USB"
+                        2 -> "Internal GPS"
+                        else -> "Connected"
+                    }
+                    val methodIcon = when (connectionType) {
+                        0 -> Icons.Outlined.Bluetooth
+                        1 -> Icons.Outlined.Usb
+                        else -> Icons.Outlined.PhoneAndroid
+                    }
                     // Connected / connecting state
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -152,6 +166,15 @@ fun ConnectionPanel(
                         shape = MaterialTheme.shapes.large,
                     ) {
                         Column(Modifier.padding(14.dp)) {
+                            // Connection method badge
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            ) {
+                                Icon(methodIcon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                Text(methodLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            }
                             Row(
                                 Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,

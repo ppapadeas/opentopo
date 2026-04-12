@@ -190,9 +190,9 @@ class MainActivity : ComponentActivity() {
                     val savedBaud = prefs.baudRate.first()
                     usbService.connect(drivers.first(), savedBaud)
                 }
-            } else if (savedConnectionType == 2) { // Internal GPS
-                internalService.connect()
             }
+            // Internal GPS (connectionType == 2) does NOT auto-connect —
+            // requires explicit user action due to permission dialog
 
             // Auto-connect NTRIP if settings are saved
             val host = prefs.ntripHost.first()
