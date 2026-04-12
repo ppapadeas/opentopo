@@ -146,6 +146,10 @@ private val LightColorScheme = lightColorScheme(
     inversePrimary = md_theme_light_inversePrimary,
     surfaceTint = md_theme_light_surfaceTint,
     scrim = md_theme_light_scrim,
+    surfaceContainerLow = Color(0xFFF5FBF7),
+    surfaceContainer = Color(0xFFEFF5F1),
+    surfaceContainerHigh = Color(0xFFE9EFEB),
+    surfaceContainerHighest = Color(0xFFE3EAE6),
 )
 
 private val DarkColorScheme = darkColorScheme(
@@ -181,18 +185,18 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val OpenTopoShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(28.dp),
-    extraLarge = RoundedCornerShape(32.dp),
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun OpenTopoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,  // Use branded palette, not dynamic colors
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
