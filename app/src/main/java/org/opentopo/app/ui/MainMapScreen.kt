@@ -690,7 +690,7 @@ fun MainMapScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    "${recordingState.epochsCollected}",
+                                    "${recordingState.totalEpochsTarget - recordingState.epochsCollected}",
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
                                     fontFamily = CoordinateFont,
@@ -737,7 +737,7 @@ fun MainMapScreen(
                         FloatingActionButtonMenuItem(
                             onClick = {
                                 fabMenuExpanded = false
-                                surveyManager?.startRecording()
+                                surveyManager?.quickMark()
                             },
                             icon = {
                                 Icon(

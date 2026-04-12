@@ -68,18 +68,25 @@ class SurveyManager(
         _activeProjectId.value = id
     }
 
-    /** Quick-record for FAB: uses active project. */
+    /** Quick-record for FAB: uses active project with full averaging. */
     fun startRecording(remarks: String = "") {
         val projectId = _activeProjectId.value ?: return
         startRecording(projectId, remarks)
     }
 
-    fun startRecording(projectId: Long, remarks: String = "") {
+    /** Quick mark: single-epoch instant capture, no averaging. */
+    fun quickMark(remarks: String = "") {
+        val projectId = _activeProjectId.value ?: return
+        startRecording(projectId, remarks, overrideEpochs = 1)
+    }
+
+    fun startRecording(projectId: Long, remarks: String = "", overrideEpochs: Int = 0) {
+        val targetEpochs = if (overrideEpochs > 0) overrideEpochs else averagingSeconds
         averagingJob?.cancel()
         _recordingState.value = RecordingState(
             isRecording = true,
             epochsCollected = 0,
-            totalEpochsTarget = averagingSeconds,
+            totalEpochsTarget = targetEpochs,
         )
 
         averagingJob = scope.launch {
@@ -117,7 +124,7 @@ class SurveyManager(
                 }
 
                 val elapsed = (System.currentTimeMillis() - startTime) / 1000
-                if (elapsed >= averagingSeconds && epochs.isNotEmpty()) {
+                if (elapsed >= targetEpochs && epochs.isNotEmpty()) {
                     break
                 }
 
