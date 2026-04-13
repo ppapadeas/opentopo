@@ -144,3 +144,22 @@ The app uses Material 3 Expressive with a map-centric single-screen design.
 | Build | Gradle (Kotlin DSL) | 9.4.1 |
 | Android | compileSdk 36, targetSdk 35, minSdk 26 | AGP 9.1.0 |
 | CI/CD | GitHub Actions | -- |
+
+## CI/CD Pipeline
+
+```
+Push to main / PR                     Push v* tag
+    │                                      │
+    ▼                                      ▼
+  ci.yml                              release.yml
+    │                                      │
+    ├─ lib-transform:test                  ├─ lib-transform:test
+    ├─ app:testDebugUnitTest               ├─ app:testDebugUnitTest
+    ├─ lintDebug                           ├─ Decode keystore (from secret)
+    ├─ assembleDebug                       ├─ assembleRelease (signed APK)
+    └─ Upload artifacts                    ├─ bundleRelease (signed AAB)
+                                           ├─ Upload AAB → Google Play
+                                           └─ Create GitHub Release (APK + AAB)
+```
+
+Signing credentials and Google Play service account key are stored as GitHub Secrets. The release workflow decodes the keystore from base64 and writes `local.properties` at build time.

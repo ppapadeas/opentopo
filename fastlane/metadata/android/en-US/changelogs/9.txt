@@ -1,0 +1,1 @@
+Google Play CI/CD: signed release builds auto-uploaded on tag push. Updated store descriptions with all features (lines, polygons, shapefile, trig points, skyplot, stakeout, NTRIP presets). New feature graphic.

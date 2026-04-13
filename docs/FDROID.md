@@ -45,7 +45,7 @@ Then create a Merge Request on GitLab targeting `fdroiddata/master`.
 
 ### Auto-Updates
 
-The recipe uses `AutoUpdateMode: Version v%v` and `UpdateCheckMode: Tags`, so F-Droid will automatically detect new version tags and build them. Just push a tag like `v1.8.0` to GitHub.
+The recipe uses `AutoUpdateMode: Version v%v` and `UpdateCheckMode: Tags`, so F-Droid will automatically detect new version tags and build them. Just push a tag like `v1.8.1` to GitHub.
 
 ### Metadata
 
@@ -56,7 +56,7 @@ fastlane/metadata/android/en-US/
 ├── short_description.txt
 ├── full_description.txt
 ├── changelogs/
-│   └── 8.txt  (versionCode)
+│   └── 9.txt  (versionCode)
 └── images/
     ├── icon.png
     └── phoneScreenshots/

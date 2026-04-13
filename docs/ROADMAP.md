@@ -71,13 +71,20 @@
 - [x] Active layer indicators in layer switcher
 - [x] Stakeout immersive full-screen mode (dark, huge numbers, 240dp compass)
 - [x] Record button pulse ring animation
-- [ ] Glassmorphism bottom sheet (semi-transparent, blur)
-- [ ] Spring-based motion on all sheet/tab transitions
-- [ ] Shape morphing record button (circle → squircle when recording)
+
+### v1.8.1 -- Google Play CI/CD
+- [x] Signed release builds via GitHub Actions (bundleRelease + assembleRelease)
+- [x] Automated Google Play upload on `v*` tag push (closed testing track)
+- [x] GitHub Release with signed APK + AAB artifacts
+- [x] Play Store descriptions updated with all v1.0–v1.8 features
+- [x] Feature graphic (1024x500) for store listing
 
 ### v1.9.0 -- Quick Win Innovations
 **Goal:** Implement the easiest high-impact innovative features.
 
+- [ ] Glassmorphism bottom sheet (semi-transparent, blur)
+- [ ] Spring-based motion on all sheet/tab transitions
+- [ ] Shape morphing record button (circle -> squircle when recording)
 - [ ] **Accuracy convergence ring** — animated shrinking circle as RTK converges (difficulty: 3, impact: 8)
 - [ ] **Glove mode** — single toggle: 64dp targets, volume buttons for store/undo, +4sp fonts (difficulty: 3, impact: 9)
 - [ ] **PiP floating stakeout** — picture-in-picture compass visible over other apps (difficulty: 4, impact: 8)

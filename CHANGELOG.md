@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-04-13
+
+### Added
+- **Google Play CI/CD pipeline** — signed release AAB built and uploaded to Google Play automatically on `v*` tag push via GitHub Actions
+- **Feature graphic** (1024x500) for Play Store listing
+- **GitHub Release automation** — signed APK and AAB attached to GitHub Releases
+
+### Changed
+- **Play Store descriptions** updated with latest features (lines, polygons, shapefile export, trig points, skyplot, coordinate converter, NTRIP presets, immersive stakeout)
+- Release workflow now builds signed release variants instead of debug
+- Bumped versionCode to 9
+
 ## [1.8.0] - 2026-04-13
 
 ### Added
@@ -177,7 +189,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - NTRIP VRS GGA forwarding, USB serial data corruption, PendingIntent crash on Android 14+
 
-[Unreleased]: https://github.com/ppapadeas/opentopo/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/ppapadeas/opentopo/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/ppapadeas/opentopo/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/ppapadeas/opentopo/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/ppapadeas/opentopo/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/ppapadeas/opentopo/compare/v1.5.0...v1.6.0

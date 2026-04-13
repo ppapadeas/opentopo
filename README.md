@@ -7,6 +7,7 @@
 <p align="center"><strong>Open-source Android GNSS survey app with HEPOS/GGRS87 grid transformation for Greece.</strong></p>
 
 [![CI](https://github.com/ppapadeas/opentopo/actions/workflows/ci.yml/badge.svg)](https://github.com/ppapadeas/opentopo/actions/workflows/ci.yml)
+[![Release](https://github.com/ppapadeas/opentopo/actions/workflows/release.yml/badge.svg)](https://github.com/ppapadeas/opentopo/actions/workflows/release.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Android API](https://img.shields.io/badge/API-26%2B-green.svg)](https://developer.android.com/about/versions/oreo)
 
@@ -14,7 +15,9 @@
 
 ## Download
 
-Get the latest APK from [GitHub Releases](https://github.com/ppapadeas/opentopo/releases).
+<a href="https://play.google.com/store/apps/details?id=org.opentopo.app"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="80" alt="Get it on Google Play"></a>
+
+Also available from [GitHub Releases](https://github.com/ppapadeas/opentopo/releases) and the [self-hosted F-Droid repo](https://ppapadeas.github.io/opentopo/fdroid/repo).
 
 ## Why OpenTopo?
 
@@ -177,6 +180,18 @@ The transformation engine is validated against 10 points across Greece with sub-
 | Heraklion | 35.3387 | 25.1442 | 603830.795 | 3910917.558 |
 | Corfu | 39.6243 | 19.9217 | 149769.169 | 4393724.733 |
 | Rhodes | 36.4341 | 28.2176 | 877980.791 | 4040083.307 |
+
+## CI/CD
+
+- **CI** runs on every push to `main` and pull request: tests, lint, debug APK
+- **Release** triggers on `v*` tag push: tests, signed release APK + AAB, Google Play upload, GitHub Release
+
+```bash
+# Create a release
+git tag v1.9.0
+git push origin v1.9.0
+# -> Tests run, signed AAB uploaded to Google Play, GitHub Release created
+```
 
 ## Contributing
 
