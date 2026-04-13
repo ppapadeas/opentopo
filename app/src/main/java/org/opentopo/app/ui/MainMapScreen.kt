@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.ZoomOutMap
 import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.PinDrop
 import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
@@ -136,6 +137,8 @@ import org.opentopo.app.ui.components.CoordinateBlock
 import org.opentopo.app.ui.components.FixStatusPill
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
+import org.opentopo.app.survey.StakeoutTarget
+import org.opentopo.app.survey.TrigPoint
 import org.opentopo.app.survey.TrigPointService
 
 private const val TAB_CONNECTION = 0
@@ -190,6 +193,11 @@ fun MainMapScreen(
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
     var stakeoutImmersive by remember { mutableStateOf(false) }
+
+    // Trig point layer state
+    var trigPointsVisible by remember { mutableStateOf(true) }
+    var trigPointCache by remember { mutableStateOf<Map<String, TrigPoint>>(emptyMap()) }
+    var selectedTrigPoint by remember { mutableStateOf<TrigPoint?>(null) }
 
     // Observe active project's survey points for map display
     val activeProjectId by surveyManager?.activeProjectId?.collectAsState()
@@ -501,8 +509,6 @@ fun MainMapScreen(
                             TAB_SURVEY -> SurveyPanel(db, surveyManager)
                             TAB_STAKEOUT -> StakeoutPanel(
                                 stakeout,
-                                trigPointService = trigPointService,
-                                gnssState = gnssState,
                                 onImmersiveRequest = {
                                     stakeoutImmersive = true
                                 },
@@ -652,6 +658,54 @@ fun MainMapScreen(
                                     "survey-lines-layer",
                                 )
 
+                                // Trig points source + layer (status-colored markers)
+                                val trigSource = GeoJsonSource("trig-points")
+                                style.addSource(trigSource)
+                                style.addLayerBelow(
+                                    CircleLayer("trig-points-circle", "trig-points")
+                                        .withProperties(
+                                            PropertyFactory.circleRadius(
+                                                Expression.interpolate(
+                                                    Expression.linear(),
+                                                    Expression.zoom(),
+                                                    Expression.stop(8, 3f),
+                                                    Expression.stop(12, 5f),
+                                                    Expression.stop(16, 8f),
+                                                ),
+                                            ),
+                                            PropertyFactory.circleColor(
+                                                Expression.match(
+                                                    Expression.get("status"),
+                                                    Expression.literal("#9E9E9E"),  // default: gray/unknown
+                                                    Expression.stop("OK", "#4CAF50"),
+                                                    Expression.stop("DAMAGED", "#FF9800"),
+                                                    Expression.stop("DESTROYED", "#F44336"),
+                                                    Expression.stop("MISSING", "#9C27B0"),
+                                                ),
+                                            ),
+                                            PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                            PropertyFactory.circleStrokeWidth(2f),
+                                            PropertyFactory.circleOpacity(0.9f),
+                                        ),
+                                    "survey-polygons-layer",
+                                )
+                                style.addLayerBelow(
+                                    org.maplibre.android.style.layers.SymbolLayer(
+                                        "trig-points-labels", "trig-points",
+                                    ).withProperties(
+                                        PropertyFactory.textField(Expression.get("gys_id")),
+                                        PropertyFactory.textFont(arrayOf("Noto Sans Medium")),
+                                        PropertyFactory.textSize(10f),
+                                        PropertyFactory.textOffset(arrayOf(0f, -1.5f)),
+                                        PropertyFactory.textColor("#FFFFFF"),
+                                        PropertyFactory.textHaloColor("#000000"),
+                                        PropertyFactory.textHaloWidth(1.5f),
+                                        PropertyFactory.textAllowOverlap(false),
+                                        PropertyFactory.visibility(org.maplibre.android.style.layers.Property.NONE),
+                                    ),
+                                    "survey-polygons-layer",
+                                )
+
                                 // Prepare Ktimatologio orthophoto WMS as hidden raster source
                                 val ktimaSource = RasterSource(
                                     "ktima-ortho",
@@ -671,9 +725,70 @@ fun MainMapScreen(
                                 )
 
                             }
-                            // Tap survey point to show details
+                            // Load trig points on camera idle
+                            map.addOnCameraIdleListener {
+                                if (trigPointService == null || !trigPointsVisible) return@addOnCameraIdleListener
+                                val zoom = map.cameraPosition.zoom
+                                if (zoom < 9) return@addOnCameraIdleListener // too far out
+                                val bounds = map.projection.visibleRegion.latLngBounds
+                                val center = bounds.center
+                                // Approximate radius from bounds diagonal
+                                val ne = bounds.northEast
+                                val sw = bounds.southWest
+                                val latDiff = ne.latitude - sw.latitude
+                                val lonDiff = ne.longitude - sw.longitude
+                                val radiusM = (kotlin.math.sqrt(latDiff * latDiff + lonDiff * lonDiff) * 111_000 / 2).toInt()
+                                    .coerceAtMost(50_000) // cap at 50km
+                                scope.launch {
+                                    try {
+                                        val points = trigPointService.getNearby(center.latitude, center.longitude, radiusM)
+                                        if (points.isNotEmpty()) {
+                                            val updated = trigPointCache.toMutableMap()
+                                            points.forEach { updated[it.gysId] = it }
+                                            trigPointCache = updated
+                                            // Update GeoJSON source
+                                            val features = updated.values.map { tp ->
+                                                val f = Feature.fromGeometry(
+                                                    Point.fromLngLat(tp.longitude, tp.latitude),
+                                                )
+                                                f.addStringProperty("gys_id", tp.gysId)
+                                                f.addStringProperty("name", tp.name ?: "")
+                                                f.addStringProperty("status", tp.status ?: "UNKNOWN")
+                                                tp.elevation?.let { f.addNumberProperty("elevation", it) }
+                                                tp.egsa87E?.let { f.addNumberProperty("egsa87_e", it) }
+                                                tp.egsa87N?.let { f.addNumberProperty("egsa87_n", it) }
+                                                f
+                                            }
+                                            map.style?.getSourceAs<GeoJsonSource>("trig-points")?.setGeoJson(
+                                                FeatureCollection.fromFeatures(features),
+                                            )
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            }
+
+                            // Tap handler: trig points first, then survey points
                             map.addOnMapClickListener { latLng ->
                                 val pixel = map.projection.toScreenLocation(latLng)
+
+                                // Check trig points
+                                if (trigPointsVisible) {
+                                    val trigFeatures = map.queryRenderedFeatures(
+                                        PointF(pixel.x, pixel.y),
+                                        "trig-points-circle",
+                                    )
+                                    if (trigFeatures.isNotEmpty()) {
+                                        val gysId = trigFeatures[0].getStringProperty("gys_id")
+                                            ?: return@addOnMapClickListener false
+                                        val tp = trigPointCache[gysId]
+                                        if (tp != null) {
+                                            selectedTrigPoint = tp
+                                        }
+                                        return@addOnMapClickListener true
+                                    }
+                                }
+
+                                // Check survey points
                                 val features = map.queryRenderedFeatures(
                                     PointF(pixel.x, pixel.y),
                                     "survey-points-circle",
@@ -771,6 +886,22 @@ fun MainMapScreen(
                                     org.maplibre.android.style.layers.Property.NONE
                                 mapRef?.style?.getLayer("contours-lines")?.setProperties(PropertyFactory.visibility(newVis))
                                 mapRef?.style?.getLayer("contours-labels")?.setProperties(PropertyFactory.visibility(newVis))
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Trig Points (GYS)") },
+                            leadingIcon = {
+                                if (trigPointsVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                            },
+                            onClick = {
+                                layerMenuExpanded = false
+                                trigPointsVisible = !trigPointsVisible
+                                val newVis = if (trigPointsVisible)
+                                    org.maplibre.android.style.layers.Property.VISIBLE
+                                else
+                                    org.maplibre.android.style.layers.Property.NONE
+                                mapRef?.style?.getLayer("trig-points-circle")?.setProperties(PropertyFactory.visibility(newVis))
+                                mapRef?.style?.getLayer("trig-points-labels")?.setProperties(PropertyFactory.visibility(newVis))
                             },
                         )
                     }
@@ -943,6 +1074,102 @@ fun MainMapScreen(
                 }
             }
         }
+    }
+
+    // ── Trig point detail dialog ──
+    selectedTrigPoint?.let { tp ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { selectedTrigPoint = null },
+            icon = {
+                Icon(
+                    Icons.Outlined.PinDrop,
+                    contentDescription = null,
+                    tint = when (tp.status) {
+                        "OK" -> Color(0xFF4CAF50)
+                        "DAMAGED" -> Color(0xFFFF9800)
+                        "DESTROYED" -> Color(0xFFF44336)
+                        "MISSING" -> Color(0xFF9C27B0)
+                        else -> Color(0xFF9E9E9E)
+                    },
+                )
+            },
+            title = {
+                Text(
+                    "GYS ${tp.gysId}",
+                    fontFamily = CoordinateFont,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    tp.name?.let {
+                        Text(it, style = MaterialTheme.typography.titleMedium)
+                    }
+                    tp.status?.let {
+                        Text(
+                            "Status: $it",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    tp.elevation?.let {
+                        Text(
+                            "Elevation: ${"%.1f".format(it)} m",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = CoordinateFont,
+                        )
+                    }
+                    tp.egsa87E?.let { e ->
+                        tp.egsa87N?.let { n ->
+                            Text(
+                                "EGSA87: E ${"%.3f".format(e)}  N ${"%.3f".format(n)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = CoordinateFont,
+                            )
+                        }
+                    }
+                    Text(
+                        "WGS84: %.6f\u00B0, %.6f\u00B0".format(tp.latitude, tp.longitude),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = CoordinateFont,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    tp.sheet?.let {
+                        Text(
+                            "Sheet: $it",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                val e = tp.egsa87E
+                val n = tp.egsa87N
+                if (stakeout != null && e != null && n != null) {
+                    TextButton(
+                        onClick = {
+                            stakeout.setTarget(
+                                StakeoutTarget(
+                                    name = "GYS ${tp.gysId}",
+                                    easting = e,
+                                    northing = n,
+                                    elevation = tp.elevation,
+                                ),
+                            )
+                            selectedTab = TAB_STAKEOUT
+                            selectedTrigPoint = null
+                        },
+                    ) {
+                        Text("Stakeout")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedTrigPoint = null }) {
+                    Text("Close")
+                }
+            },
+        )
     }
 
     // ── Stakeout immersive full-screen overlay ──

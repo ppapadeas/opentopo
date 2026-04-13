@@ -23,6 +23,9 @@ class Stakeout(
 
     private val _target = MutableStateFlow<StakeoutTarget?>(null)
 
+    /** Observable target — used by StakeoutPanel to react to externally-set targets. */
+    val target: kotlinx.coroutines.flow.StateFlow<StakeoutTarget?> = _target
+
     fun setTarget(target: StakeoutTarget?) {
         _target.value = target
     }

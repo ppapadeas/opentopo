@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.outlined.PinDrop
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -35,7 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,13 +53,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import kotlinx.coroutines.launch
 import org.opentopo.app.gnss.GnssState
-import org.opentopo.app.gnss.PositionState
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.StakeoutTarget
-import org.opentopo.app.survey.TrigPoint
-import org.opentopo.app.survey.TrigPointService
 import org.opentopo.app.ui.components.FixStatusPill
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LocalSurveyColors
@@ -69,17 +64,27 @@ import org.opentopo.app.ui.theme.LocalSurveyColors
 @Composable
 fun StakeoutPanel(
     stakeout: Stakeout?,
-    trigPointService: TrigPointService? = null,
-    gnssState: GnssState? = null,
     onImmersiveRequest: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val surveyColors = LocalSurveyColors.current
     val result by stakeout?.result?.collectAsState(initial = null) ?: remember { mutableStateOf(null) }
+    val currentTarget by stakeout?.target?.collectAsState() ?: remember { mutableStateOf(null) }
     var targetName by remember { mutableStateOf("") }
     var targetE by remember { mutableStateOf("") }
     var targetN by remember { mutableStateOf("") }
-    var hasTarget by remember { mutableStateOf(false) }
+
+    // Derive hasTarget from actual stakeout target (supports external target setting)
+    val hasTarget = currentTarget != null
+
+    // Sync text fields when target is set externally (e.g. from trig point dialog)
+    LaunchedEffect(currentTarget) {
+        currentTarget?.let { t ->
+            targetName = t.name
+            targetE = "%.3f".format(t.easting)
+            targetN = "%.3f".format(t.northing)
+        }
+    }
 
     Column(
         modifier = modifier
@@ -120,86 +125,6 @@ fun StakeoutPanel(
                 Icon(Icons.Outlined.FileUpload, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Import Target from CSV")
-            }
-
-            // Nearby trig points
-            if (trigPointService != null) {
-                val scope = rememberCoroutineScope()
-                val currentPos by gnssState?.position?.collectAsState()
-                    ?: remember { mutableStateOf(PositionState()) }
-                var nearbyPoints by remember { mutableStateOf<List<TrigPoint>>(emptyList()) }
-                var loadingNearby by remember { mutableStateOf(false) }
-
-                OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            loadingNearby = true
-                            val pos = gnssState?.position?.value
-                            val lat = pos?.latitude ?: 0.0
-                            val lon = pos?.longitude ?: 0.0
-                            if (lat != 0.0 && lon != 0.0) {
-                                nearbyPoints = trigPointService.getNearby(lat, lon, 10000)
-                            }
-                            loadingNearby = false
-                        }
-                    },
-                    enabled = currentPos.hasFix && !loadingNearby,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                ) {
-                    Icon(Icons.Outlined.PinDrop, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (loadingNearby) "Loading\u2026" else "Nearby Trig Points")
-                }
-
-                nearbyPoints.take(5).forEach { tp ->
-                    Surface(
-                        onClick = {
-                            targetName = "GYS ${tp.gysId}"
-                            targetE = tp.egsa87E?.let { "%.3f".format(it) } ?: ""
-                            targetN = tp.egsa87N?.let { "%.3f".format(it) } ?: ""
-                        },
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            val statusColor = when (tp.status) {
-                                "OK" -> Color(0xFF4CAF50)
-                                "DAMAGED" -> Color(0xFFFF9800)
-                                "DESTROYED" -> Color(0xFFF44336)
-                                "MISSING" -> Color(0xFF9C27B0)
-                                else -> Color(0xFF9E9E9E)
-                            }
-                            Canvas(Modifier.size(10.dp)) { drawCircle(statusColor) }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    "GYS ${tp.gysId}",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontFamily = CoordinateFont,
-                                )
-                                tp.name?.let {
-                                    Text(
-                                        it,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            tp.elevation?.let {
-                                Text(
-                                    "${it.toInt()}m",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontFamily = CoordinateFont,
-                                )
-                            }
-                        }
-                    }
-                }
             }
 
             // Target input form
@@ -253,7 +178,6 @@ fun StakeoutPanel(
                                 stakeout?.setTarget(
                                     StakeoutTarget(targetName.ifBlank { "Target" }, e, n),
                                 )
-                                hasTarget = true
                             }
                         },
                         enabled = targetE.toDoubleOrNull() != null && targetN.toDoubleOrNull() != null,
@@ -352,7 +276,9 @@ fun StakeoutPanel(
             OutlinedButton(
                 onClick = {
                     stakeout?.setTarget(null)
-                    hasTarget = false
+                    targetName = ""
+                    targetE = ""
+                    targetN = ""
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,

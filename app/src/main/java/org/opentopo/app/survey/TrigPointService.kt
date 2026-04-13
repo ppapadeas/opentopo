@@ -16,7 +16,7 @@ import java.net.URL
 class TrigPointService {
 
     companion object {
-        private const val BASE_URL = "https://vathra.xyz/api/trigpoints/nearby"
+        private const val BASE_URL = "https://vathra.xyz/api/points/nearby"
         private const val CONNECT_TIMEOUT_MS = 10_000
         private const val READ_TIMEOUT_MS = 15_000
     }
