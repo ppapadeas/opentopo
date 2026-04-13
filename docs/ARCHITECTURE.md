@@ -81,15 +81,19 @@ The app uses Material 3 Expressive with a map-centric single-screen design.
 
 ### Theme
 - `MaterialExpressiveTheme` with `MotionScheme.expressive()` for animated transitions
-- material3 1.5.0-alpha17 providing `ContainedLoadingIndicator`, `FloatingActionButtonMenu`, `ToggleFloatingActionButton`
+- material3 1.5.0-alpha17 providing `ContainedLoadingIndicator`, `FloatingActionButtonMenu`, `ToggleFloatingActionButton`, `ShortNavigationBar`, `ButtonGroup`, `ToggleButton`
 - `graphics-shapes` for `MaterialShapes` / `RoundedPolygon` clip paths
+- Emphasized typography variants (all 15 `*Emphasized` text styles for active/selected states)
+- Shape system: 4/8/12/16/28dp (M3E spec-aligned)
+- Full surface container hierarchy in both light and dark modes
+- AMOLED dark mode option (pure black surfaces for field battery conservation)
 
 ### Layout
 - **Full-screen MapLibre map** -- always visible, shows live position (fix-quality colored dot) and recorded survey points (colored by fix quality with labels)
 - **Map layers** -- Street Map (vathra.xyz Protomaps), Ktimatologio orthophoto WMS, contour lines; switched via layer toggle
 - **Fix status pill** (top) -- persistent display of fix type, satellite count, accuracy
 - **FAB menu** (bottom-right) -- quick point recording with haptic/audio feedback
-- **Bottom sheet** -- `BottomSheetScaffold` with 6 scrollable tabs:
+- **Bottom sheet** -- `BottomSheetScaffold` with M3E `ShortNavigationBar` (4 tabs, pill-shaped active indicator):
 
 | Tab | Panel | Purpose |
 |-----|-------|---------|
@@ -105,7 +109,8 @@ The app uses Material 3 Expressive with a map-centric single-screen design.
 
 ### Animation System
 - **Pulse ring** on the record FAB: expanding/fading ring (`Animatable` alpha + scale) during epoch averaging
-- **Spring motion** planned for sheet/tab transitions (`MotionScheme.expressive`)
+- **MotionScheme tokens** for panel transitions (`MaterialTheme.motionScheme.defaultEffectsSpec()`)
+- **ButtonGroup shape morphing** — connected buttons morph on press via M3E `ToggleButtonShapes`
 - Fix status pill pulsing dot animation
 
 ### Satellite Skyplot

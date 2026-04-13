@@ -60,12 +60,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleFloatingActionButton
@@ -459,17 +460,12 @@ fun MainMapScreen(
                     }
                 }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                // ── Fixed tab row (4 tabs) ──
-                SecondaryTabRow(
-                    selectedTabIndex = selectedTab,
-                ) {
+                // ── M3E Short Navigation Bar (4 tabs) ──
+                ShortNavigationBar {
                     tabs.forEachIndexed { index, tab ->
-                        Tab(
+                        ShortNavigationBarItem(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
-                            text = { Text(tab.title, style = MaterialTheme.typography.labelLarge) },
                             icon = {
                                 Icon(
                                     tab.icon,
@@ -477,16 +473,18 @@ fun MainMapScreen(
                                     modifier = Modifier.size(24.dp),
                                 )
                             },
+                            label = { Text(tab.title) },
                         )
                     }
                 }
 
-                // ── Panel content with animated transitions ──
+                // ── Panel content with M3E expressive transitions ──
+                val panelMotion = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
                 AnimatedContent(
                     targetState = selectedTab,
                     transitionSpec = {
-                        fadeIn(animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)) togetherWith
-                            fadeOut(animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f))
+                        fadeIn(animationSpec = panelMotion) togetherWith
+                            fadeOut(animationSpec = panelMotion)
                     },
                     label = "panel",
                 ) { tab ->

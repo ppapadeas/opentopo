@@ -30,9 +30,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -113,37 +113,38 @@ fun ConnectionPanel(
 
                 // Show connection method selector only when disconnected
                 if (!isConnected && !isConnecting) {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = connectionType == 0,
-                        onClick = { connectionType = 0 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
-                        icon = {
-                            SegmentedButtonDefaults.Icon(active = connectionType == 0) {
-                                Icon(Icons.Outlined.Bluetooth, null, Modifier.size(18.dp))
-                            }
-                        },
-                    ) { Text("BT") }
-                    SegmentedButton(
-                        selected = connectionType == 1,
-                        onClick = { connectionType = 1 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
-                        icon = {
-                            SegmentedButtonDefaults.Icon(active = connectionType == 1) {
-                                Icon(Icons.Outlined.Usb, null, Modifier.size(18.dp))
-                            }
-                        },
-                    ) { Text("USB") }
-                    SegmentedButton(
-                        selected = connectionType == 2,
-                        onClick = { connectionType = 2 },
-                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
-                        icon = {
-                            SegmentedButtonDefaults.Icon(active = connectionType == 2) {
-                                Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
-                            }
-                        },
-                    ) { Text("Internal") }
+                @Suppress("DEPRECATION")
+                ButtonGroup(modifier = Modifier.fillMaxWidth()) {
+                    ToggleButton(
+                        checked = connectionType == 0,
+                        onCheckedChange = { connectionType = 0 },
+                        modifier = Modifier.weight(1f),
+                        shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
+                    ) {
+                        Icon(Icons.Outlined.Bluetooth, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("BT")
+                    }
+                    ToggleButton(
+                        checked = connectionType == 1,
+                        onCheckedChange = { connectionType = 1 },
+                        modifier = Modifier.weight(1f),
+                        shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(),
+                    ) {
+                        Icon(Icons.Outlined.Usb, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("USB")
+                    }
+                    ToggleButton(
+                        checked = connectionType == 2,
+                        onCheckedChange = { connectionType = 2 },
+                        modifier = Modifier.weight(1f),
+                        shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
+                    ) {
+                        Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Internal")
+                    }
                 }
                 } // end if (!isConnected && !isConnecting)
 

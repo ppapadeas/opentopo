@@ -182,13 +182,18 @@ private val DarkColorScheme = darkColorScheme(
     inversePrimary = md_theme_dark_inversePrimary,
     surfaceTint = md_theme_dark_surfaceTint,
     scrim = md_theme_dark_scrim,
+    surfaceContainerLowest = Color(0xFF070D0A),
+    surfaceContainerLow = Color(0xFF171D1A),
+    surfaceContainer = Color(0xFF1B211E),
+    surfaceContainerHigh = Color(0xFF252B28),
+    surfaceContainerHighest = Color(0xFF303633),
 )
 
 private val OpenTopoShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(20.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
     extraLarge = RoundedCornerShape(28.dp),
 )
 
@@ -196,16 +201,30 @@ private val OpenTopoShapes = Shapes(
 @Composable
 fun OpenTopoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,  // Use branded palette, not dynamic colors
+    dynamicColor: Boolean = false,
+    amoledMode: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
+    var colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
+    }
+
+    if (darkTheme && amoledMode) {
+        colorScheme = colorScheme.copy(
+            background = Color.Black,
+            surface = Color.Black,
+            surfaceContainer = Color.Black,
+            surfaceContainerLow = Color(0xFF0A0A0A),
+            surfaceContainerHigh = Color(0xFF151515),
+            surfaceContainerHighest = Color(0xFF1A1A1A),
+            surfaceContainerLowest = Color.Black,
+            surfaceVariant = Color(0xFF1A1A1A),
+        )
     }
 
     val surveyColors = if (darkTheme) DarkSurveyColors else LightSurveyColors

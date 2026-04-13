@@ -44,9 +44,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -278,25 +278,38 @@ private fun ProjectDetail(
         val activeFeatureId by surveyManager?.activeFeatureId?.collectAsState() ?: remember { mutableStateOf(null) }
         val vertexCount by surveyManager?.vertexCount?.collectAsState() ?: remember { mutableStateOf(0) }
 
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = recordingMode == "point",
-                onClick = { surveyManager?.setRecordingMode("point") },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
-                icon = { SegmentedButtonDefaults.Icon(active = recordingMode == "point") { Icon(Icons.Outlined.LocationOn, null, Modifier.size(18.dp)) } },
-            ) { Text("Point") }
-            SegmentedButton(
-                selected = recordingMode == "line",
-                onClick = { surveyManager?.setRecordingMode("line") },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
-                icon = { SegmentedButtonDefaults.Icon(active = recordingMode == "line") { Icon(Icons.Outlined.Timeline, null, Modifier.size(18.dp)) } },
-            ) { Text("Line") }
-            SegmentedButton(
-                selected = recordingMode == "polygon",
-                onClick = { surveyManager?.setRecordingMode("polygon") },
-                shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
-                icon = { SegmentedButtonDefaults.Icon(active = recordingMode == "polygon") { Icon(Icons.Outlined.Pentagon, null, Modifier.size(18.dp)) } },
-            ) { Text("Area") }
+        @Suppress("DEPRECATION")
+        ButtonGroup(modifier = Modifier.fillMaxWidth()) {
+            ToggleButton(
+                checked = recordingMode == "point",
+                onCheckedChange = { surveyManager?.setRecordingMode("point") },
+                modifier = Modifier.weight(1f),
+                shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
+            ) {
+                Icon(Icons.Outlined.LocationOn, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Point")
+            }
+            ToggleButton(
+                checked = recordingMode == "line",
+                onCheckedChange = { surveyManager?.setRecordingMode("line") },
+                modifier = Modifier.weight(1f),
+                shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(),
+            ) {
+                Icon(Icons.Outlined.Timeline, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Line")
+            }
+            ToggleButton(
+                checked = recordingMode == "polygon",
+                onCheckedChange = { surveyManager?.setRecordingMode("polygon") },
+                modifier = Modifier.weight(1f),
+                shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
+            ) {
+                Icon(Icons.Outlined.Pentagon, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Area")
+            }
         }
 
         Spacer(Modifier.height(8.dp))

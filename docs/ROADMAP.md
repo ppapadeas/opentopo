@@ -79,11 +79,20 @@
 - [x] Play Store descriptions updated with all v1.0–v1.8 features
 - [x] Feature graphic (1024x500) for store listing
 
-### v1.9.0 -- Quick Win Innovations
-**Goal:** Implement the easiest high-impact innovative features.
+### v1.9.0 -- M3E Compliance & Quick Win Innovations
+**Goal:** Full M3 Expressive compliance and high-impact innovative features.
 
+#### M3E Compliance
+- [x] ShortNavigationBar replacing SecondaryTabRow (pill-shaped indicators, compact height)
+- [x] ButtonGroup with ToggleButton replacing SegmentedButton (ConnectionPanel, SurveyPanel)
+- [x] Emphasized typography variants (all 15 M3E `*Emphasized` text styles)
+- [x] Shape system aligned to M3E spec (4/8/12/16/28dp)
+- [x] Dark mode surface container hierarchy (surfaceContainerLow through surfaceContainerHighest)
+- [x] AMOLED dark mode option (pure black surfaces for field battery conservation)
+- [x] MotionScheme.expressive() tokens for panel transitions (replacing hardcoded spring specs)
+
+#### Innovations
 - [ ] Glassmorphism bottom sheet (semi-transparent, blur)
-- [ ] Spring-based motion on all sheet/tab transitions
 - [ ] Shape morphing record button (circle -> squircle when recording)
 - [ ] **Accuracy convergence ring** — animated shrinking circle as RTK converges (difficulty: 3, impact: 8)
 - [ ] **Glove mode** — single toggle: 64dp targets, volume buttons for store/undo, +4sp fonts (difficulty: 3, impact: 9)
