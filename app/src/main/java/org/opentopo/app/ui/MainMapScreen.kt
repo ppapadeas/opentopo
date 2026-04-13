@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.ZoomOutMap
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material.icons.outlined.Speed
@@ -49,13 +50,12 @@ import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
@@ -105,6 +105,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.expressions.Expression
@@ -706,72 +707,109 @@ fun MainMapScreen(
                 FixStatusPill(position.fixQuality)
             }
 
-            // ── Map layer switcher (top-right) ──
-            Box(
+            // ── Map controls (top-right): Layers + Zoom Extent ──
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilledIconButton(
-                    onClick = { layerMenuExpanded = true },
-                    colors = IconButtonDefaults.filledIconButtonColors(
+                Box {
+                    SmallFloatingActionButton(
+                        onClick = { layerMenuExpanded = true },
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                         contentColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                ) {
-                    Icon(
-                        Icons.Outlined.Layers,
-                        contentDescription = "Map layers",
-                        modifier = Modifier.size(22.dp),
-                    )
+                    ) {
+                        Icon(
+                            Icons.Outlined.Layers,
+                            contentDescription = "Map layers",
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = layerMenuExpanded,
+                        onDismissRequest = { layerMenuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Street Map") },
+                            leadingIcon = {
+                                if (!orthoVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                            },
+                            onClick = {
+                                layerMenuExpanded = false
+                                orthoVisible = false
+                                mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
+                                    PropertyFactory.visibility(org.maplibre.android.style.layers.Property.NONE),
+                                )
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Orthophoto (Ktimatologio)") },
+                            leadingIcon = {
+                                if (orthoVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                            },
+                            onClick = {
+                                layerMenuExpanded = false
+                                orthoVisible = true
+                                mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
+                                    PropertyFactory.visibility(org.maplibre.android.style.layers.Property.VISIBLE),
+                                )
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Contours") },
+                            leadingIcon = {
+                                if (contoursVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                            },
+                            onClick = {
+                                layerMenuExpanded = false
+                                contoursVisible = !contoursVisible
+                                val newVis = if (contoursVisible)
+                                    org.maplibre.android.style.layers.Property.VISIBLE
+                                else
+                                    org.maplibre.android.style.layers.Property.NONE
+                                mapRef?.style?.getLayer("contours-lines")?.setProperties(PropertyFactory.visibility(newVis))
+                                mapRef?.style?.getLayer("contours-labels")?.setProperties(PropertyFactory.visibility(newVis))
+                            },
+                        )
+                    }
                 }
-                DropdownMenu(
-                    expanded = layerMenuExpanded,
-                    onDismissRequest = { layerMenuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Street Map") },
-                        leadingIcon = {
-                            if (!orthoVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
-                        },
+
+                // Zoom to extent of all survey points
+                val validPoints = activePoints.filter { it.latitude != 0.0 || it.longitude != 0.0 }
+                AnimatedVisibility(visible = validPoints.isNotEmpty()) {
+                    SmallFloatingActionButton(
                         onClick = {
-                            layerMenuExpanded = false
-                            orthoVisible = false
-                            mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
-                                PropertyFactory.visibility(org.maplibre.android.style.layers.Property.NONE),
-                            )
+                            val map = mapRef ?: return@SmallFloatingActionButton
+                            if (validPoints.size == 1) {
+                                val pt = validPoints.first()
+                                map.animateCamera(
+                                    CameraUpdateFactory.newLatLngZoom(
+                                        LatLng(pt.latitude, pt.longitude), 18.0,
+                                    ),
+                                    1000,
+                                )
+                            } else {
+                                val bounds = LatLngBounds.Builder()
+                                validPoints.forEach { pt ->
+                                    bounds.include(LatLng(pt.latitude, pt.longitude))
+                                }
+                                map.animateCamera(
+                                    CameraUpdateFactory.newLatLngBounds(bounds.build(), 80),
+                                    1000,
+                                )
+                            }
                         },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Orthophoto (Ktimatologio)") },
-                        leadingIcon = {
-                            if (orthoVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
-                        },
-                        onClick = {
-                            layerMenuExpanded = false
-                            orthoVisible = true
-                            mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
-                                PropertyFactory.visibility(org.maplibre.android.style.layers.Property.VISIBLE),
-                            )
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Contours") },
-                        leadingIcon = {
-                            if (contoursVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
-                        },
-                        onClick = {
-                            layerMenuExpanded = false
-                            contoursVisible = !contoursVisible
-                            val newVis = if (contoursVisible)
-                                org.maplibre.android.style.layers.Property.VISIBLE
-                            else
-                                org.maplibre.android.style.layers.Property.NONE
-                            mapRef?.style?.getLayer("contours-lines")?.setProperties(PropertyFactory.visibility(newVis))
-                            mapRef?.style?.getLayer("contours-labels")?.setProperties(PropertyFactory.visibility(newVis))
-                        },
-                    )
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ) {
+                        Icon(
+                            Icons.Outlined.ZoomOutMap,
+                            contentDescription = "Zoom to all points",
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
 

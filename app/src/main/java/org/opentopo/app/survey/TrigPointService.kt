@@ -1,5 +1,6 @@
 package org.opentopo.app.survey
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -46,7 +47,8 @@ class TrigPointService {
                 } finally {
                     conn.disconnect()
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("TrigPointService", "Failed to fetch nearby trig points", e)
                 emptyList()
             }
         }
@@ -61,12 +63,12 @@ class TrigPointService {
                 name = obj.optString("name", null),
                 latitude = obj.optDouble("lat", 0.0),
                 longitude = obj.optDouble("lon", 0.0),
-                egsa87E = obj.optDouble("egsa87_e").takeIf { !it.isNaN() },
-                egsa87N = obj.optDouble("egsa87_n").takeIf { !it.isNaN() },
-                elevation = obj.optDouble("elevation").takeIf { !it.isNaN() },
+                egsa87E = obj.optDouble("egsa87_e", Double.NaN).takeIf { !it.isNaN() },
+                egsa87N = obj.optDouble("egsa87_n", Double.NaN).takeIf { !it.isNaN() },
+                elevation = obj.optDouble("elevation", Double.NaN).takeIf { !it.isNaN() },
                 status = obj.optString("status", null),
                 sheet = obj.optString("sheet", null),
-                distanceM = obj.optDouble("distance_m").takeIf { !it.isNaN() },
+                distanceM = obj.optDouble("distance_m", Double.NaN).takeIf { !it.isNaN() },
             )
         }
         return result

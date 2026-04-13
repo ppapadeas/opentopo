@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import org.opentopo.app.gnss.GnssState
+import org.opentopo.app.gnss.PositionState
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.StakeoutTarget
 import org.opentopo.app.survey.TrigPoint
@@ -124,8 +125,8 @@ fun StakeoutPanel(
             // Nearby trig points
             if (trigPointService != null) {
                 val scope = rememberCoroutineScope()
-                val positionState = gnssState?.position?.collectAsState()
-                val currentPos = positionState?.value
+                val currentPos by gnssState?.position?.collectAsState()
+                    ?: remember { mutableStateOf(PositionState()) }
                 var nearbyPoints by remember { mutableStateOf<List<TrigPoint>>(emptyList()) }
                 var loadingNearby by remember { mutableStateOf(false) }
 
@@ -133,15 +134,16 @@ fun StakeoutPanel(
                     onClick = {
                         scope.launch {
                             loadingNearby = true
-                            val lat = currentPos?.latitude ?: 0.0
-                            val lon = currentPos?.longitude ?: 0.0
+                            val pos = gnssState?.position?.value
+                            val lat = pos?.latitude ?: 0.0
+                            val lon = pos?.longitude ?: 0.0
                             if (lat != 0.0 && lon != 0.0) {
                                 nearbyPoints = trigPointService.getNearby(lat, lon, 10000)
                             }
                             loadingNearby = false
                         }
                     },
-                    enabled = currentPos?.hasFix == true && !loadingNearby,
+                    enabled = currentPos.hasFix && !loadingNearby,
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.extraLarge,
                 ) {
