@@ -1,3 +1,17 @@
+# Builds a signed release, uploads to Google Play, and creates a GitHub Release.
+#
+# Required GitHub Secrets:
+#   KEYSTORE_BASE64          – base64-encoded upload-keystore.jks
+#   KEYSTORE_PASSWORD        – keystore store password
+#   KEY_ALIAS                – signing key alias
+#   KEY_PASSWORD             – signing key password
+#   PLAY_SERVICE_ACCOUNT_JSON – Google Play service account JSON key (full contents)
+#
+# Google Play API setup (one-time):
+#   1. Play Console → Setup → API access → link a Google Cloud project
+#   2. Create a service account with "Release manager" permission
+#   3. Download the JSON key and paste its contents as PLAY_SERVICE_ACCOUNT_JSON
+
 name: Release
 
 on:
@@ -10,11 +24,13 @@ permissions:
 
 jobs:
   release:
-    name: Build & Release
+    name: Build, Publish & Release
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for git describe versionName
 
       - uses: actions/setup-java@v4
         with:
@@ -30,21 +46,44 @@ jobs:
           key: gradle-${{ hashFiles('**/*.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-
 
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > upload-keystore.jks
+
+      - name: Write signing config
+        run: |
+          cat > local.properties <<EOF
+          sdk.dir=$ANDROID_SDK_ROOT
+          RELEASE_STORE_FILE=../upload-keystore.jks
+          RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS=${{ secrets.KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
+          EOF
+
       - name: Run tests
         run: ./gradlew :lib-transform:test :app:testDebugUnitTest
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+      - name: Build signed release APK
+        run: ./gradlew assembleRelease
 
-      - name: Build release AAB
-        run: ./gradlew bundleDebug
+      - name: Build signed release AAB
+        run: ./gradlew bundleRelease
+
+      - name: Upload AAB to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: org.opentopo.app
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          track: alpha
+          status: completed
+          releaseName: ${{ github.ref_name }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/bundle/debug/app-debug.aab
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

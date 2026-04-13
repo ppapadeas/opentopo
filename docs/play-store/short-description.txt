@@ -1,1 +1,1 @@
-RTK GNSS surveying with NTRIP corrections and HEPOS transformation
+Open-source RTK GNSS surveying — points, lines, areas, HEPOS, stakeout

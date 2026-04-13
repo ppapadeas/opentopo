@@ -1,28 +1,34 @@
-OpenTopo is a free, open-source GNSS surveying app for Android. Connect your USB or Bluetooth RTK receiver, stream NTRIP corrections, and collect survey-grade points in the field.
+OpenTopo is a free, open-source GNSS surveying app for Android. Connect your RTK receiver via USB or Bluetooth, stream NTRIP corrections, and collect survey-grade points, lines, and polygons in the field.
 
 GNSS RECEIVER SUPPORT
-Connect to any NMEA-compatible GNSS receiver via USB-OTG (FTDI, CP210x, CH340, PL2303) or Bluetooth. Auto-detects devices and reconnects on startup.
+Connect to any NMEA-compatible receiver via USB-OTG (FTDI, CP210x, CH340, PL2303, CDC/ACM) or Bluetooth Classic. Also works with your device's internal GPS. Auto-reconnect on startup, configurable baud rate.
 
 RTK CORRECTIONS
-Built-in NTRIP v1 client with VRS support. GGA forwarding for virtual reference station casters. Auto-reconnect with configurable GGA interval. Supports any NTRIP caster worldwide.
+Built-in NTRIP v1 client with VRS support and synthetic GGA forwarding. Pre-configured caster presets for HEPOS, CivilPOS, and SmartNet Greece — or enter any custom caster. Auto-reconnect with exponential backoff and disconnect alerts.
 
-PRECISE SURVEYING
-Record averaged survey points with configurable epoch duration, accuracy thresholds, and RTK fix requirements. Track antenna height, add remarks, and attach photos to each point.
+SURVEYING — POINTS, LINES & AREAS
+Record averaged points with configurable epoch duration (1–60s), accuracy thresholds, and RTK fix requirements. Quick Mark for single-epoch capture. Record lines with cumulative distance and polygons with real-time area calculation. Track antenna height, add remarks, and attach photos to each point.
 
 COORDINATE TRANSFORMATION
-Built-in HEPOS transformation engine for Greek GGRS87/EGSA87 coordinates. Real-time projection from WGS84 with high-precision correction grids.
+Built-in HEPOS transformation engine for Greek GGRS87/EGSA87 coordinates. Full 6-step pipeline: WGS84 geographic → Helmert → Transverse Mercator → bilinear grid interpolation using Ktimatologio correction grids. Coordinate converter tool with step-by-step pipeline inspector showing all intermediate values.
 
 MAP DISPLAY
-Vector basemap with Greek labels, roads, buildings, and contour lines. Ktimatologio orthophoto overlay. Recorded points displayed with fix-quality color coding.
+Vector basemap with Greek labels, roads, buildings, and contour lines. Ktimatologio orthophoto overlay. Survey points color-coded by fix quality (RTK Fix, Float, DGPS, GPS). Lines rendered in teal, polygons with teal fill. Layer switcher with active indicators.
+
+TRIGONOMETRIC POINTS
+25,259 Greek GYS trig points displayed on the map, color-coded by status (OK, damaged, destroyed, missing). Tap for details including GYS ID, name, elevation, and EGSA87 coordinates.
+
+SATELLITE SKYPLOT
+Polar chart showing all tracked satellites by constellation (GPS, GLONASS, Galileo, BeiDou) with elevation, azimuth, and signal strength.
 
 STAKEOUT NAVIGATION
-Enter target coordinates and navigate to the point with a compass bearing arrow, distance display, and delta E/N readout. Immersive full-screen mode provides a dark HUD with extra-large distance text and a 240dp compass for heads-up field navigation.
+Enter target coordinates manually, import from CSV, or pick a nearby trigonometric point. Live compass bearing, distance, and delta E/N readout. Immersive full-screen mode with a dark HUD, extra-large distance text, and a 240dp compass for heads-up field navigation.
 
-DATA EXPORT
-Export survey projects to CSV, GeoJSON, or DXF. Import points from CSV files. Share via any Android app.
+DATA EXPORT & IMPORT
+Export projects to CSV, GeoJSON, DXF, or Shapefile (SHP/SHX/DBF/PRJ). Import points from CSV. All formats include WGS84, EGSA87, ellipsoidal height, orthometric height, and geoid undulation. Share via any Android app.
 
 MODERN DESIGN
-Material 3 Expressive UI with animated record button, active layer indicators, and optimized field readability. Designed for outdoor use with high-contrast colors and large touch targets.
+Material 3 Expressive UI with animated record button, pulse ring countdown, fix status pill, constellation chips, and optimized field readability. Large touch targets and high-contrast colors designed for outdoor use.
 
 OPEN SOURCE
 No ads, no tracking, no cloud dependency. All data stays on your device. Source code available on GitHub under GNU AGPLv3.
