@@ -8,15 +8,15 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Fetches nearby trigonometric points from the vathra.xyz API.
+ * Fetches nearby trigonometric points from the api.vathra.xyz API.
  *
  * GYS (Hellenic Army Geographical Service) trigonometric points are
- * Greek geodetic benchmarks with known EGSA87 coordinates.
+ * Greek geodetic benchmarks with known coordinates.
  */
 class TrigPointService {
 
     companion object {
-        private const val BASE_URL = "https://vathra.xyz/api/points/nearby"
+        private const val BASE_URL = "https://api.vathra.xyz/api/points/nearby"
         private const val CONNECT_TIMEOUT_MS = 10_000
         private const val READ_TIMEOUT_MS = 15_000
     }
@@ -26,13 +26,14 @@ class TrigPointService {
      *
      * @param lat WGS84 latitude
      * @param lon WGS84 longitude
-     * @param radiusM search radius in metres
+     * @param radiusM search radius in metres (clamped to API max of 20000)
      * @return list of nearby trig points, sorted by distance ascending
      */
     suspend fun getNearby(lat: Double, lon: Double, radiusM: Int): List<TrigPoint> =
         withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BASE_URL?lat=$lat&lon=$lon&radius=$radiusM&limit=10")
+                val clampedRadius = radiusM.coerceIn(100, 20_000)
+                val url = URL("$BASE_URL?lat=$lat&lon=$lon&radius=$clampedRadius")
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = CONNECT_TIMEOUT_MS
@@ -41,7 +42,10 @@ class TrigPointService {
                     setRequestProperty("User-Agent", "OpenTopo-Android")
                 }
                 try {
-                    if (conn.responseCode != 200) return@withContext emptyList()
+                    if (conn.responseCode != 200) {
+                        Log.w("TrigPointService", "API returned ${conn.responseCode}")
+                        return@withContext emptyList()
+                    }
                     val body = conn.inputStream.bufferedReader().readText()
                     parseTrigPoints(body)
                 } finally {
@@ -63,12 +67,10 @@ class TrigPointService {
                 name = obj.optString("name", null),
                 latitude = obj.optDouble("lat", 0.0),
                 longitude = obj.optDouble("lon", 0.0),
-                egsa87E = obj.optDouble("egsa87_e", Double.NaN).takeIf { !it.isNaN() },
-                egsa87N = obj.optDouble("egsa87_n", Double.NaN).takeIf { !it.isNaN() },
                 elevation = obj.optDouble("elevation", Double.NaN).takeIf { !it.isNaN() },
                 status = obj.optString("status", null),
-                sheet = obj.optString("sheet", null),
-                distanceM = obj.optDouble("distance_m", Double.NaN).takeIf { !it.isNaN() },
+                pointOrder = obj.optInt("point_order", 0),
+                distanceM = obj.optDouble("distance_meters", Double.NaN).takeIf { !it.isNaN() },
             )
         }
         return result
@@ -80,10 +82,8 @@ data class TrigPoint(
     val name: String?,
     val latitude: Double,
     val longitude: Double,
-    val egsa87E: Double?,
-    val egsa87N: Double?,
     val elevation: Double?,
-    val status: String?,       // "OK", "DAMAGED", "DESTROYED", "MISSING"
-    val sheet: String?,        // GYS map sheet reference
+    val status: String?,       // "OK", "DAMAGED", "DESTROYED", "MISSING", "UNKNOWN"
+    val pointOrder: Int,       // geodetic order (I, II, III, IV)
     val distanceM: Double?,    // distance from query point
 )

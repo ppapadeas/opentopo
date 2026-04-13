@@ -755,8 +755,6 @@ fun MainMapScreen(
                                                 f.addStringProperty("name", tp.name ?: "")
                                                 f.addStringProperty("status", tp.status ?: "UNKNOWN")
                                                 tp.elevation?.let { f.addNumberProperty("elevation", it) }
-                                                tp.egsa87E?.let { f.addNumberProperty("egsa87_e", it) }
-                                                tp.egsa87N?.let { f.addNumberProperty("egsa87_n", it) }
                                                 f
                                             }
                                             map.style?.getSourceAs<GeoJsonSource>("trig-points")?.setGeoJson(
@@ -1078,6 +1076,13 @@ fun MainMapScreen(
 
     // ── Trig point detail dialog ──
     selectedTrigPoint?.let { tp ->
+        // Compute EGSA87 from WGS84 using HeposTransform
+        val projected = remember(tp.gysId) {
+            heposTransform?.forward(
+                org.opentopo.transform.GeographicCoordinate(tp.latitude, tp.longitude, tp.elevation ?: 0.0),
+            )
+        }
+
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { selectedTrigPoint = null },
             icon = {
@@ -1118,14 +1123,12 @@ fun MainMapScreen(
                             fontFamily = CoordinateFont,
                         )
                     }
-                    tp.egsa87E?.let { e ->
-                        tp.egsa87N?.let { n ->
-                            Text(
-                                "EGSA87: E ${"%.3f".format(e)}  N ${"%.3f".format(n)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontFamily = CoordinateFont,
-                            )
-                        }
+                    projected?.let {
+                        Text(
+                            "EGSA87: E ${"%.3f".format(it.eastingM)}  N ${"%.3f".format(it.northingM)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = CoordinateFont,
+                        )
                     }
                     Text(
                         "WGS84: %.6f\u00B0, %.6f\u00B0".format(tp.latitude, tp.longitude),
@@ -1133,9 +1136,9 @@ fun MainMapScreen(
                         fontFamily = CoordinateFont,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    tp.sheet?.let {
+                    tp.distanceM?.let {
                         Text(
-                            "Sheet: $it",
+                            "Distance: ${"%.0f".format(it)} m",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1143,16 +1146,14 @@ fun MainMapScreen(
                 }
             },
             confirmButton = {
-                val e = tp.egsa87E
-                val n = tp.egsa87N
-                if (stakeout != null && e != null && n != null) {
+                if (stakeout != null && projected != null) {
                     TextButton(
                         onClick = {
                             stakeout.setTarget(
                                 StakeoutTarget(
                                     name = "GYS ${tp.gysId}",
-                                    easting = e,
-                                    northing = n,
+                                    easting = projected.eastingM,
+                                    northing = projected.northingM,
                                     elevation = tp.elevation,
                                 ),
                             )
