@@ -104,11 +104,14 @@ Polar chart showing tracked satellites with constellation colors and elevation/a
 - All settings persisted via DataStore
 
 ### UI
-- Material 3 Expressive Direction C visual overhaul (MaterialExpressiveTheme, MotionScheme.expressive)
+- Material 3 Expressive visual overhaul (MaterialExpressiveTheme, MotionScheme.expressive)
+- M3E ShortNavigationBar: GNSS, Survey, Stakeout, Tools (4 tabs with pill indicators)
+- M3E ButtonGroup with connected ToggleButtons for mode selection
+- Emphasized typography variants, M3E-spec shapes (4/8/12/16/28dp)
+- AMOLED dark mode for field battery conservation
 - Record button pulse ring animation during point recording
 - FAB always visible (dimmed when disabled)
 - Active layer indicators in map layer switcher
-- 6 scrollable tabs: GNSS, Survey, Stake, Export, Transform, Config
 - Persistent fix status pill on map
 - NTRIP disconnect alert vibration
 - Map-centric design with full-screen MapLibre and bottom sheet tool panels

@@ -135,7 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Persistent fix status pill** on map (colored dot + label)
 - **Coordinate format setting** — EGSA87 / WGS84 decimal / WGS84 DMS
 - Contour lines overlay with layer toggle
-- Scrollable tabs with labels (6 tabs)
+- M3E ShortNavigationBar with 4 tabs (pill-shaped active indicators)
 
 ### Fixed
 - Internal GPS runtime permission check and GPS provider validation
