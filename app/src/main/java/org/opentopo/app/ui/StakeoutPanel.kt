@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.PictureInPicture
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -67,6 +68,7 @@ import org.opentopo.app.ui.theme.LocalSurveyColors
 fun StakeoutPanel(
     stakeout: Stakeout?,
     onImmersiveRequest: (() -> Unit)? = null,
+    onPipRequest: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val surveyColors = LocalSurveyColors.current
@@ -258,20 +260,42 @@ fun StakeoutPanel(
                 }
             }
 
-            // Full Screen button (when target is active and has fix)
-            if (result != null && onImmersiveRequest != null) {
-                FilledTonalButton(
-                    onClick = onImmersiveRequest,
+            // Full Screen + PiP buttons (when target is active and has fix)
+            if (result != null) {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(percent = 50),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Fullscreen,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text("Full Screen")
+                    if (onImmersiveRequest != null) {
+                        FilledTonalButton(
+                            onClick = onImmersiveRequest,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(percent = 50),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Fullscreen,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Full Screen")
+                        }
+                    }
+                    if (onPipRequest != null) {
+                        FilledTonalButton(
+                            onClick = onPipRequest,
+                            modifier = if (onImmersiveRequest != null) Modifier.weight(1f) else Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(percent = 50),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PictureInPicture,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("PiP")
+                        }
+                    }
                 }
             }
 

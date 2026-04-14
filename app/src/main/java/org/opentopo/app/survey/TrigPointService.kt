@@ -4,16 +4,18 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.opentopo.app.db.TrigPointCacheDao
+import org.opentopo.app.db.TrigPointCacheEntity
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Fetches nearby trigonometric points from the api.vathra.xyz API.
- *
- * GYS (Hellenic Army Geographical Service) trigonometric points are
- * Greek geodetic benchmarks with known coordinates.
+ * Fetches nearby trigonometric points from the api.vathra.xyz API
+ * with offline cache fallback via Room.
  */
-class TrigPointService {
+class TrigPointService(
+    private val cacheDao: TrigPointCacheDao? = null,
+) {
 
     companion object {
         private const val BASE_URL = "https://api.vathra.xyz/api/points/nearby"
@@ -23,13 +25,28 @@ class TrigPointService {
 
     /**
      * Fetch trig points near the given WGS84 position.
-     *
-     * @param lat WGS84 latitude
-     * @param lon WGS84 longitude
-     * @param radiusM search radius in metres (clamped to API max of 20000)
-     * @return list of nearby trig points, sorted by distance ascending
+     * Tries API first, falls back to offline cache on failure.
      */
-    suspend fun getNearby(lat: Double, lon: Double, radiusM: Int): List<TrigPoint> =
+    suspend fun getNearby(lat: Double, lon: Double, radiusM: Int): List<TrigPoint> {
+        // Try API first
+        val apiResult = fetchFromApi(lat, lon, radiusM)
+        if (apiResult.isNotEmpty()) {
+            // Cache results for offline use
+            cacheDao?.let { dao ->
+                try {
+                    dao.insertAll(apiResult.map { TrigPointCacheEntity.from(it) })
+                } catch (e: Exception) {
+                    Log.w("TrigPointService", "Failed to cache trig points", e)
+                }
+            }
+            return apiResult
+        }
+
+        // Fall back to offline cache
+        return getFromCache(lat, lon, radiusM)
+    }
+
+    private suspend fun fetchFromApi(lat: Double, lon: Double, radiusM: Int): List<TrigPoint> =
         withContext(Dispatchers.IO) {
             try {
                 val clampedRadius = radiusM.coerceIn(100, 20_000)
@@ -56,6 +73,18 @@ class TrigPointService {
                 emptyList()
             }
         }
+
+    private suspend fun getFromCache(lat: Double, lon: Double, radiusM: Int): List<TrigPoint> {
+        val dao = cacheDao ?: return emptyList()
+        return try {
+            // Convert radius to approximate degree range
+            val degRange = radiusM / 111_000.0
+            dao.getNearby(lat, lon, degRange).map { it.toTrigPoint() }
+        } catch (e: Exception) {
+            Log.w("TrigPointService", "Failed to read cache", e)
+            emptyList()
+        }
+    }
 
     private fun parseTrigPoints(json: String): List<TrigPoint> {
         val result = mutableListOf<TrigPoint>()

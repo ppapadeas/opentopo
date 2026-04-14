@@ -5,6 +5,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 
 /** Monospace font for all coordinate and numeric displays. */
@@ -44,3 +45,44 @@ val OpenTopoTypography = Typography(
     labelMediumEmphasized = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.3.sp),
     labelSmallEmphasized = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.8.sp),
 )
+
+private fun TextStyle.plusSp(extra: TextUnit): TextStyle =
+    copy(fontSize = (fontSize.value + extra.value).sp)
+
+/** Typography with +4sp on all text styles for glove mode field use. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+val GloveTypography: Typography by lazy {
+    val bump = 4.sp
+    Typography(
+        displayLarge = OpenTopoTypography.displayLarge.plusSp(bump),
+        displayMedium = OpenTopoTypography.displayMedium.plusSp(bump),
+        displaySmall = OpenTopoTypography.displaySmall.plusSp(bump),
+        headlineLarge = OpenTopoTypography.headlineLarge.plusSp(bump),
+        headlineMedium = OpenTopoTypography.headlineMedium.plusSp(bump),
+        headlineSmall = OpenTopoTypography.headlineSmall.plusSp(bump),
+        titleLarge = OpenTopoTypography.titleLarge.plusSp(bump),
+        titleMedium = OpenTopoTypography.titleMedium.plusSp(bump),
+        titleSmall = OpenTopoTypography.titleSmall.plusSp(bump),
+        bodyLarge = OpenTopoTypography.bodyLarge.plusSp(bump),
+        bodyMedium = OpenTopoTypography.bodyMedium.plusSp(bump),
+        bodySmall = OpenTopoTypography.bodySmall.plusSp(bump),
+        labelLarge = OpenTopoTypography.labelLarge.plusSp(bump),
+        labelMedium = OpenTopoTypography.labelMedium.plusSp(bump),
+        labelSmall = OpenTopoTypography.labelSmall.plusSp(bump),
+        displayLargeEmphasized = OpenTopoTypography.displayLargeEmphasized.plusSp(bump),
+        displayMediumEmphasized = OpenTopoTypography.displayMediumEmphasized.plusSp(bump),
+        displaySmallEmphasized = OpenTopoTypography.displaySmallEmphasized.plusSp(bump),
+        headlineLargeEmphasized = OpenTopoTypography.headlineLargeEmphasized.plusSp(bump),
+        headlineMediumEmphasized = OpenTopoTypography.headlineMediumEmphasized.plusSp(bump),
+        headlineSmallEmphasized = OpenTopoTypography.headlineSmallEmphasized.plusSp(bump),
+        titleLargeEmphasized = OpenTopoTypography.titleLargeEmphasized.plusSp(bump),
+        titleMediumEmphasized = OpenTopoTypography.titleMediumEmphasized.plusSp(bump),
+        titleSmallEmphasized = OpenTopoTypography.titleSmallEmphasized.plusSp(bump),
+        bodyLargeEmphasized = OpenTopoTypography.bodyLargeEmphasized.plusSp(bump),
+        bodyMediumEmphasized = OpenTopoTypography.bodyMediumEmphasized.plusSp(bump),
+        bodySmallEmphasized = OpenTopoTypography.bodySmallEmphasized.plusSp(bump),
+        labelLargeEmphasized = OpenTopoTypography.labelLargeEmphasized.plusSp(bump),
+        labelMediumEmphasized = OpenTopoTypography.labelMediumEmphasized.plusSp(bump),
+        labelSmallEmphasized = OpenTopoTypography.labelSmallEmphasized.plusSp(bump),
+    )
+}

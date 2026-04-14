@@ -116,6 +116,12 @@ val DarkSurveyColors = SurveyColors(
 
 val LocalSurveyColors = staticCompositionLocalOf { LightSurveyColors }
 
+/**
+ * Glove mode: larger touch targets (64dp min), +4sp fonts, volume button actions.
+ * Designed for cold weather operation with thick gloves.
+ */
+val LocalGloveMode = staticCompositionLocalOf { false }
+
 private val LightColorScheme = lightColorScheme(
     primary = md_theme_light_primary,
     onPrimary = md_theme_light_onPrimary,
@@ -203,6 +209,7 @@ fun OpenTopoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     amoledMode: Boolean = false,
+    gloveMode: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     var colorScheme = when {
@@ -228,14 +235,18 @@ fun OpenTopoTheme(
     }
 
     val surveyColors = if (darkTheme) DarkSurveyColors else LightSurveyColors
+    val typography = if (gloveMode) GloveTypography else OpenTopoTypography
 
     MaterialExpressiveTheme(
         colorScheme = colorScheme,
-        typography = OpenTopoTypography,
+        typography = typography,
         shapes = OpenTopoShapes,
         motionScheme = MotionScheme.expressive(),
     ) {
-        CompositionLocalProvider(LocalSurveyColors provides surveyColors) {
+        CompositionLocalProvider(
+            LocalSurveyColors provides surveyColors,
+            LocalGloveMode provides gloveMode,
+        ) {
             content()
         }
     }

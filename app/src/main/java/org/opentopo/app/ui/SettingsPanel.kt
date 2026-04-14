@@ -58,6 +58,8 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
         ?: remember { mutableStateOf(10) }
     val coordFormat by prefs?.coordFormat?.collectAsState(initial = 0)
         ?: remember { mutableStateOf(0) }
+    val gloveMode by prefs?.gloveMode?.collectAsState(initial = false)
+        ?: remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -207,6 +209,19 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
             shape = MaterialTheme.shapes.medium,
         ) {
             Column {
+                ListItem(
+                    headlineContent = { Text("Glove Mode") },
+                    supportingContent = { Text("64dp targets, volume buttons, larger fonts") },
+                    trailingContent = {
+                        Switch(
+                            checked = gloveMode,
+                            onCheckedChange = {
+                                scope.launch { prefs?.setGloveMode(it) }
+                            },
+                        )
+                    },
+                )
+                HorizontalDivider()
                 ListItem(
                     headlineContent = { Text("Coordinates") },
                     trailingContent = {

@@ -58,10 +58,10 @@
 - [x] Stakeout to trig point — nearby points list, one-tap to set as target
 - [x] Layer toggle in map switcher
 - [x] Project credits in About section
-- [ ] Verification workflow — record at mark, compare measured vs published, compute residuals
-- [ ] Verification report — summary with deltas, fix quality, timestamp
+- [x] Verification workflow — record at mark, compare measured vs published, compute residuals
+- [x] Verification report — summary with deltas, fix quality, timestamp
 - [ ] Submit condition update to vathra.xyz
-- [ ] Offline trig point cache
+- [x] Offline trig point cache
 
 ### v1.8.0 -- Direction C: M3 Expressive Showcase
 - [x] Compressed single-row status bar (fix + accuracy only in peek)
@@ -94,9 +94,9 @@
 #### Innovations
 - [ ] Glassmorphism bottom sheet (semi-transparent, blur)
 - [ ] Shape morphing record button (circle -> squircle when recording)
-- [ ] **Accuracy convergence ring** — animated shrinking circle as RTK converges (difficulty: 3, impact: 8)
-- [ ] **Glove mode** — single toggle: 64dp targets, volume buttons for store/undo, +4sp fonts (difficulty: 3, impact: 9)
-- [ ] **PiP floating stakeout** — picture-in-picture compass visible over other apps (difficulty: 4, impact: 8)
+- [x] **Accuracy convergence ring** — animated shrinking circle as RTK converges (difficulty: 3, impact: 8)
+- [x] **Glove mode** — single toggle: 64dp targets, volume buttons for store/undo, +4sp fonts (difficulty: 3, impact: 9)
+- [x] **PiP floating stakeout** — picture-in-picture compass visible over other apps (difficulty: 4, impact: 8)
 - [ ] **Ambient-adaptive theme** — auto light/dark from ambient light sensor with hysteresis (difficulty: 5, impact: 7)
 
 ### v1.10.0 -- Advanced Innovations

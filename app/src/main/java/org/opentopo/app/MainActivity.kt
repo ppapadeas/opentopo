@@ -9,8 +9,11 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
+import android.app.PictureInPictureParams
 import android.os.Build
 import android.os.Bundle
+import android.util.Rational
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,6 +24,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,7 +60,12 @@ class MainActivity : ComponentActivity() {
     private var surveyManager: SurveyManager? = null
     private var stakeout: Stakeout? = null
     private var heposTransform: org.opentopo.transform.HeposTransform? = null
-    val trigPointService = TrigPointService()
+    lateinit var trigPointService: TrigPointService
+        private set
+
+    /** True when the activity is in picture-in-picture mode. */
+    private val _isInPipMode = MutableStateFlow(false)
+    val isInPipMode: StateFlow<Boolean> = _isInPipMode
 
     /** Incremented on USB attach/detach to trigger recomposition of device list. */
     private val _usbDeviceVersion = MutableStateFlow(0)
@@ -87,6 +97,7 @@ class MainActivity : ComponentActivity() {
 
         db = AppDatabase.getInstance(this)
         prefs = org.opentopo.app.prefs.UserPreferences(this)
+        trigPointService = TrigPointService(db.trigPointCacheDao())
         bluetoothService = BluetoothGnssService(this, gnssState)
         usbService = UsbGnssService(this, gnssState)
         internalService = InternalGnssService(this, gnssState)
@@ -160,7 +171,8 @@ class MainActivity : ComponentActivity() {
         registerUsbReceiver()
 
         setContent {
-            OpenTopoTheme {
+            val gloveMode by prefs.gloveMode.collectAsState(initial = false)
+            OpenTopoTheme(gloveMode = gloveMode) {
                 MainMapScreen(
                     gnssState = gnssState,
                     bluetoothService = bluetoothService,
@@ -211,6 +223,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // Glove mode: Volume Up = Record Point, Volume Down = Undo
+        val isGlove = kotlinx.coroutines.runBlocking {
+            prefs.gloveMode.first()
+        }
+        if (isGlove) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP -> {
+                    surveyManager?.startRecording()
+                    return true
+                }
+                KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    surveyManager?.cancelRecording()
+                    return true
+                }
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleUsbIntent(intent)
@@ -245,6 +277,25 @@ class MainActivity : ComponentActivity() {
         } else {
             registerReceiver(usbReceiver, filter)
         }
+    }
+
+    /** Enter picture-in-picture mode for compact stakeout display. */
+    fun enterPipMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(1, 1))
+                .build()
+            enterPictureInPictureMode(params)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    @Deprecated("Deprecated in API 33", ReplaceWith("onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)"))
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode)
+        _isInPipMode.value = isInPictureInPictureMode
     }
 
     /** Force a refresh of the USB device list. */

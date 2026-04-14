@@ -44,6 +44,7 @@ class UserPreferences(private val context: Context) {
 
     // ── Display ──
     private val KEY_COORD_FORMAT = intPreferencesKey("coord_format") // 0=EGSA87, 1=WGS84 decimal, 2=WGS84 DMS
+    private val KEY_GLOVE_MODE = booleanPreferencesKey("glove_mode")
 
     // ── Flows ──
 
@@ -63,6 +64,7 @@ class UserPreferences(private val context: Context) {
     val baudRate: Flow<Int> = context.dataStore.data.map { it[KEY_BAUD_RATE] ?: 115200 }
     val ggaIntervalSeconds: Flow<Int> = context.dataStore.data.map { it[KEY_GGA_INTERVAL] ?: 10 }
     val coordFormat: Flow<Int> = context.dataStore.data.map { it[KEY_COORD_FORMAT] ?: 0 }
+    val gloveMode: Flow<Boolean> = context.dataStore.data.map { it[KEY_GLOVE_MODE] ?: false }
 
     // ── Setters ──
 
@@ -121,5 +123,9 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setCoordFormat(value: Int) {
         context.dataStore.edit { it[KEY_COORD_FORMAT] = value }
+    }
+
+    suspend fun setGloveMode(value: Boolean) {
+        context.dataStore.edit { it[KEY_GLOVE_MODE] = value }
     }
 }

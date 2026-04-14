@@ -87,6 +87,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -183,12 +185,19 @@ fun MainMapScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val activity = context as? org.opentopo.app.MainActivity
+    val isInPipMode by activity?.isInPipMode?.collectAsState() ?: remember { mutableStateOf(false) }
 
     remember { MapLibre.getInstance(context) }
 
+    // PiP compact view — shows only stakeout compass + distance
+    if (isInPipMode) {
+        PipStakeoutView(stakeout = stakeout, gnssState = gnssState)
+        return
+    }
+
     var selectedTab by remember { mutableIntStateOf(TAB_CONNECTION) }
     var fabMenuExpanded by remember { mutableStateOf(false) }
-    val activity = context as? org.opentopo.app.MainActivity
     val coordFormat by activity?.prefs?.coordFormat?.collectAsState(initial = 0) ?: remember { mutableStateOf(0) }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
@@ -198,6 +207,7 @@ fun MainMapScreen(
     var trigPointsVisible by remember { mutableStateOf(true) }
     var trigPointCache by remember { mutableStateOf<Map<String, TrigPoint>>(emptyMap()) }
     var selectedTrigPoint by remember { mutableStateOf<TrigPoint?>(null) }
+    var verificationResult by remember { mutableStateOf<VerificationResult?>(null) }
 
     // Observe active project's survey points for map display
     val activeProjectId by surveyManager?.activeProjectId?.collectAsState()
@@ -238,6 +248,35 @@ fun MainMapScreen(
                 1500,
             )
         }
+    }
+
+    // Update accuracy convergence ring
+    LaunchedEffect(accuracy.horizontalAccuracyM, position.hasFix) {
+        val map = mapRef ?: return@LaunchedEffect
+        val hAcc = accuracy.horizontalAccuracyM ?: return@LaunchedEffect
+        if (!position.hasFix) return@LaunchedEffect
+
+        // Convert accuracy (metres) to pixel radius at current zoom
+        // At zoom 18, ~0.15m/px. At zoom 16, ~0.6m/px. At zoom 14, ~2.4m/px.
+        val zoom = map.cameraPosition.zoom
+        val metersPerPixel = 156543.03 * kotlin.math.cos(
+            Math.toRadians(position.latitude)
+        ) / Math.pow(2.0, zoom)
+        val radiusPx = (hAcc / metersPerPixel).toFloat().coerceIn(4f, 200f)
+
+        val ringColor = when {
+            hAcc < 0.02 -> "#4CAF50"   // green — cm-level
+            hAcc < 0.05 -> "#8BC34A"   // light green
+            hAcc < 0.10 -> "#FFEB3B"   // yellow
+            hAcc < 0.50 -> "#FF9800"   // orange
+            else -> "#F44336"           // red
+        }
+
+        map.style?.getLayerAs<CircleLayer>("accuracy-ring")?.setProperties(
+            PropertyFactory.circleRadius(radiusPx),
+            PropertyFactory.circleColor(ringColor),
+            PropertyFactory.circleStrokeColor(ringColor),
+        )
     }
 
     // Haptic + audio feedback on point recorded
@@ -512,6 +551,9 @@ fun MainMapScreen(
                                 onImmersiveRequest = {
                                     stakeoutImmersive = true
                                 },
+                                onPipRequest = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                    { activity?.enterPipMode() }
+                                } else null,
                             )
                             TAB_TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
                         }
@@ -580,6 +622,20 @@ fun MainMapScreen(
                                             PropertyFactory.circleStrokeColor("#FFFFFF"),
                                             PropertyFactory.circleStrokeWidth(2.5f),
                                         )
+                                )
+
+                                // Accuracy convergence ring — shrinks as RTK converges
+                                style.addLayerBelow(
+                                    CircleLayer("accuracy-ring", "user-location")
+                                        .withProperties(
+                                            PropertyFactory.circleRadius(0f),  // updated dynamically
+                                            PropertyFactory.circleColor("#1565C0"),
+                                            PropertyFactory.circleOpacity(0.12f),
+                                            PropertyFactory.circleStrokeColor("#1565C0"),
+                                            PropertyFactory.circleStrokeWidth(1.5f),
+                                            PropertyFactory.circleStrokeOpacity(0.4f),
+                                        ),
+                                    "user-location-glow",
                                 )
 
                                 // Survey points source + layers
@@ -1146,22 +1202,65 @@ fun MainMapScreen(
                 }
             },
             confirmButton = {
-                if (stakeout != null && projected != null) {
-                    TextButton(
-                        onClick = {
-                            stakeout.setTarget(
-                                StakeoutTarget(
-                                    name = "GYS ${tp.gysId}",
-                                    easting = projected.eastingM,
-                                    northing = projected.northingM,
-                                    elevation = tp.elevation,
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Verify button — compare current position to known coords
+                    if (projected != null && position.hasFix) {
+                        val currentProjected = remember(position.latitude, position.longitude) {
+                            heposTransform?.forward(
+                                org.opentopo.transform.GeographicCoordinate(
+                                    position.latitude, position.longitude, position.altitude ?: 0.0,
                                 ),
                             )
-                            selectedTab = TAB_STAKEOUT
-                            selectedTrigPoint = null
-                        },
-                    ) {
-                        Text("Stakeout")
+                        }
+                        if (currentProjected != null) {
+                            TextButton(
+                                onClick = {
+                                    val dE = currentProjected.eastingM - projected.eastingM
+                                    val dN = currentProjected.northingM - projected.northingM
+                                    val elev = tp.elevation
+                                    val alt = position.altitude
+                                    val dH = if (elev != null && alt != null) alt - elev else null
+                                    verificationResult = VerificationResult(
+                                        pointName = "GYS ${tp.gysId}",
+                                        publishedE = projected.eastingM,
+                                        publishedN = projected.northingM,
+                                        publishedH = tp.elevation,
+                                        measuredE = currentProjected.eastingM,
+                                        measuredN = currentProjected.northingM,
+                                        measuredH = position.altitude,
+                                        deltaE = dE,
+                                        deltaN = dN,
+                                        deltaH = dH,
+                                        horizontalResidual = kotlin.math.sqrt(dE * dE + dN * dN),
+                                        fixQuality = position.fixQuality,
+                                        horizontalAccuracy = accuracy.horizontalAccuracyM,
+                                        numSatellites = position.numSatellites,
+                                    )
+                                    selectedTrigPoint = null
+                                },
+                            ) {
+                                Text("Verify")
+                            }
+                        }
+                    }
+                    // Stakeout button
+                    if (stakeout != null && projected != null) {
+                        TextButton(
+                            onClick = {
+                                stakeout.setTarget(
+                                    StakeoutTarget(
+                                        name = "GYS ${tp.gysId}",
+                                        easting = projected.eastingM,
+                                        northing = projected.northingM,
+                                        elevation = tp.elevation,
+                                    ),
+                                )
+                                selectedTab = TAB_STAKEOUT
+                                selectedTrigPoint = null
+                            },
+                        ) {
+                            Text("Stakeout")
+                        }
                     }
                 }
             },
@@ -1169,6 +1268,23 @@ fun MainMapScreen(
                 TextButton(onClick = { selectedTrigPoint = null }) {
                     Text("Close")
                 }
+            },
+        )
+    }
+
+    // ── Verification report dialog ──
+    verificationResult?.let { result ->
+        VerificationReportDialog(
+            result = result,
+            onDismiss = { verificationResult = null },
+            onShare = { text ->
+                val sendIntent = android.content.Intent().apply {
+                    action = android.content.Intent.ACTION_SEND
+                    putExtra(android.content.Intent.EXTRA_TEXT, text)
+                    type = "text/plain"
+                }
+                context.startActivity(android.content.Intent.createChooser(sendIntent, "Share Verification"))
+                verificationResult = null
             },
         )
     }
@@ -1423,4 +1539,102 @@ private fun NewProjectHeaderDialog(
             }
         },
     )
+}
+
+// ── PiP compact stakeout view ──
+
+/**
+ * Minimal stakeout display for picture-in-picture mode.
+ * Shows compass arrow and distance in a compact square layout.
+ */
+@Composable
+private fun PipStakeoutView(
+    stakeout: Stakeout?,
+    gnssState: GnssState,
+) {
+    val surveyColors = LocalSurveyColors.current
+    val result by stakeout?.result?.collectAsState(initial = null) ?: remember { mutableStateOf(null) }
+    val position by gnssState.position.collectAsState()
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.inverseSurface,
+    ) {
+        val r = result
+        if (r != null) {
+            val distColor = surveyColors.stakeoutColor(r.distance)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                // Compact compass
+                PipCompassArrow(bearingDeg = r.bearingDeg, distance = r.distance)
+
+                // Distance
+                Text(
+                    "%.2f m".format(r.distance),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontFamily = CoordinateFont,
+                    color = distColor,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                // Cardinal bearing
+                Text(
+                    r.bearingCardinal,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f),
+                )
+            }
+        } else {
+            // No stakeout target or no fix
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (stakeout?.target?.value != null) "Fix\u2026" else "No target",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.6f),
+                )
+            }
+        }
+    }
+}
+
+/** Compact compass arrow for PiP overlay. */
+@Composable
+private fun PipCompassArrow(bearingDeg: Double, distance: Double) {
+    val surveyColors = LocalSurveyColors.current
+    val color = surveyColors.stakeoutColor(distance)
+    val outlineColor = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.3f)
+
+    Canvas(modifier = Modifier.size(80.dp)) {
+        val center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height / 2)
+        val radius = size.minDimension / 2
+        val innerRadius = radius - 8.dp.toPx()
+
+        // Outer ring
+        drawCircle(
+            color = outlineColor,
+            radius = radius,
+            center = center,
+            style = Stroke(width = 1.5f.dp.toPx()),
+        )
+
+        // Arrow
+        rotate(bearingDeg.toFloat(), pivot = center) {
+            val arrowPath = androidx.compose.ui.graphics.Path().apply {
+                moveTo(center.x, center.y - innerRadius * 0.85f)
+                lineTo(center.x - 10.dp.toPx(), center.y - innerRadius * 0.15f)
+                lineTo(center.x, center.y - innerRadius * 0.30f)
+                lineTo(center.x + 10.dp.toPx(), center.y - innerRadius * 0.15f)
+                close()
+            }
+            drawPath(arrowPath, color)
+        }
+    }
 }
