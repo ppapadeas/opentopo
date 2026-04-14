@@ -99,6 +99,14 @@
 - [x] **PiP floating stakeout** — picture-in-picture compass visible over other apps (difficulty: 4, impact: 8)
 - [ ] **Ambient-adaptive theme** — auto light/dark from ambient light sensor with hysteresis (difficulty: 5, impact: 7)
 
+### v1.9.2 -- Greek Geoid Grid
+**Goal:** Accurate orthometric heights for Greece, re-enable ΔH in trig point verification.
+
+- [ ] **Greek geoid grid** — load geoid undulation grid (same .grd format as dE/dN) for H = h - N_greek
+- [ ] **Re-enable ΔH verification** — compare measured vs published orthometric height using common geoid
+- [ ] **Geoid source toggle** — switch between receiver EGM96 and Greek geoid for orthometric display
+- [ ] **Geoid grid metadata** — show version, coverage, and source in Tools panel
+
 ### v1.10.0 -- Advanced Innovations
 **Goal:** Differentiating features no competitor has.
 
@@ -107,16 +115,32 @@
 - [ ] **Home screen widget** — Glance API widget with live survey status (difficulty: 5, impact: 5)
 - [ ] **Survey coverage heatmap** — density overlay revealing spatial gaps (difficulty: 7, impact: 6)
 
-### v2.0.0 -- Extensible Geodesy
-**Goal:** Support custom coordinate systems, grids, and geoid models beyond Greece.
+### v2.0.0 -- Country Packs & Extensible Geodesy
+**Goal:** Multi-country support via downloadable country packs, each bundling datum, projection, grids, geoid, trig points, and NTRIP presets.
 
-- [ ] **Custom correction grids** — import user-provided dE/dN grids (same .grd format)
-- [ ] **Custom geoid models** — import geoid undulation grids for any country
+#### Country Pack Architecture
+- [ ] **CountryProfile abstraction** — bundles Helmert params, projection config, grid files, geoid, NTRIP presets, trig point API, export CRS, UI labels
+- [ ] **NTv2 grid reader** — industry-standard grid format (used by UK OSTN15, Australia, Germany BeTA2007, Spain, France, etc.)
+- [ ] **Lambert Conformal Conic projection** — required for France (Lambert-93) and some US State Plane zones
+- [ ] **Grid manager** — list loaded grids, import/delete, show coverage and metadata
+- [ ] **Downloadable packs** — country grids + geoid fetched on demand (not bundled in APK)
+- [ ] **Profile switcher** — select active country/CRS in settings, UI labels adapt dynamically
+- [ ] **Export CRS from profile** — PRJ/WKT, GeoJSON CRS, CSV headers derived from active profile
+
+#### Predefined Country Packs (priority order)
+- [ ] **Greece (built-in)** — current HEPOS pipeline, refactored into CountryProfile
+- [ ] **Cyprus** — CGRS93/LTM, CYPOS NTRIP (near-identical to Greece, smallest effort)
+- [ ] **Spain** — ETRS89/UTM, ERGNSS free NTRIP, EGM08-REDNAP geoid, IGN trig API
+- [ ] **Poland** — PL-ETRF2000/PL-2000, ASG-EUPOS free NTRIP, PL-geoid2021
+- [ ] **France** — RGF93/Lambert-93, Centipede free RTK, RAF20 geoid
+- [ ] **UK** — OSGB36/BNG via OSTN15+OSGM15 grids, trigpointing.uk data
+
+#### Custom/Advanced
 - [ ] **Custom Helmert parameters** — user-defined 7-parameter datum transformations
 - [ ] **Custom TM projection** — configurable central meridian, scale factor, false E/N
+- [ ] **Custom correction grids** — import user-provided dE/dN or NTv2 grids
+- [ ] **Custom geoid models** — import geoid undulation grids for any country
 - [ ] **Kastellorizo zone** — separate TM07 parameters (central meridian 30°, scale 1.0)
-- [ ] **Predefined coordinate systems** — dropdown with EGSA87, HTRS07, UTM zones, HATT zones
-- [ ] **Grid manager** — list loaded grids, import/delete, show coverage and metadata
 - [ ] **Inverse transformation** — EGSA87 → WGS84 (iterative grid interpolation)
 
 ### v2.1.0 -- Receiver Intelligence
