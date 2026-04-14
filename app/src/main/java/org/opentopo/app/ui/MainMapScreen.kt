@@ -1132,17 +1132,20 @@ fun MainMapScreen(
 
     // ── Trig point detail dialog ──
     selectedTrigPoint?.let { tp ->
-        // Trig point lat/lon from the API are in GGRS87 geographic (not WGS84),
-        // so project directly to EGSA87 via TM87 — NO Helmert, NO grid corrections.
+        // Use the published EGSA87 E/N directly from the API when available.
+        // The API lat/lon are WGS84 (transformed from EGSA87 by GDAL using PROJ's
+        // Helmert params which differ from the HEPOS params we use).  Recomputing
+        // E/N from those lat/lon via HeposTransform causes ~1.3 m residuals because
+        // the round-trip through two incompatible Helmert parameter sets doesn't close.
         val projected = remember(tp.gysId) {
-            org.opentopo.transform.TransverseMercator.forward(
-                latDeg = tp.latitude,
-                lonDeg = tp.longitude,
-                centralMeridianDeg = 24.0,
-                scaleFactor = 0.9996,
-                falseEasting = 500_000.0,
-                falseNorthing = 0.0,
-            )
+            if (tp.egsa87Easting != null && tp.egsa87Northing != null) {
+                org.opentopo.transform.ProjectedCoordinate(tp.egsa87Easting, tp.egsa87Northing)
+            } else {
+                // Fallback: old API without EGSA87 fields — use HeposTransform
+                heposTransform?.forward(
+                    org.opentopo.transform.GeographicCoordinate(tp.latitude, tp.longitude, tp.elevation ?: 0.0),
+                )
+            }
         }
 
         androidx.compose.material3.AlertDialog(
@@ -1185,13 +1188,15 @@ fun MainMapScreen(
                             fontFamily = CoordinateFont,
                         )
                     }
+                    projected?.let {
+                        Text(
+                            "EGSA87: E ${"%.3f".format(it.eastingM)}  N ${"%.3f".format(it.northingM)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = CoordinateFont,
+                        )
+                    }
                     Text(
-                        "EGSA87: E ${"%.3f".format(projected.eastingM)}  N ${"%.3f".format(projected.northingM)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = CoordinateFont,
-                    )
-                    Text(
-                        "GGRS87: %.6f\u00B0, %.6f\u00B0".format(tp.latitude, tp.longitude),
+                        "WGS84: %.6f\u00B0, %.6f\u00B0".format(tp.latitude, tp.longitude),
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = CoordinateFont,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1208,7 +1213,7 @@ fun MainMapScreen(
             confirmButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     // Verify button — compare current position to known coords
-                    if (position.hasFix) {
+                    if (projected != null && position.hasFix) {
                         val currentProjected = remember(position.latitude, position.longitude) {
                             heposTransform?.forward(
                                 org.opentopo.transform.GeographicCoordinate(
@@ -1250,7 +1255,7 @@ fun MainMapScreen(
                         }
                     }
                     // Stakeout button
-                    if (stakeout != null) {
+                    if (stakeout != null && projected != null) {
                         TextButton(
                             onClick = {
                                 stakeout.setTarget(

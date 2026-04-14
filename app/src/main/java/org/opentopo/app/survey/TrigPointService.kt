@@ -97,6 +97,9 @@ class TrigPointService(
                 latitude = obj.optDouble("lat", 0.0),
                 longitude = obj.optDouble("lon", 0.0),
                 elevation = obj.optDouble("elevation", Double.NaN).takeIf { !it.isNaN() },
+                egsa87Easting = obj.optDouble("egsa87_x", Double.NaN).takeIf { !it.isNaN() },
+                egsa87Northing = obj.optDouble("egsa87_y", Double.NaN).takeIf { !it.isNaN() },
+                egsa87Z = obj.optDouble("egsa87_z", Double.NaN).takeIf { !it.isNaN() },
                 status = obj.optString("status", null),
                 pointOrder = obj.optInt("point_order", 0),
                 distanceM = obj.optDouble("distance_meters", Double.NaN).takeIf { !it.isNaN() },
@@ -109,10 +112,13 @@ class TrigPointService(
 data class TrigPoint(
     val gysId: String,
     val name: String?,
-    val latitude: Double,
-    val longitude: Double,
-    val elevation: Double?,
-    val status: String?,       // "OK", "DAMAGED", "DESTROYED", "MISSING", "UNKNOWN"
-    val pointOrder: Int,       // geodetic order (I, II, III, IV)
-    val distanceM: Double?,    // distance from query point
+    val latitude: Double,       // WGS84 (EPSG:4326)
+    val longitude: Double,      // WGS84 (EPSG:4326)
+    val elevation: Double?,     // orthometric height (Greek vertical datum, from leveling)
+    val egsa87Easting: Double?, // published EGSA87 Easting (EPSG:2100)
+    val egsa87Northing: Double?, // published EGSA87 Northing (EPSG:2100)
+    val egsa87Z: Double?,       // GGRS87 ellipsoidal height
+    val status: String?,        // "OK", "DAMAGED", "DESTROYED", "MISSING", "UNKNOWN"
+    val pointOrder: Int,        // geodetic order (I, II, III, IV)
+    val distanceM: Double?,     // distance from query point
 )
