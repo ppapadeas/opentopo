@@ -1132,10 +1132,16 @@ fun MainMapScreen(
 
     // ── Trig point detail dialog ──
     selectedTrigPoint?.let { tp ->
-        // Compute EGSA87 from WGS84 using HeposTransform
+        // Trig point lat/lon from the API are in GGRS87 geographic (not WGS84),
+        // so project directly to EGSA87 via TM87 — NO Helmert, NO grid corrections.
         val projected = remember(tp.gysId) {
-            heposTransform?.forward(
-                org.opentopo.transform.GeographicCoordinate(tp.latitude, tp.longitude, tp.elevation ?: 0.0),
+            org.opentopo.transform.TransverseMercator.forward(
+                latDeg = tp.latitude,
+                lonDeg = tp.longitude,
+                centralMeridianDeg = 24.0,
+                scaleFactor = 0.9996,
+                falseEasting = 500_000.0,
+                falseNorthing = 0.0,
             )
         }
 
@@ -1179,15 +1185,13 @@ fun MainMapScreen(
                             fontFamily = CoordinateFont,
                         )
                     }
-                    projected?.let {
-                        Text(
-                            "EGSA87: E ${"%.3f".format(it.eastingM)}  N ${"%.3f".format(it.northingM)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontFamily = CoordinateFont,
-                        )
-                    }
                     Text(
-                        "WGS84: %.6f\u00B0, %.6f\u00B0".format(tp.latitude, tp.longitude),
+                        "EGSA87: E ${"%.3f".format(projected.eastingM)}  N ${"%.3f".format(projected.northingM)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = CoordinateFont,
+                    )
+                    Text(
+                        "GGRS87: %.6f\u00B0, %.6f\u00B0".format(tp.latitude, tp.longitude),
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = CoordinateFont,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1204,7 +1208,7 @@ fun MainMapScreen(
             confirmButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     // Verify button — compare current position to known coords
-                    if (projected != null && position.hasFix) {
+                    if (position.hasFix) {
                         val currentProjected = remember(position.latitude, position.longitude) {
                             heposTransform?.forward(
                                 org.opentopo.transform.GeographicCoordinate(
@@ -1217,9 +1221,11 @@ fun MainMapScreen(
                                 onClick = {
                                     val dE = currentProjected.eastingM - projected.eastingM
                                     val dN = currentProjected.northingM - projected.northingM
-                                    val elev = tp.elevation
-                                    val alt = position.altitude
-                                    val dH = if (elev != null && alt != null) alt - elev else null
+                                    // Height comparison skipped: GGA altitude uses the receiver's
+                                    // internal geoid model (EGM96) while published trig point
+                                    // elevations reference the Greek vertical datum.  The two
+                                    // geoid surfaces differ by several metres in Greece, making
+                                    // ΔH meaningless without a common geoid model.
                                     verificationResult = VerificationResult(
                                         pointName = "GYS ${tp.gysId}",
                                         publishedE = projected.eastingM,
@@ -1230,7 +1236,7 @@ fun MainMapScreen(
                                         measuredH = position.altitude,
                                         deltaE = dE,
                                         deltaN = dN,
-                                        deltaH = dH,
+                                        deltaH = null,
                                         horizontalResidual = kotlin.math.sqrt(dE * dE + dN * dN),
                                         fixQuality = position.fixQuality,
                                         horizontalAccuracy = accuracy.horizontalAccuracyM,
@@ -1244,7 +1250,7 @@ fun MainMapScreen(
                         }
                     }
                     // Stakeout button
-                    if (stakeout != null && projected != null) {
+                    if (stakeout != null) {
                         TextButton(
                             onClick = {
                                 stakeout.setTarget(
