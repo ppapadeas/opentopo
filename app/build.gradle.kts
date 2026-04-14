@@ -25,7 +25,7 @@ android {
         applicationId = "org.opentopo.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
+        versionCode = 12
         versionName = providers.exec {
             commandLine("git", "describe", "--tags", "--always", "--dirty")
         }.standardOutput.asText.get().trim()
