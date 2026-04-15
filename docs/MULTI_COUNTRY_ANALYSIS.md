@@ -164,7 +164,7 @@ The current `HeposTransform` is a special case of this pipeline with Helmert + T
 
 ## Implementation Effort Estimate
 
-### Phase 1: Greek geoid grid (v1.9.2)
+### Phase 1: Greek geoid grid (v1.9.3)
 - Load geoid .grd from assets (same CorrectionGrid reader) — **2 hours**
 - Compute H = h - N_greek everywhere H is displayed — **3 hours**
 - Re-enable ΔH in verification — **1 hour**
@@ -252,7 +252,7 @@ The current `HeposTransform` is a special case of this pipeline with Helmert + T
 
 ## Recommended Implementation Order
 
-1. **v1.9.2** — Greek geoid grid (immediate fix for ΔH verification)
+1. **v1.9.3** — Greek geoid grid (immediate fix for ΔH verification)
 2. **v2.0.0** — Core abstraction (CountryProfile, NTv2 reader, Lambert, grid manager)
 3. **v2.0.0** — Cyprus pack (validates architecture with minimal effort)
 4. **v2.0.x** — Spain, Poland, France (high-value markets with free NTRIP)

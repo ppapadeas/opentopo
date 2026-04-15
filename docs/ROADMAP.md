@@ -99,7 +99,18 @@
 - [x] **PiP floating stakeout** — picture-in-picture compass visible over other apps (difficulty: 4, impact: 8)
 - [ ] **Ambient-adaptive theme** — auto light/dark from ambient light sensor with hysteresis (difficulty: 5, impact: 7)
 
-### v1.9.2 -- Greek Geoid Grid
+### v1.9.1 -- Trig Point Datum Fix
+- [x] Initial fix for ~1.3 m verification residuals (superseded by v1.9.2)
+- [x] Disabled misleading ΔH in verification (EGM96 vs Greek geoid mismatch)
+
+### v1.9.2 -- Published EGSA87 Coordinates
+- [x] **vathra.xyz API** now returns `egsa87_x`, `egsa87_y`, `egsa87_z` — exact published coordinates
+- [x] **Verification uses published E/N directly** — eliminates round-trip Helmert parameter mismatch
+- [x] **Root cause identified** — PROJ 3-param vs HEPOS 7-param Helmert incompatibility
+- [x] TrigPoint data model and offline cache extended with EGSA87 fields (DB migration v7)
+- [x] Fallback to HeposTransform when API doesn't provide EGSA87 fields
+
+### v1.9.3 -- Greek Geoid Grid
 **Goal:** Accurate orthometric heights for Greece, re-enable ΔH in trig point verification.
 
 - [ ] **Greek geoid grid** — load geoid undulation grid (same .grd format as dE/dN) for H = h - N_greek

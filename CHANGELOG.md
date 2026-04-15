@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-04-14
+
+### Fixed
+- **Trig point verification uses published EGSA87 directly** — vathra.xyz API now returns the exact published `egsa87_x`/`egsa87_y`/`egsa87_z` coordinates; the app uses these directly for verification and stakeout instead of recomputing from lat/lon
+- **Root cause of 1.3 m verification residuals** — the API's WGS84 lat/lon were transformed from EGSA87 by GDAL using PROJ's 3-parameter Helmert, which differs from the official HEPOS 7-parameter Helmert used by OpenTopo; the round-trip through incompatible parameter sets caused systematic error
+- **ΔH disabled in verification** — GGA altitude uses the receiver's EGM96 geoid while published trig point elevations reference the Greek vertical datum; the two geoid surfaces differ by several metres, making ΔH misleading
+
+### Added
+- `egsa87Easting`, `egsa87Northing`, `egsa87Z` fields in TrigPoint data model and offline cache
+- Database migration v7 for trig point cache EGSA87 columns
+- Fallback to HeposTransform when API doesn't provide EGSA87 fields
+
+## [1.9.1] - 2026-04-14
+
+### Fixed
+- **Trig point verification datum fix (superseded by v1.9.2)** — initial fix using direct TM87 projection; replaced by using published EGSA87 coordinates from the API
+- Coordinate label corrected from "WGS84" to "GGRS87" for trig points (reverted — API lat/lon are WGS84)
+
+### Changed
+- Bumped versionCode to 11
+
+## [1.9.0] - 2026-04-14
+
+### Added
+- **Accuracy convergence ring** — animated shrinking circle as RTK converges
+- **Glove mode** — 64dp targets, volume buttons for store/undo, +4sp fonts
+- **PiP floating stakeout** — picture-in-picture compass visible over other apps
+- **Trig point verification workflow** — record at mark, compare measured vs published, compute residuals with report dialog
+- **Offline trig point cache** — Room-backed cache for trig points with fallback when API unavailable
+- ShortNavigationBar, ButtonGroup, emphasized typography, M3E shape system
+- AMOLED dark mode option
+- MotionScheme.expressive() tokens for panel transitions
+
+### Changed
+- Bumped versionCode to 10
+
 ## [1.8.1] - 2026-04-13
 
 ### Added
