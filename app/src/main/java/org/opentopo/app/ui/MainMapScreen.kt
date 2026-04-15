@@ -1226,22 +1226,36 @@ fun MainMapScreen(
                                 onClick = {
                                     val dE = currentProjected.eastingM - projected.eastingM
                                     val dN = currentProjected.northingM - projected.northingM
-                                    // Height comparison skipped: GGA altitude uses the receiver's
-                                    // internal geoid model (EGM96) while published trig point
-                                    // elevations reference the Greek vertical datum.  The two
-                                    // geoid surfaces differ by several metres in Greece, making
-                                    // ΔH meaningless without a common geoid model.
+                                    // Compute orthometric height using Greek geoid when available.
+                                    // H = h_ellipsoidal - N_greek.  The ellipsoidal height is
+                                    // h = GGA_altitude + GGA_geoidSeparation.
+                                    val hEllipsoidal = position.altitude?.let { alt ->
+                                        position.geoidSeparation?.let { n -> alt + n }
+                                    }
+                                    val measuredOrtho = hEllipsoidal?.let { h ->
+                                        heposTransform?.let { ht ->
+                                            val tm07 = org.opentopo.transform.TransverseMercator.forward(
+                                                position.latitude, position.longitude,
+                                                24.0, 0.9996, 500_000.0, -2_000_000.0,
+                                            )
+                                            val greekN = ht.geoidUndulation(tm07.eastingM, tm07.northingM)
+                                            greekN?.let { h - it }
+                                        }
+                                    }
+                                    val publishedH = tp.elevation
+                                    val dH = if (measuredOrtho != null && publishedH != null)
+                                        measuredOrtho - publishedH else null
                                     verificationResult = VerificationResult(
                                         pointName = "GYS ${tp.gysId}",
                                         publishedE = projected.eastingM,
                                         publishedN = projected.northingM,
-                                        publishedH = tp.elevation,
+                                        publishedH = publishedH,
                                         measuredE = currentProjected.eastingM,
                                         measuredN = currentProjected.northingM,
-                                        measuredH = position.altitude,
+                                        measuredH = measuredOrtho,
                                         deltaE = dE,
                                         deltaN = dN,
-                                        deltaH = null,
+                                        deltaH = dH,
                                         horizontalResidual = kotlin.math.sqrt(dE * dE + dN * dN),
                                         fixQuality = position.fixQuality,
                                         horizontalAccuracy = accuracy.horizontalAccuracyM,

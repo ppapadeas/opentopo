@@ -12,13 +12,27 @@ import java.io.InputStream
  *  4. Geographic -> TM87 projection (approximate EGSA87)
  *  5. Compute TM07 coords from original HTRS07 for grid lookup
  *  6. Bilinear grid interpolation + apply corrections
+ *  7. (optional) Greek geoid interpolation for orthometric height
  */
 class HeposTransform(
     gridDeStream: InputStream,
     gridDnStream: InputStream,
+    geoidGridStream: InputStream? = null,
 ) {
     private val gridDe = CorrectionGrid(gridDeStream)
     private val gridDn = CorrectionGrid(gridDnStream)
+    private val gridGeoid: CorrectionGrid? = geoidGridStream?.let { CorrectionGrid(it) }
+
+    /** Whether a Greek geoid grid is loaded. */
+    val hasGeoidGrid: Boolean get() = gridGeoid != null
+
+    /**
+     * Interpolate Greek geoid undulation at the given TM07 coordinates.
+     * @return geoid undulation N in metres, or null if no geoid grid loaded
+     */
+    fun geoidUndulation(tm07Easting: Double, tm07Northing: Double): Double? {
+        return gridGeoid?.interpolate(tm07Easting, tm07Northing)
+    }
 
     /** Forward transform with all intermediate results exposed. */
     fun forwardDetailed(coord: GeographicCoordinate, geoidSeparation: Double? = null): TransformResult {
@@ -30,8 +44,11 @@ class HeposTransform(
         val deCm = gridDe.interpolate(tm07.eastingM, tm07.northingM)
         val dnCm = gridDn.interpolate(tm07.eastingM, tm07.northingM)
         val output = ProjectedCoordinate(tm87.eastingM + deCm / 100.0, tm87.northingM + dnCm / 100.0)
-        val orthoHeight = if (geoidSeparation != null) coord.heightM - geoidSeparation else null
-        return TransformResult(coord, xyz, xyzEgsa, geoEgsa, tm87, tm07, deCm, dnCm, output, geoidSeparation, orthoHeight)
+        // Prefer Greek geoid for orthometric height; fall back to receiver geoid separation
+        val greekGeoidN = gridGeoid?.interpolate(tm07.eastingM, tm07.northingM)
+        val effectiveN = greekGeoidN ?: geoidSeparation
+        val orthoHeight = if (effectiveN != null) coord.heightM - effectiveN else null
+        return TransformResult(coord, xyz, xyzEgsa, geoEgsa, tm87, tm07, deCm, dnCm, output, effectiveN, orthoHeight)
     }
 
     fun forward(coord: GeographicCoordinate): ProjectedCoordinate {

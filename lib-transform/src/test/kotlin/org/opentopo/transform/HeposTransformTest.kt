@@ -94,4 +94,52 @@ class HeposTransformTest {
         assertNull(result.geoidUndulation)
         assertNull(result.orthometricHeight)
     }
+
+    // ── Greek geoid grid tests ──
+
+    private fun createTransformWithGeoid(): HeposTransform {
+        val deStream = javaClass.classLoader.getResourceAsStream("dE_2km_V1-0.grd")
+            ?: throw IllegalStateException("dE grid not found")
+        val dnStream = javaClass.classLoader.getResourceAsStream("dN_2km_V1-0.grd")
+            ?: throw IllegalStateException("dN grid not found")
+        val geoidStream = javaClass.classLoader.getResourceAsStream("geoid_hepos07.grd")
+            ?: throw IllegalStateException("geoid grid not found")
+        return HeposTransform(deStream, dnStream, geoidStream)
+    }
+
+    @Test fun `Greek geoid grid loads and has correct dimensions`() {
+        val transform = createTransformWithGeoid()
+        assertTrue(transform.hasGeoidGrid)
+    }
+
+    @Test fun `Greek geoid at Athens is reasonable`() {
+        // Athens: expect geoid undulation ~36-38m (HEPOS07 datum geoid)
+        val transform = createTransformWithGeoid()
+        val tm07 = TransverseMercator.forward(37.9715, 23.7267, 24.0, 0.9996, 500_000.0, -2_000_000.0)
+        val n = transform.geoidUndulation(tm07.eastingM, tm07.northingM)
+        assertNotNull(n)
+        assertTrue(n!! in 30.0..45.0, "Athens geoid undulation $n outside expected range 30-45m")
+    }
+
+    @Test fun `Greek geoid at Arfara matches known value`() {
+        // GYS 129088 at Arfara: h_WGS84 ≈ 151.66, H_published = 126.00
+        // Expected N ≈ 151.66 - 126.00 = 25.66m
+        val transform = createTransformWithGeoid()
+        val tm07 = TransverseMercator.forward(37.1443, 22.0489, 24.0, 0.9996, 500_000.0, -2_000_000.0)
+        val n = transform.geoidUndulation(tm07.eastingM, tm07.northingM)
+        assertNotNull(n)
+        assertTrue(n!! in 22.0..29.0, "Arfara geoid undulation $n outside expected range 22-29m")
+    }
+
+    @Test fun `forwardDetailed with Greek geoid overrides receiver geoid`() {
+        val transform = createTransformWithGeoid()
+        val result = transform.forwardDetailed(
+            GeographicCoordinate(37.9715, 23.7267, 150.0),
+            geoidSeparation = 36.5, // receiver EGM96 value — should be overridden
+        )
+        assertNotNull(result.geoidUndulation)
+        // Greek geoid should override the receiver value (36.5)
+        assertTrue(result.geoidUndulation != 36.5, "Greek geoid should override receiver geoid separation")
+        assertNotNull(result.orthometricHeight)
+    }
 }

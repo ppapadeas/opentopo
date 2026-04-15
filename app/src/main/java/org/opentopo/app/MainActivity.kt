@@ -123,7 +123,8 @@ class MainActivity : ComponentActivity() {
 
             val deStream3 = assets.open("dE_2km_V1-0.grd")
             val dnStream3 = assets.open("dN_2km_V1-0.grd")
-            heposTransform = org.opentopo.transform.HeposTransform(deStream3, dnStream3)
+            val geoidStream = try { assets.open("geoid_hepos07.grd") } catch (_: Exception) { null }
+            heposTransform = org.opentopo.transform.HeposTransform(deStream3, dnStream3, geoidStream)
 
             val deStream2 = assets.open("dE_2km_V1-0.grd")
             val dnStream2 = assets.open("dN_2km_V1-0.grd")
