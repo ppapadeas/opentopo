@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.3] - 2026-04-15
+
+### Added
+- **Greek geoid grid (HEPOS07)** — bundled `geoid_hepos07.grd` (985 KB, 422x408, 2km spacing) from Ktimatologio/NTUA for accurate orthometric heights in Greece
+- **Geoid interpolation in HeposTransform** — `geoidUndulation()` method and `hasGeoidGrid` property
+- **ΔH re-enabled in trig point verification** — measured orthometric height computed as H = h_ellipsoidal - N_greek instead of relying on receiver EGM96
+- 5 new geoid tests (grid loading, Athens/Arfara undulation checks, Greek geoid overrides receiver)
+
+### Fixed
+- **6.2 m vertical residual eliminated** — Greek geoid undulation (~25.7 m at Arfara) replaces receiver EGM96 (~31.9 m), matching the published trig point height datum
+
 ## [1.9.2] - 2026-04-14
 
 ### Fixed

@@ -113,8 +113,9 @@
 ### v1.9.3 -- Greek Geoid Grid
 **Goal:** Accurate orthometric heights for Greece, re-enable ΔH in trig point verification.
 
-- [ ] **Greek geoid grid** — load geoid undulation grid (same .grd format as dE/dN) for H = h - N_greek
-- [ ] **Re-enable ΔH verification** — compare measured vs published orthometric height using common geoid
+- [x] **Greek geoid grid** — bundled HEPOS07 geoid (geoid_hepos07.grd, 985 KB, Ktimatologio/NTUA, CC BY-NC-SA 3.0 + GPLv3)
+- [x] **Re-enable ΔH verification** — H = h_ellipsoidal - N_greek; eliminates 6.2 m EGM96 vs Greek geoid mismatch
+- [x] **HeposTransform geoid API** — geoidUndulation() interpolation, hasGeoidGrid property, forwardDetailed() prefers Greek geoid
 - [ ] **Geoid source toggle** — switch between receiver EGM96 and Greek geoid for orthometric display
 - [ ] **Geoid grid metadata** — show version, coverage, and source in Tools panel
 
