@@ -589,7 +589,7 @@ fun MainMapScreen(
                                     .fromJson(styleJson),
                             ) { style ->
                                 map.cameraPosition = CameraPosition.Builder()
-                                    .target(LatLng(38.5, 23.8)).zoom(6.0).build()
+                                    .target(LatLng(38.5, 23.8)).zoom(7.0).build()
 
                                 // Move compass to avoid overlap with fix status pill
                                 // Compass: top-left, below fix pill

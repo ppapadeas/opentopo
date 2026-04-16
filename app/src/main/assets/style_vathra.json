@@ -1310,10 +1310,6 @@
       ],
       "paint": {
         "line-color": "#ebebeb",
-        "line-dasharray": [
-          3,
-          1
-        ],
         "line-width": [
           "interpolate",
           [
@@ -1324,9 +1320,9 @@
             "zoom"
           ],
           14,
-          0,
+          0.5,
           20,
-          7
+          12
         ]
       }
     },

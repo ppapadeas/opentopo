@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.4] - 2026-04-16
+
+### Fixed
+- **Basemap style regenerated** from `@protomaps/basemaps` v5.7.1 to match current tile data (protomaps basemap v4.14.1) served by Cloudflare worker
+- **Initial map zoom adjusted** from 6 to 7 so Greece fills the viewport on launch instead of showing mostly gray background
+
 ## [1.9.3] - 2026-04-15
 
 ### Added
