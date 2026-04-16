@@ -57,4 +57,67 @@ object TransverseMercator {
 
         return ProjectedCoordinate(eastingM = easting, northingM = northing)
     }
+
+    fun inverse(
+        eastingM: Double,
+        northingM: Double,
+        centralMeridianDeg: Double = 24.0,
+        scaleFactor: Double = 0.9996,
+        falseEasting: Double = 500_000.0,
+        falseNorthing: Double = 0.0,
+    ): GeographicCoordinate {
+        val a = Ellipsoid.A
+        val e2 = Ellipsoid.E2
+        val ePrime2 = e2 / (1.0 - e2)
+
+        val e4 = e2 * e2
+        val e6 = e2 * e2 * e2
+        val m0Coeff = 1.0 - e2 / 4.0 - 3.0 * e4 / 64.0 - 5.0 * e6 / 256.0
+
+        val m1 = (northingM - falseNorthing) / scaleFactor
+
+        val mu = m1 / (a * m0Coeff)
+
+        val e1 = (1.0 - sqrt(1.0 - e2)) / (1.0 + sqrt(1.0 - e2))
+        val e12 = e1 * e1
+        val e13 = e1 * e1 * e1
+        val e14 = e1 * e1 * e1 * e1
+
+        val phi1 = mu +
+            (3.0 * e1 / 2.0 - 27.0 * e13 / 32.0) * sin(2.0 * mu) +
+            (21.0 * e12 / 16.0 - 55.0 * e14 / 32.0) * sin(4.0 * mu) +
+            (151.0 * e13 / 96.0) * sin(6.0 * mu) +
+            (1097.0 * e14 / 512.0) * sin(8.0 * mu)
+
+        val sinPhi1 = sin(phi1)
+        val cosPhi1 = cos(phi1)
+        val tanPhi1 = tan(phi1)
+
+        val n1 = a / sqrt(1.0 - e2 * sinPhi1 * sinPhi1)
+        val r1 = a * (1.0 - e2) / (1.0 - e2 * sinPhi1 * sinPhi1).pow(1.5)
+        val t1 = tanPhi1 * tanPhi1
+        val c1 = ePrime2 * cosPhi1 * cosPhi1
+        val d = (eastingM - falseEasting) / (n1 * scaleFactor)
+
+        val d2 = d * d
+        val d4 = d2 * d2
+        val d6 = d4 * d2
+
+        val lat = phi1 - (n1 * tanPhi1 / r1) * (
+            d2 / 2.0 -
+            (5.0 + 3.0 * t1 + 10.0 * c1 - 4.0 * c1 * c1 - 9.0 * ePrime2) * d4 / 24.0 +
+            (61.0 + 90.0 * t1 + 298.0 * c1 + 45.0 * t1 * t1 - 252.0 * ePrime2 - 3.0 * c1 * c1) * d6 / 720.0
+        )
+
+        val lon = Math.toRadians(centralMeridianDeg) + (1.0 / cosPhi1) * (
+            d -
+            (1.0 + 2.0 * t1 + c1) * d * d2 / 6.0 +
+            (5.0 - 2.0 * c1 + 28.0 * t1 - 3.0 * c1 * c1 + 8.0 * ePrime2 + 24.0 * t1 * t1) * d * d4 / 120.0
+        )
+
+        return GeographicCoordinate(
+            latitudeDeg = Math.toDegrees(lat),
+            longitudeDeg = Math.toDegrees(lon),
+        )
+    }
 }

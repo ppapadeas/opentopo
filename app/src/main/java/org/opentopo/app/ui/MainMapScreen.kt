@@ -804,9 +804,16 @@ fun MainMapScreen(
                                             trigPointCache = updated
                                             // Update GeoJSON source
                                             val features = updated.values.map { tp ->
-                                                val f = Feature.fromGeometry(
-                                                    Point.fromLngLat(tp.longitude, tp.latitude),
-                                                )
+                                                val point = if (tp.egsa87Easting != null && tp.egsa87Northing != null && heposTransform != null) {
+                                                    val wgs84 = heposTransform.reverse(
+                                                        org.opentopo.transform.ProjectedCoordinate(tp.egsa87Easting, tp.egsa87Northing),
+                                                        tp.elevation ?: 0.0,
+                                                    )
+                                                    Point.fromLngLat(wgs84.longitudeDeg, wgs84.latitudeDeg)
+                                                } else {
+                                                    Point.fromLngLat(tp.longitude, tp.latitude)
+                                                }
+                                                val f = Feature.fromGeometry(point)
                                                 f.addStringProperty("gys_id", tp.gysId)
                                                 f.addStringProperty("name", tp.name ?: "")
                                                 f.addStringProperty("status", tp.status ?: "UNKNOWN")

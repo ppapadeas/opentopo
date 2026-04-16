@@ -51,6 +51,63 @@ class HeposTransform(
         return TransformResult(coord, xyz, xyzEgsa, geoEgsa, tm87, tm07, deCm, dnCm, output, effectiveN, orthoHeight)
     }
 
+    /**
+     * Reverse transform: EGSA87 (E, N) -> WGS84/HTRS07 geographic.
+     *
+     * @param approximateHeightM Approximate WGS84 ellipsoidal height in metres.
+     *   TM projection discards height, so providing one improves accuracy from
+     *   ~20 mm (at h=500 m, worst case) to sub-millimetre. For most map-rendering
+     *   uses, the default of 0.0 is sufficient.
+     */
+    fun reverse(coord: ProjectedCoordinate, approximateHeightM: Double = 0.0): GeographicCoordinate {
+        // Estimate EGSA87 ellipsoidal height from the WGS84 height by applying
+        // the Helmert height shift (≈ −24 m in Greece).
+        val egsa87Height = if (approximateHeightM != 0.0) {
+            val approxGeo = GeographicCoordinate(38.0, 24.0, approximateHeightM)
+            val h = Ellipsoid.cartesianToGeographic(
+                Helmert.forward(Ellipsoid.geographicToCartesian(approxGeo)),
+            ).heightM
+            h
+        } else {
+            0.0
+        }
+
+        var tm87E = coord.eastingM
+        var tm87N = coord.northingM
+
+        for (i in 0 until 10) {
+            val tmGeo = TransverseMercator.inverse(tm87E, tm87N)
+            val geoEgsa = GeographicCoordinate(tmGeo.latitudeDeg, tmGeo.longitudeDeg, egsa87Height)
+            val xyzHtrs = Helmert.inverse(Ellipsoid.geographicToCartesian(geoEgsa))
+            val wgs84 = Ellipsoid.cartesianToGeographic(xyzHtrs)
+
+            val tm07 = TransverseMercator.forward(
+                latDeg = wgs84.latitudeDeg,
+                lonDeg = wgs84.longitudeDeg,
+                centralMeridianDeg = 24.0,
+                scaleFactor = 0.9996,
+                falseEasting = 500_000.0,
+                falseNorthing = -2_000_000.0,
+            )
+            val deCm = gridDe.interpolate(tm07.eastingM, tm07.northingM)
+            val dnCm = gridDn.interpolate(tm07.eastingM, tm07.northingM)
+
+            val newTm87E = coord.eastingM - deCm / 100.0
+            val newTm87N = coord.northingM - dnCm / 100.0
+
+            if (kotlin.math.abs(newTm87E - tm87E) < 1e-9 && kotlin.math.abs(newTm87N - tm87N) < 1e-9) {
+                return wgs84
+            }
+            tm87E = newTm87E
+            tm87N = newTm87N
+        }
+
+        val tmGeo = TransverseMercator.inverse(tm87E, tm87N)
+        val geoEgsa = GeographicCoordinate(tmGeo.latitudeDeg, tmGeo.longitudeDeg, egsa87Height)
+        val xyzHtrs = Helmert.inverse(Ellipsoid.geographicToCartesian(geoEgsa))
+        return Ellipsoid.cartesianToGeographic(xyzHtrs)
+    }
+
     fun forward(coord: GeographicCoordinate): ProjectedCoordinate {
         // Step 1: Geographic -> Cartesian (HTRS07)
         val xyz = Ellipsoid.geographicToCartesian(coord)

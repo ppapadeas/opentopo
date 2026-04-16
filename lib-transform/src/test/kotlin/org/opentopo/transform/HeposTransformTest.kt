@@ -74,6 +74,39 @@ class HeposTransformTest {
         "Lamia", 38.8991, 22.4342, 50.0, 364068.124759, 4306457.554471,
     )
 
+    // ── Reverse (EGSA87 -> WGS84) roundtrip tests ──
+
+    private fun assertRoundtrip(
+        name: String,
+        lat: Double,
+        lon: Double,
+        h: Double,
+        withHeight: Boolean = false,
+        toleranceDeg: Double = if (withHeight) 1e-8 else 3e-7,
+    ) {
+        val transform = createTransform()
+        val projected = transform.forward(GeographicCoordinate(lat, lon, h))
+        val recovered = if (withHeight) transform.reverse(projected, h) else transform.reverse(projected)
+        val dLat = abs(recovered.latitudeDeg - lat)
+        val dLon = abs(recovered.longitudeDeg - lon)
+        assertTrue(dLat < toleranceDeg, "$name: lat off by ${dLat}° (${dLat * 111_000}m)")
+        assertTrue(dLon < toleranceDeg, "$name: lon off by ${dLon}° (${dLon * 80_000}m)")
+    }
+
+    @Test fun `reverse Athens`() = assertRoundtrip("Athens", 37.9715, 23.7267, 150.0)
+    @Test fun `reverse Thessaloniki`() = assertRoundtrip("Thessaloniki", 40.6401, 22.9444, 30.0)
+    @Test fun `reverse Kalamata`() = assertRoundtrip("Kalamata", 37.0388, 22.1143, 10.0)
+    @Test fun `reverse Heraklion`() = assertRoundtrip("Heraklion", 35.3387, 25.1442, 20.0)
+    @Test fun `reverse Corfu`() = assertRoundtrip("Corfu", 39.6243, 19.9217, 5.0)
+    @Test fun `reverse Rhodes`() = assertRoundtrip("Rhodes", 36.4341, 28.2176, 15.0)
+    @Test fun `reverse Ioannina`() = assertRoundtrip("Ioannina", 39.6650, 20.8537, 480.0)
+    @Test fun `reverse Patras`() = assertRoundtrip("Patras", 38.2466, 21.7346, 3.0)
+    @Test fun `reverse Alexandroupoli`() = assertRoundtrip("Alexandroupoli", 40.8469, 25.8743, 5.0)
+    @Test fun `reverse Lamia`() = assertRoundtrip("Lamia", 38.8991, 22.4342, 50.0)
+
+    @Test fun `reverse with height Athens`() = assertRoundtrip("Athens+h", 37.9715, 23.7267, 150.0, withHeight = true)
+    @Test fun `reverse with height Ioannina`() = assertRoundtrip("Ioannina+h", 39.6650, 20.8537, 480.0, withHeight = true)
+
     @Test
     fun `forwardDetailed with geoid separation computes orthometric height`() {
         val transform = createTransform()

@@ -30,4 +30,16 @@ object Helmert {
             z = z + TZ + EY * x - EX * y + DS * z,
         )
     }
+
+    fun inverse(source: CartesianCoordinate): CartesianCoordinate {
+        val a = source.x - TX
+        val b = source.y - TY
+        val c = source.z - TZ
+        val s = 1.0 + DS
+        return CartesianCoordinate(
+            x = (a - EZ * b + EY * c) / s,
+            y = (EZ * a + b - EX * c) / s,
+            z = (-EY * a + EX * b + c) / s,
+        )
+    }
 }
