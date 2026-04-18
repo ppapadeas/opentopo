@@ -90,7 +90,8 @@ The app uses Material 3 Expressive with a map-centric single-screen design.
 
 ### Layout
 - **Full-screen MapLibre map** -- always visible, shows live position (fix-quality colored dot) and recorded survey points (colored by fix quality with labels)
-- **Map layers** -- Street Map (vathra.xyz Protomaps), Ktimatologio orthophoto WMS, contour lines; switched via layer toggle
+- **Map layers** -- Street Map (vathra.xyz Protomaps via Cloudflare Worker + R2 PMTiles), Ktimatologio orthophoto WMS, contour lines; switched via layer toggle. Style is derived from `@protomaps/basemaps` LIGHT with the `water_label_ocean` / `water_label_lakes` layers removed — their nested `is-supported-script` expressions break MapLibre Android 11.8.4 rendering
+- **Initial camera** -- last known GPS location at zoom 15 (via `LocationManager.getLastKnownLocation`), falling back to Greece overview (38.5, 23.8, zoom 7) when no location is available
 - **Fix status pill** (top) -- persistent display of fix type, satellite count, accuracy
 - **FAB menu** (bottom-right) -- quick point recording with haptic/audio feedback
 - **Bottom sheet** -- `BottomSheetScaffold` with M3E `ShortNavigationBar` (4 tabs, pill-shaped active indicator):

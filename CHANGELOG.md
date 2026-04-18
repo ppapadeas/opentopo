@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.5] - 2026-04-18
+
+### Fixed
+- **Basemap rendering fix** — removed `water_label_ocean` and `water_label_lakes` layers whose deeply-nested `is-supported-script` expressions caused the entire style to fail rendering on MapLibre Android 11.8.4, leaving the map blank
+
+### Changed
+- **Initial camera uses last known GPS location** — map opens centered on the user's location at zoom 15, falling back to Greece overview (zoom 7) when no GPS fix is available
+
 ## [1.9.4] - 2026-04-16
 
 ### Fixed

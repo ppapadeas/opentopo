@@ -588,8 +588,24 @@ fun MainMapScreen(
                                 org.maplibre.android.maps.Style.Builder()
                                     .fromJson(styleJson),
                             ) { style ->
+                                // Initial camera: try to use last known GPS, fallback to Greece center
+                                val lm = ctx.getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+                                val lastLoc = try {
+                                    if (androidx.core.content.ContextCompat.checkSelfPermission(
+                                            ctx, android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                    ) {
+                                        lm?.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                                            ?: lm?.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                                    } else null
+                                } catch (_: Exception) { null }
+                                val (initLat, initLng, initZoom) = if (lastLoc != null) {
+                                    Triple(lastLoc.latitude, lastLoc.longitude, 15.0)
+                                } else {
+                                    Triple(38.5, 23.8, 7.0)
+                                }
                                 map.cameraPosition = CameraPosition.Builder()
-                                    .target(LatLng(38.5, 23.8)).zoom(7.0).build()
+                                    .target(LatLng(initLat, initLng)).zoom(initZoom).build()
 
                                 // Move compass to avoid overlap with fix status pill
                                 // Compass: top-left, below fix pill

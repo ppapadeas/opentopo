@@ -29,3 +29,10 @@
 - Grid files loaded once per HeposTransform instance, cached in memory
 - NTRIP RTCM data routed to both BT and USB services (whichever is connected accepts)
 - Map-centric UI: MainMapScreen with BottomSheetScaffold containing tool panels
+
+## Basemap
+
+- Vector tiles: `https://vathra-tiles.vathra.workers.dev/{greece,contours}.json` (Cloudflare Worker fronting R2-hosted PMTiles)
+- Style: `app/src/main/assets/style_vathra.json`, derived from `@protomaps/basemaps@5.7.1` LIGHT with `lang: 'el'`, plus hand-written `contours-lines` / `contours-labels` layers
+- **Do not re-include `water_label_ocean` or `water_label_lakes` from the protomaps library** — their nested `is-supported-script` multi-name expressions silently break MapLibre Android 11.8.4, leaving the map blank
+- Initial camera uses `LocationManager.getLastKnownLocation` at zoom 15, falling back to (38.5, 23.8, zoom 7) when unavailable

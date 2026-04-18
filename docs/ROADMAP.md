@@ -119,6 +119,15 @@
 - [ ] **Geoid source toggle** — switch between receiver EGM96 and Greek geoid for orthometric display
 - [ ] **Geoid grid metadata** — show version, coverage, and source in Tools panel
 
+### v1.9.4 -- Basemap Style Regeneration
+- [x] **Regenerated style** from `@protomaps/basemaps@5.7.1` to align with current vathra.xyz tile data schema (protomaps v4.14.1)
+- [x] **Initial zoom 7** — shows Greece overview on launch when no GPS fix
+
+### v1.9.5 -- Basemap Rendering Fix & GPS Centering
+- [x] **Root cause of blank basemap on Android** — the protomaps-generated `water_label_ocean` and `water_label_lakes` symbol layers use deeply nested `is-supported-script` / multi-name expressions that MapLibre Android 11.8.4 fails to compile, breaking the entire style
+- [x] **Fix** — removed both layers from the style; ocean/lake names are sacrificed to keep the rest of the map rendering
+- [x] **Initial camera uses last known GPS** — map opens at the user's location (zoom 15) via `LocationManager.getLastKnownLocation`, falling back to Greece overview when unavailable
+
 ### v1.10.0 -- Advanced Innovations
 **Goal:** Differentiating features no competitor has.
 
