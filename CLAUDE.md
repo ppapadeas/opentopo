@@ -28,7 +28,9 @@
 - `CorrectionGrid` takes `InputStream` — app opens assets, passes stream to library
 - Grid files loaded once per HeposTransform instance, cached in memory
 - NTRIP RTCM data routed to both BT and USB services (whichever is connected accepts)
-- Map-centric UI: MainMapScreen with BottomSheetScaffold containing tool panels
+- NTRIP configs are Room-backed `NtripProfile` rows; `NtripProfileRepository` auto-connects the transport on active-profile change and derives `NtripConnectionState` from raw `NtripClient.state` (10 s Live→Stale)
+- Map-centric UI: `MainMapScreen` with `BottomSheetScaffold`; full-screen overlays (stakeout HUD, NTRIP profile manager + editor) rendered at the composable root with `WindowInsets.systemBars` safe zones
+- Five screens are pixel-locked to `opentopo-v2.html` — if you touch `MainMapScreen`, `ConnectionPanel`, `SurveyPanel`, `StakeoutPanel`, or `TrigPanel`, diff against the mockup before shipping
 
 ## Basemap
 

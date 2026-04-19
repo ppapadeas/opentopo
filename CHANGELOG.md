@@ -7,27 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-19
+
+OpenTopo 2.0 is a top-to-bottom redesign on top of the Material 3 Expressive
+`opentopo-v2` design handoff — new design tokens, five pixel-perfect screens
+rebuilt against the mockups, and a saved-profiles model for NTRIP that
+replaces the always-visible provider picker with a Wi-Fi-style row + manager.
+
 ### Added
-- **OpenTopo v2.0 design system foundation** from the Claude Design handoff bundle (`opentopo-v2.html`, M3E / SPEC_2025):
-  - Refreshed color palette — pine-teal primary (`#1C6E5A`), river-stone secondary, **HEPOS ochre tertiary** (`#B0522C`) to flag corrections/transforms, and the full SPEC_2025 surface-container hierarchy (light + dark + AMOLED-aware)
-  - Dedicated fix-quality semantic ramp (RTK `#1C6E5A` · Float `#B0A300` · DGPS `#4A73C4` · GPS `#707A75` · None `#9B3A2E`) plus matching pill containers for both themes
-  - Constellation palette aligned with the design (GPS blue, GLONASS red, Galileo teal, BeiDou ochre)
-  - Roboto Flex + JetBrains Mono served via Google Fonts (`androidx.compose.ui:ui-text-google-fonts` + cert resources); `CoordinateFont` now resolves to JetBrains Mono
-  - New text-style extensions `MonoCoord` (20 sp / 500 — E/N/H) and `MonoDelta` (15 sp / 400 — ΔE/ΔN/σ) plus `LabelOverline`
-  - Full M3E Typography scales rebuilt from the design spec (display 57/45/36, headline 32/28/24, title 22/16/14, body 16/14/12, label 14/12/11) with Emphasized variants at +200 wght
-- **ButtonGroup** component — M3E connected-toggle row for Bluetooth/USB/Internal, NTRIP presets, survey mode — replaces one-off segmented buttons
-- **FixStatusPill v2** — tonal pill backgrounds from the design ramp, animated halo ring on transitional states (None, Float), optional trailing `extras` string for σ / sats / HDOP
-- **CoordinateBlock v2** — overlined header, stacked monospace E/N/H, optional footer with FixStatusPill and σH in `MonoDelta`
+
+#### Design system foundation (SPEC_2025 / M3E)
+- **New color palette** — pine-teal primary (`#1C6E5A`), river-stone secondary, **HEPOS ochre tertiary** (`#B0522C`) for corrections/transforms, full SPEC_2025 surface-container hierarchy (light + dark + AMOLED)
+- **Fix-quality semantic ramp** — RTK `#1C6E5A` · Float `#B0A300` · DGPS `#4A73C4` · GPS `#707A75` · None `#9B3A2E` with matching pill containers for both themes
+- **Constellation palette** — GPS blue, GLONASS red, Galileo teal, BeiDou ochre
+- **Typography** — Roboto Flex + JetBrains Mono via Google Fonts, full M3E scales (display 57/45/36, headline 32/28/24, title 22/16/14, body 16/14/12, label 14/12/11) with Emphasized variants at +200 weight
+- **Mono text styles** — `MonoCoord` (20 sp / 500 — E/N/H), `MonoDelta` (15 sp / 400 — ΔE/ΔN/σ), `LabelOverline`
+- **M3E components** — `ButtonGroup` (connected toggle row), `FixStatusPill v2` (tonal bg + animated halo ring + extras slot), `CoordinateBlock v2` (overline + stacked mono + σH footer)
+
+#### Pixel-perfect v2 screens
+All five screens rebuilt against `opentopo-v2.html` and screenshot-diffed
+on-device before shipping:
+- **Map** — full-bleed MapLibre, top-left fix pill with 6 dp shadow, top-right 44 dp rounded hamburger, vertical 3-button floating toolbar (Center-on-me / Layers / Stake) anchored above the peek sheet, peek sheet with project header + coord block + SplitButton + ShortNavigationBar
+- **GNSS Connect** — Bluetooth / USB-OTG / Internal `ButtonGroup`, `primaryContainer` hero card for the connected receiver (elapsed mm:ss counter, σH / HDOP / SATS grid, red Disconnect), 4-column constellations card with colored left borders, centered 220 dp satellite skyplot, NTRIP active-profile row
+- **Survey** — back + overline + project title + kebab header, Point / Line / Polygon `ButtonGroup`, fix pill, 20 sp mono CoordinateCard, epoch averaging card with gradient progress + ✓ threshold + RTK gate footer, 3-item record row (56 dp + 112 dp Cookie9Sided RecordButton + 56 dp)
+- **Stakeout (immersive)** — hardcoded `#06332A` dark HUD, close X, STAKEOUT · TARGET overline, mint fix pill, 240 dp dashed-mint compass with chunky bearing arrow, N/S/E/W cardinals, 54 sp mint distance, 3 delta cards with magnitude-keyed color (mint / amber / red), outlined Next + mint-filled Verify
+- **Trig Verify** — back + GYS TRIG POINT · vathra.xyz overline + title, status chip row, Published and Measured cards, residuals hero in `primaryContainer` (#A5F2D9) with 4-column ΔE / ΔN / ΔH / ‖H‖, tolerance footer that flips between "within tolerance — safe to submit" and "exceeds tolerance — re-measure", Stakeout outlined + Submit filled (disabled when over tolerance)
+
+#### NTRIP — saved-profiles model
+The old always-visible HEPOS / CivilPOS / SmartNet `ButtonGroup` + server
+form is gone. NTRIP configs now behave like Wi-Fi or VPN profiles: one is
+active, the rest are parked, and the whole NTRIP surface on Connect is a
+single compact 72 dp row.
+- **`NtripProfile` Room entity** — display name, badge code, tint palette, host / port / TLS, credentials, mountpoint, send-GGA, RTCM preference, `isActive`, `lastUsedAt` (Room schema v7 → v8 migration)
+- **`NtripProfileRepository`** — `profiles` / `activeProfile` / `state` Flows, atomic `setActive` transaction, sourcetable scan bridge, auto-connects the caster whenever the active profile changes
+- **`NtripConnectionState`** — sealed interface (`Empty` / `Disconnected` / `Connecting` / `Live(age, bitrate)` / `Stale(age)` / `Error`) derived from the raw `NtripClient` state with a 10 s Live→Stale threshold
+- **First-run seed + legacy migration** — `seedIfEmpty()` migrates the user's existing DataStore NtripConfig into an active profile, then seeds HEPOS / CivilPOS / SmartNet templates with blank credentials
+- **`NtripActiveProfileRow`** — compact 72 dp row on the Connect screen with 4 visual states: Live (pulsing primary dot + "live · 0.8 s"), Connecting (amber spinner + "CONNECTING…"), Stale (red "STREAM STALE" + Reconnect pill), Empty (dashed outline + "Set up NTRIP corrections")
+- **`NtripProfileSwitchSheet`** — `ModalBottomSheet` for one-tap profile switching with `primaryContainer` highlight on the active row and "Manage profiles…" footer
+- **`NtripProfilesScreen`** — full-screen manager with hero card (mint `primaryContainer` bg, HOST / MOUNTPOINT / USER / BITRATE KV grid, edit pencil), SAVED · N section with Activate outlined pills, swipe-to-delete with destructive red background, long-press context menu (Edit / Duplicate / Delete), dashed New Profile tile
+- **`NtripProfileEditScreen`** — `Scaffold` with 10 form fields: display name, 2-char badge code (live palette preview), host (validated), port (1–65535), TLS switch, username, password (visibility toggle), mountpoint with inline sourcetable scan, NMEA GGA switch, RTCM version `SegmentedButton` (3.2 / 3.3 / Any)
+- **Auto-palette** — `NtripBadgePalette` derives a 2-letter code from the display name initials and picks a stable bg/fg pair from a 5-swatch palette (Teal / Blue / Orange / Stone / Amber)
+
+#### Geoid & heights
 - **Geoid source toggle** in Settings → Display — choose between Greek HEPOS07 (default) and receiver EGM96 for orthometric height H = h − N; falls back to the other source when the preferred one is unavailable
 - **Geoid grid metadata block** in Transform panel — shows HEPOS07 version, dimensions (408 × 422 nodes), cell size (2000 m), TM07 coverage bounds, source (Ktimatologio / NTUA), licence, and the currently active source
 - `HeposTransform.forwardDetailed(preferReceiverGeoid=…)` parameter in `lib-transform` inverts the geoid precedence
 - `HeposTransform.geoidGridMetadata` property exposing grid bounds/resolution as a `GridMetadata` data class
 - `UserPreferences.preferReceiverGeoid` persisted preference (default `false` = Greek HEPOS07)
-- 4 new unit tests covering the toggle and metadata accessor
+- 4 unit tests covering the toggle and metadata accessor
+
+#### Map & other polish
+- **Centered skyplot** — polar chart + legend row now center-aligned in the GNSS sheet (previously hugged the left edge)
+- **Trig Points as overlay, not a layer** — "Show Trig Points (GYS)" split out from the basemap `Layer:` section in the hamburger menu into its own overlay toggle below a divider, so users don't read it as a mutually-exclusive layer
+- **Floating toolbar repositioned** — Map toolbar now anchored `bottom = 24 dp` inside the map-area Box, sits just above the peek sheet instead of riding up into the hamburger's top-right slot
+- **Edge-to-edge safe zones** — `NtripProfilesScreen` and `NtripProfileEditScreen` apply `WindowInsets.systemBars` (via `windowInsetsPadding` and `Scaffold.contentWindowInsets`) so titles no longer collide with status-bar time / signal / battery
 - `docs/USER_STORIES.md` — catalogue of user stories grouped by persona and functional area, tagged shipped vs planned
 
 ### Changed
-- `MainMapScreen` Verify button honours the geoid source preference when computing measured orthometric height for trig-point verification
+- **MainActivity NTRIP auto-connect removed** — the `NtripProfileRepository` observes the active profile Flow and reconnects automatically; the lifecycle-scope block that polled DataStore keys is gone
+- **`ConnectionPanel` signature** — accepts `ntripProfileRepo` + `onNtripRowClick` / `onNtripReconnectClick` callbacks; the old `NtripCard`, `NtripPreset` data class, `NtripPresets` list, and `NtripStatusChip` / `NtripCredentialFields` helpers are deleted
+- **`MainMapScreen`** — three new full-screen overlays (switch sheet, profiles manager, edit form) with Flow-backed state
+- **Trig Verify** — `sheetMode == TRIG` now owns the residuals presentation; the legacy `AlertDialog` + `VerificationReportDialog` are suppressed, and residuals auto-compute via `LaunchedEffect` as soon as a trig point is selected and a fix is live
+- **MainMapScreen Verify** — honours the geoid source preference when computing measured orthometric height for trig-point verification
+
+### Database
+- **Room schema v7 → v8** — adds `ntrip_profile` table. Seeding runs at runtime so the legacy DataStore NtripConfig can migrate into a real row.
+
+### Developer notes
+- Rebuilt all Phase 2 screens by orchestrating three parallel Compose agents against the handoff spec and visually diffing each screen against the HTML mockup via on-device screenshots before committing.
+- Screenshot QA artifacts under `.qa/screenshots/`.
 
 ## [1.9.5] - 2026-04-18
 

@@ -128,6 +128,39 @@
 - [x] **Fix** — removed both layers from the style; ocean/lake names are sacrificed to keep the rest of the map rendering
 - [x] **Initial camera uses last known GPS** — map opens at the user's location (zoom 15) via `LocationManager.getLastKnownLocation`, falling back to Greece overview when unavailable
 
+### v2.0.0 -- SPEC_2025 Design System & Saved NTRIP Profiles
+**Goal:** Top-to-bottom M3 Expressive redesign from the `opentopo-v2` design
+handoff, pixel-perfect against the mockups, plus a Wi-Fi-style saved-profiles
+model for NTRIP that replaces the always-visible provider picker.
+
+#### Design system foundation
+- [x] **SPEC_2025 palette** — pine-teal primary (`#1C6E5A`), river-stone secondary, HEPOS ochre tertiary (`#B0522C`), full surface-container hierarchy, fix-quality semantic ramp, constellation colors
+- [x] **Typography** — Roboto Flex + JetBrains Mono via Google Fonts, full M3E scales with Emphasized variants, `MonoCoord` / `MonoDelta` / `LabelOverline` extensions
+- [x] **Components** — `ButtonGroup`, `FixStatusPill v2` with animated halo, `CoordinateBlock v2`
+
+#### Pixel-perfect v2 screens (rebuilt from `opentopo-v2.html`)
+- [x] **Map** — 44 dp rounded hamburger, vertical 3-button floating toolbar above peek sheet, peek sheet with project header + coord block + SplitButton + ShortNavigationBar
+- [x] **GNSS Connect** — BT/USB/Internal `ButtonGroup`, `primaryContainer` receiver hero card, 4-col constellations card, centered skyplot, NTRIP active-profile row
+- [x] **Survey** — back + overline header, Point/Line/Polygon `ButtonGroup`, 20 sp mono CoordinateCard, epoch gradient bar with ✓ threshold, 3-item record row with 112 dp Cookie9Sided RecordButton
+- [x] **Stakeout immersive** — `#06332A` dark HUD, 240 dp dashed-mint compass with chunky bearing arrow, 54 sp mint distance, 3 magnitude-keyed delta cards, outlined Next + mint-filled Verify
+- [x] **Trig Verify** — Published + Measured cards, residuals hero in `primaryContainer` with 4-col ΔE/ΔN/ΔH/‖H‖, tolerance-gated Submit
+
+#### NTRIP saved-profiles model
+- [x] **`NtripProfile` Room entity** + DAO + v7 → v8 migration
+- [x] **`NtripProfileRepository`** — `profiles` / `activeProfile` / `state` Flows, atomic `setActive`, auto-connect on active change, sourcetable scan
+- [x] **`NtripConnectionState`** — sealed interface (Empty/Disconnected/Connecting/Live/Stale/Error) with 10 s Live→Stale threshold
+- [x] **First-run seed** — migrates legacy DataStore NtripConfig, seeds HEPOS/CivilPOS/SmartNet templates
+- [x] **Active-profile row** (4 states: Live pulse, Connecting spinner, Stale Reconnect pill, Empty dashed)
+- [x] **Switch sheet** (one-tap activate + Manage footer)
+- [x] **Profiles manager** (hero card, saved list with Activate pills, swipe-to-delete, long-press menu, dashed New tile)
+- [x] **Edit form** — 10 fields with live badge preview, inline sourcetable scan, TLS switch, RTCM version SegmentedButton
+
+#### Polish
+- [x] **Centered skyplot** in GNSS sheet
+- [x] **Trig Points split** from basemap `Layer:` section into overlay toggle
+- [x] **Floating toolbar repositioned** above peek sheet (bottom = 24 dp)
+- [x] **Edge-to-edge safe zones** via `WindowInsets.systemBars` on full-screen overlays
+
 ### v1.10.0 -- Advanced Innovations
 **Goal:** Differentiating features no competitor has.
 
@@ -136,7 +169,7 @@
 - [ ] **Home screen widget** — Glance API widget with live survey status (difficulty: 5, impact: 5)
 - [ ] **Survey coverage heatmap** — density overlay revealing spatial gaps (difficulty: 7, impact: 6)
 
-### v2.0.0 -- Country Packs & Extensible Geodesy
+### v3.0.0 -- Country Packs & Extensible Geodesy
 **Goal:** Multi-country support via downloadable country packs, each bundling datum, projection, grids, geoid, trig points, and NTRIP presets.
 
 #### Country Pack Architecture
@@ -164,7 +197,7 @@
 - [ ] **Kastellorizo zone** — separate TM07 parameters (central meridian 30°, scale 1.0)
 - [ ] **Inverse transformation** — EGSA87 → WGS84 (iterative grid interpolation)
 
-### v2.1.0 -- Receiver Intelligence
+### v3.1.0 -- Receiver Intelligence
 **Goal:** Better hardware integration and receiver management.
 
 - [ ] **Receiver profiles** — presets for ArduSimple, u-blox ZED-F9P, Emlid Reach
@@ -174,7 +207,7 @@
 - [ ] **u-blox UBX protocol** — configure receiver message rates, dynamic model
 - [ ] **Custom attribute fields** per project (user-defined columns per geometry type)
 
-### v2.2.0 -- Platform Expansion
+### v3.2.0 -- Platform Expansion
 **Goal:** Professional-grade multi-country platform with advanced innovations.
 
 - [ ] Tablet layout (NavigationRail dual-pane)

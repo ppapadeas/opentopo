@@ -47,12 +47,16 @@ Full 6-step pipeline: geographic-to-Cartesian, 7-parameter Helmert, Cartesian-to
 - Parses GGA, RMC, GSA, GSV, GST sentences with multi-constellation support (GPS, GLONASS, Galileo, BeiDou)
 - Auto-reconnect on startup for all connection types
 
-### NTRIP Client
+### NTRIP — Saved Profiles
+NTRIP configurations behave like Wi-Fi profiles: one is active, the rest are parked.
 - Raw TCP socket client with NTRIP v1 (ICY 200 OK) support
 - VRS/GGA forwarding with synthetic GGA generation
-- Presets for HEPOS (Ktimatologio), CivilPOS, Hexagon SmartNet Greece, plus custom server option
-- Auto-reconnect on startup
-- RTCM corrections routed to whichever transport (BT/USB) is active
+- **Compact 72 dp active-profile row** on Connect with four visual states — Live (pulsing dot + age), Connecting (amber spinner), Stale (red Reconnect pill), Empty (dashed outline)
+- **Profile switch sheet** — one-tap to change active profile
+- **Profiles manager** — hero card + saved list with Activate pills, swipe-to-delete, long-press for Edit / Duplicate / Delete, dashed "New profile" tile
+- **Edit form** — display name, badge code (live palette preview), host / port / TLS, credentials, mountpoint with inline **sourcetable scan**, NMEA GGA toggle, RTCM version SegmentedButton (3.2 / 3.3 / Any)
+- First-run seeds HEPOS (Ktimatologio), CivilPOS, Hexagon SmartNet Greece templates and migrates any pre-existing config into a live profile
+- Auto-reconnect on active-profile change; RTCM corrections routed to whichever transport (BT/USB) is active
 
 ### Map
 - Vathra.xyz Protomaps vector tiles (OpenStreetMap data, Greek labels)
@@ -103,18 +107,16 @@ Polar chart showing tracked satellites with constellation colors and elevation/a
 - Display: coordinate format
 - All settings persisted via DataStore
 
-### UI
-- Material 3 Expressive visual overhaul (MaterialExpressiveTheme, MotionScheme.expressive)
-- M3E ShortNavigationBar: GNSS, Survey, Stakeout, Tools (4 tabs with pill indicators)
-- M3E ButtonGroup with connected ToggleButtons for mode selection
-- Emphasized typography variants, M3E-spec shapes (4/8/12/16/28dp)
-- AMOLED dark mode for field battery conservation
-- Record button pulse ring animation during point recording
-- FAB always visible (dimmed when disabled)
-- Active layer indicators in map layer switcher
-- Persistent fix status pill on map
-- NTRIP disconnect alert vibration
-- Map-centric design with full-screen MapLibre and bottom sheet tool panels
+### UI — v2.0 (SPEC_2025 / M3 Expressive)
+- **Five pixel-perfect screens** rebuilt from the `opentopo-v2` design handoff and diffed on-device against the mockups: Map, GNSS Connect, Survey, Immersive Stakeout, Trig Verify
+- **Pine-teal + ochre palette** with fix-quality semantic ramp (RTK / Float / DGPS / GPS / None) and constellation colors
+- **Roboto Flex + JetBrains Mono** via Google Fonts — full M3E type scales with Emphasized variants; `MonoCoord` for E/N/H, `MonoDelta` for residuals
+- M3E components: `ButtonGroup`, `FixStatusPill v2`, `CoordinateBlock v2`, `ShortNavigationBar`, 112 dp Cookie9Sided `RecordButton` with pulsing halo, 240 dp dashed-mint stakeout compass
+- Vertical floating map toolbar (Center-on-me / Layers / Stake) above the peek sheet
+- Immersive stakeout HUD (`#06332A` dark) with 54 sp mint distance + magnitude-keyed delta cards
+- Trig Verify residuals hero in `primaryContainer` with tolerance gate on Submit
+- Edge-to-edge safe zones via `WindowInsets.systemBars`
+- AMOLED dark mode, Glove mode, PiP stakeout, haptic feedback on point record
 
 ## Architecture
 
@@ -133,19 +135,27 @@ opentopo/
     └── org.opentopo.app
         ├── gnss/           NmeaParser, BluetoothGnssService, UsbGnssService,
         │                   InternalGnssService, GnssState
-        ├── ntrip/          NtripClient (raw TCP), NtripConfig
-        ├── survey/         SurveyManager, Stakeout
+        ├── ntrip/          NtripClient (raw TCP), NtripConfig,
+        │                   NtripProfile (Room entity),
+        │                   NtripProfileRepository (Flow API + auto-connect),
+        │                   NtripConnectionState (Live/Stale/Empty sealed),
+        │                   NtripBadgePalette
+        ├── survey/         SurveyManager, Stakeout, TrigPointService
         ├── export/         CsvExporter, CsvImporter, GeoJsonExporter, DxfExporter
         ├── prefs/          UserPreferences (DataStore)
-        ├── db/             Room database (Projects, Points)
+        ├── db/             Room database v8 (Projects, Points, TrigCache,
+        │                   NtripProfile)
         └── ui/             Jetpack Compose
-            ├── MainMapScreen   Map-centric layout with BottomSheetScaffold
-            ├── ConnectionPanel, SurveyPanel, StakeoutPanel, ExportPanel
-            ├── TransformPanel  Coordinate converter + pipeline inspector
-            ├── SettingsPanel   App configuration
-            ├── StakeoutImmersiveOverlay  Full-screen dark stakeout HUD
-            ├── Skyplot         Satellite polar chart
-            └── theme/          M3 Expressive theme, colors, typography
+            ├── MainMapScreen       Map-centric layout + full-screen overlays
+            ├── ConnectionPanel, SurveyPanel, StakeoutPanel, TrigPanel,
+            │                       ExportPanel, ToolsPanel
+            ├── NtripProfilesScreen Full-screen profile manager (hero + saved)
+            ├── NtripProfileEditScreen  Edit form with sourcetable scan
+            ├── StakeoutImmersiveOverlay  Dark HUD (240 dp compass, 54 sp dist)
+            ├── Skyplot             Centered satellite polar chart
+            ├── components/ntrip/   NtripActiveProfileRow, NtripProfileSwitchSheet
+            ├── components/survey/  RecordButton (Cookie9Sided), EpochBar, etc.
+            └── theme/              M3 Expressive theme, colors, typography
 ```
 
 The transformation engine (`lib-transform`) is a pure Kotlin/JVM library with zero Android dependencies. It can be unit-tested on JVM, reused server-side, or published as a standalone library for Greek coordinate transformations.

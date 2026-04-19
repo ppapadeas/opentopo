@@ -3,41 +3,40 @@
 ## Module Overview
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  app (Android)                                                │
-│  ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐  │
-│  │ ui/          │ │ gnss/         │ │ ntrip/              │  │
-│  │ MainMap      │ │ BT Service    │ │ NtripClient (TCP)   │  │
-│  │ Connection   │ │ USB Service   │ │ NtripConfig         │  │
-│  │ Survey       │ │ Internal GPS  │ │                     │  │
-│  │ Stakeout     │ │ NmeaParser    │ │                     │  │
-│  │ StakeoutImm. │ │ GnssState     │ │                     │  │
-│  │ ToolsPanel   │ │               │ │                     │  │
-│  │ Skyplot      │ │               │ │                     │  │
-│  │ components/  │ │               │ │                     │  │
-│  │ theme/       │ │               │ │                     │  │
-│  └──────────────┘ └───────────────┘ └─────────────────────┘  │
-│  ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐  │
-│  │ survey/      │ │ export/       │ │ db/                 │  │
-│  │ Manager      │ │ CsvExporter   │ │ Room (SQLite v5)    │  │
-│  │ Stakeout     │ │ CsvImporter   │ │ Projects, Points    │  │
-│  │ Lines/Polys  │ │ GeoJSON, DXF  │ │ Lines, Polygons     │  │
-│  │              │ │ Shapefile     │ │                     │  │
-│  │              │ │               │ │                     │  │
-│  └──────────────┘ └───────────────┘ └─────────────────────┘  │
-│  ┌──────────────┐                                             │
-│  │ prefs/       │                                             │
-│  │ UserPrefs    │                                             │
-│  │ (DataStore)  │                                             │
-│  └──────────────┘                                             │
-│                        │                                      │
-│                        ▼                                      │
-│  ┌───────────────────────────────────────────────────────┐   │
-│  │ lib-transform (Pure Kotlin/JVM)                        │   │
-│  │ Coordinates → Ellipsoid → Helmert → TM → Grid →       │   │
-│  │ HeposTransform                                         │   │
-│  └───────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  app (Android)                                                    │
+│  ┌──────────────────┐ ┌──────────────┐ ┌──────────────────────┐  │
+│  │ ui/              │ │ gnss/        │ │ ntrip/               │  │
+│  │ MainMap          │ │ BT Service   │ │ NtripClient (TCP)    │  │
+│  │ Connection       │ │ USB Service  │ │ NtripConfig          │  │
+│  │ Survey / Trig    │ │ Internal GPS │ │ NtripProfile (entity)│  │
+│  │ Stakeout HUD     │ │ NmeaParser   │ │ NtripProfileRepo     │  │
+│  │ NtripProfiles    │ │ GnssState    │ │ NtripConnectionState │  │
+│  │ NtripProfileEdit │ │              │ │ NtripBadgePalette    │  │
+│  │ Skyplot          │ │              │ │                      │  │
+│  │ components/      │ │              │ │                      │  │
+│  │ theme/           │ │              │ │                      │  │
+│  └──────────────────┘ └──────────────┘ └──────────────────────┘  │
+│  ┌──────────────┐ ┌───────────────┐ ┌─────────────────────────┐  │
+│  │ survey/      │ │ export/       │ │ db/                     │  │
+│  │ Manager      │ │ CsvExporter   │ │ Room SQLite v8          │  │
+│  │ Stakeout     │ │ CsvImporter   │ │ projects, points,       │  │
+│  │ Lines/Polys  │ │ GeoJSON, DXF  │ │ trig_points_cache,      │  │
+│  │ TrigPointSvc │ │ Shapefile     │ │ ntrip_profile           │  │
+│  └──────────────┘ └───────────────┘ └─────────────────────────┘  │
+│  ┌──────────────┐                                                 │
+│  │ prefs/       │                                                 │
+│  │ UserPrefs    │                                                 │
+│  │ (DataStore)  │                                                 │
+│  └──────────────┘                                                 │
+│                        │                                          │
+│                        ▼                                          │
+│  ┌───────────────────────────────────────────────────────────┐   │
+│  │ lib-transform (Pure Kotlin/JVM)                            │   │
+│  │ Coordinates → Ellipsoid → Helmert → TM → Grid →           │   │
+│  │ HeposTransform (+ geoid undulation)                        │   │
+│  └───────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## Data Flow
@@ -66,13 +65,23 @@ NtripClient ──► BluetoothGnssService.write()
             ──► UsbGnssService.write()
     (whichever transport is connected accepts the data)
 
+NtripProfileRepository (Room-backed, Flow API)
+    │ observes activeProfile
+    ├─► NtripClient.connect(profile.toConfig())   (auto on activate)
+    │
+    │ derives NtripConnectionState
+    │ (Empty/Disconnected/Connecting/Live/Stale/Error)
+    └─► UI — NtripActiveProfileRow on Connect,
+             NtripProfilesScreen hero card,
+             NtripProfileSwitchSheet rows
+
 UserPreferences (DataStore)
     │ settings flows
     ▼
     SurveyManager (averaging, accuracy, RTK filter)
-    NtripClient (GGA interval, auto-reconnect)
-    ConnectionPanel (baud rate, saved servers)
-    MainMapScreen (coordinate format)
+    NtripClient (GGA interval)
+    ConnectionPanel (baud rate)
+    MainMapScreen (coordinate format, geoid source)
 ```
 
 ## UI Architecture
@@ -94,19 +103,48 @@ The app uses Material 3 Expressive with a map-centric single-screen design.
 - **Initial camera** -- last known GPS location at zoom 15 (via `LocationManager.getLastKnownLocation`), falling back to Greece overview (38.5, 23.8, zoom 7) when no location is available
 - **Fix status pill** (top) -- persistent display of fix type, satellite count, accuracy
 - **FAB menu** (bottom-right) -- quick point recording with haptic/audio feedback
-- **Bottom sheet** -- `BottomSheetScaffold` with M3E `ShortNavigationBar` (4 tabs, pill-shaped active indicator):
+- **Bottom sheet** -- `BottomSheetScaffold` with a custom inline `ShortNavigationBar` rendered *inside* the peek content (4 tabs, pill-shaped active indicator). The peek always shows the project header + `CoordinateBlock` + `SplitButton` + tabs; tapping a tab expands the sheet to the matching panel:
 
 | Tab | Panel | Purpose |
 |-----|-------|---------|
-| GNSS | `ConnectionPanel` | BT/USB/Internal GPS connection, satellite skyplot |
-| Survey | `SurveyPanel` | Project management, point list, edit/delete, photos |
-| Stake | `StakeoutPanel` | Target navigation with compass, distance, deltas; immersive full-screen overlay |
-| Export | `ExportPanel` | CSV/GeoJSON/DXF/Shapefile export, CSV import, share |
-| Transform | `TransformPanel` | Coordinate converter (WGS84 to EGSA87), pipeline inspector |
-| Config | `SettingsPanel` | Averaging, accuracy, baud rate, GGA interval, format |
+| GNSS | `ConnectionPanel` | BT/USB/Internal transport picker, receiver hero card, constellations, centered skyplot, NTRIP active-profile row |
+| Survey | `SurveyPanel` | Point/Line/Polygon mode, fix pill, CoordinateCard, epoch averaging gate, record row |
+| Stake | `StakeoutPanel` / `StakeoutImmersiveOverlay` | Target navigation; immersive HUD when activated |
+| More | `ToolsPanel` / `ExportPanel` / `TransformPanel` / `SettingsPanel` | Settings, tools, transform inspector, export/import |
 
-### Stakeout Immersive Overlay
-`StakeoutImmersiveOverlay` provides a full-screen dark HUD for heads-up stakeout navigation. Uses `inverseSurface` background, `displayLarge` distance text, a 240 dp compass, delta E/N readout, and a fix status pill. Entered via "Full Screen" button from the StakeoutPanel.
+The hamburger on the map opens an overflow menu routing to `SheetMode.CONNECTION / TRIG / TOOLS / EXPORT` plus the per-layer toggles (`Layer: Ortho`, `Layer: Contours`, `Show Trig Points (GYS)`).
+
+### Full-screen overlays
+Rendered at the root of `MainMapScreen`, above the bottom sheet, with `WindowInsets.systemBars` safe zones applied:
+- **`StakeoutImmersiveOverlay`** — `#06332A` HUD, 240 dp dashed-mint compass, 54 sp distance, 3 delta cards
+- **`NtripProfileSwitchSheet`** — `ModalBottomSheet` for one-tap activate
+- **`NtripProfilesScreen`** — full-screen manager (hero card + saved list + dashed New tile)
+- **`NtripProfileEditScreen`** — form with inline sourcetable scan
+
+### NTRIP profile flow
+```
+User taps NtripActiveProfileRow on Connect
+       │
+       ▼
+ntripSwitchSheetOpen = true ──► NtripProfileSwitchSheet renders
+       │                             │
+       │                             ├─ tap non-active row ──► repo.setActive(id)
+       │                             │                             │
+       │                             │                             └─► client reconnects
+       │                             │
+       │                             └─ tap "Manage profiles…" ──► ntripProfilesOpen = true
+       │                                                                │
+       ▼                                                                ▼
+   dismiss                                                 NtripProfilesScreen renders
+                                                                        │
+                                               tap edit pencil ─────────┤
+                                               tap + (new) ─────────────┤
+                                                                        ▼
+                                                           NtripProfileEditScreen renders
+                                                                        │
+                                                  onSave ──► repo.upsert(profile)
+                                                  onCancel ──► overlay closes
+```
 
 ### Animation System
 - **Pulse ring** on the record FAB: expanding/fading ring (`Animatable` alpha + scale) during epoch averaging
@@ -133,7 +171,9 @@ The app uses Material 3 Expressive with a map-centric single-screen design.
 
 7. **Epoch averaging.** Points are recorded by averaging N consecutive 1 Hz GNSS positions, with configurable quality filters (minimum accuracy, RTK-only mode).
 
-8. **DataStore for preferences.** `UserPreferences` wraps Jetpack DataStore to persist connection settings (saved servers, baud rate), recording parameters (averaging time, accuracy thresholds), and display options (coordinate format). Settings are exposed as `StateFlow` for reactive UI updates.
+8. **DataStore for preferences.** `UserPreferences` wraps Jetpack DataStore to persist connection settings (saved servers, baud rate), recording parameters (averaging time, accuracy thresholds), and display options (coordinate format, geoid source). Settings are exposed as `StateFlow` for reactive UI updates.
+
+9. **NTRIP profiles in Room.** Whereas a single NTRIP config fit in DataStore, a fleet of saved profiles fits better in Room — indexed queries for "active row", atomic swap via a `@Transaction` DAO method (`clearActive` then `markActive`), and strong typing via `NtripProfile` / `RtcmVersion`. `NtripProfileRepository` owns the Flow-based API, auto-connects the transport whenever the active-profile id changes, and derives `NtripConnectionState` from the raw `NtripClient.state` (age-of-correction threshold: 10 s Live→Stale). First-run migration ingests the legacy single-config DataStore entry as the active row, then seeds HEPOS/CivilPOS/SmartNet templates.
 
 ## Technology Stack
 
