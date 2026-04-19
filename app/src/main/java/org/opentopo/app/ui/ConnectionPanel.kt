@@ -2,6 +2,15 @@ package org.opentopo.app.ui
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,12 +21,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
-import org.opentopo.app.ui.components.ConstellationChip
-import org.opentopo.app.ui.components.SectionLabel
-import org.opentopo.app.ui.components.TonalCard
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Refresh
@@ -26,24 +34,18 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ButtonGroup
-import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.TextField
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,16 +55,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import com.hoho.android.usbserial.driver.UsbSerialDriver
+import kotlinx.coroutines.launch
 import org.opentopo.app.gnss.BluetoothGnssService
 import org.opentopo.app.gnss.ConnectionStatus
 import org.opentopo.app.gnss.GnssState
@@ -71,8 +74,33 @@ import org.opentopo.app.ntrip.NtripClient
 import org.opentopo.app.ntrip.NtripConfig
 import org.opentopo.app.ntrip.NtripMountpoint
 import org.opentopo.app.ntrip.NtripStatus
+import org.opentopo.app.ui.components.ButtonGroup as OpenTopoButtonGroup
+import org.opentopo.app.ui.components.ConstellationChip
+import org.opentopo.app.ui.components.FixStatusPill
+import org.opentopo.app.ui.components.InputRow
+import org.opentopo.app.ui.components.SectionLabel
+import org.opentopo.app.ui.components.TonalCard
 import org.opentopo.app.ui.theme.CoordinateFont
+import org.opentopo.app.ui.theme.LabelOverline
 import org.opentopo.app.ui.theme.LocalSurveyColors
+import org.opentopo.app.ui.theme.MonoDelta
+
+// Hard-coded preset targets for the NTRIP caster selector. Order must match the
+// labels passed to the OpenTopoButtonGroup below.
+private data class NtripPreset(
+    val label: String,
+    val host: String,
+    val port: String,
+    val mount: String,
+)
+
+private val NtripPresets = listOf(
+    NtripPreset("HEPOS", "rtk.hepos.gr", "2101", "RTCM32"),
+    NtripPreset("CivilPOS", "civilpos.net", "2101", "RTCM3_NET"),
+    NtripPreset("SmartNet", "rtk.smartnet.leica-geosystems.com", "2101", "iMAX_Eur"),
+    NtripPreset("Custom", "", "", ""),
+)
+private const val NTRIP_CUSTOM_INDEX = 3
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -113,40 +141,13 @@ fun ConnectionPanel(
 
                 // Show connection method selector only when disconnected
                 if (!isConnected && !isConnecting) {
-                @Suppress("DEPRECATION")
-                ButtonGroup(modifier = Modifier.fillMaxWidth()) {
-                    ToggleButton(
-                        checked = connectionType == 0,
-                        onCheckedChange = { connectionType = 0 },
-                        modifier = Modifier.weight(1f),
-                        shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
-                    ) {
-                        Icon(Icons.Outlined.Bluetooth, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("BT")
-                    }
-                    ToggleButton(
-                        checked = connectionType == 1,
-                        onCheckedChange = { connectionType = 1 },
-                        modifier = Modifier.weight(1f),
-                        shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(),
-                    ) {
-                        Icon(Icons.Outlined.Usb, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("USB")
-                    }
-                    ToggleButton(
-                        checked = connectionType == 2,
-                        onCheckedChange = { connectionType = 2 },
-                        modifier = Modifier.weight(1f),
-                        shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
-                    ) {
-                        Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Internal")
-                    }
+                    OpenTopoButtonGroup(
+                        options = listOf("Bluetooth", "USB", "Internal"),
+                        selectedIndex = connectionType,
+                        onSelect = { connectionType = it },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                } // end if (!isConnected && !isConnecting)
 
                 if (isConnected || isConnecting) {
                     // Show which connection method is active
@@ -161,23 +162,14 @@ fun ConnectionPanel(
                         1 -> Icons.Outlined.Usb
                         else -> Icons.Outlined.PhoneAndroid
                     }
-                    // Connected / connecting state
+                    // Connected / connecting state — emphasized with primaryContainer
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         shape = MaterialTheme.shapes.large,
-                        tonalElevation = 2.dp,
                     ) {
                         Column(Modifier.padding(14.dp)) {
-                            // Connection method badge
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.padding(bottom = 8.dp),
-                            ) {
-                                Icon(methodIcon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                                Text(methodLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                            }
+                            // Top row: FixStatusPill + Check icon
                             Row(
                                 Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -199,44 +191,65 @@ fun ConnectionPanel(
                                         )
                                     }
                                 } else {
-                                    val fixColor = surveyColors.fixColor(position.fixQuality)
-                                    Text(
-                                        position.fixDescription,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = fixColor,
-                                        fontWeight = FontWeight.Bold,
+                                    val hAcc = accuracy.horizontalAccuracyM
+                                    val extras = if (hAcc != null) {
+                                        "%.2f m \u00b7 ${satellites.satellites.size} sats".format(hAcc)
+                                    } else {
+                                        "${satellites.satellites.size} sats"
+                                    }
+                                    FixStatusPill(
+                                        fixQuality = position.fixQuality,
+                                        extras = extras,
                                     )
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        bluetoothService.disconnect()
-                                        usbService.disconnect()
-                                        internalService.disconnect()
-                                    },
-                                    shape = MaterialTheme.shapes.extraLarge,
-                                ) {
-                                    Text("Disconnect")
+                                    Icon(
+                                        imageVector = Icons.Outlined.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
                                 }
                             }
 
                             if (isConnected && position.hasFix) {
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(10.dp))
+                                // Mid row: device / connection name + path
                                 Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Icon(
+                                        methodIcon,
+                                        null,
+                                        Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                    Text(
+                                        methodLabel,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                }
+                                Text(
+                                    position.fixDescription,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+
+                                Spacer(Modifier.height(10.dp))
+                                // Bottom row: horizontally-scrollable constellation chips
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(
-                                        "Satellites",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        satellites.byConstellation.forEach { (c, s) ->
-                                            ConstellationChip(c, s.size)
-                                        }
+                                    satellites.byConstellation.forEach { (c, s) ->
+                                        ConstellationChip(c, s.size)
                                     }
                                 }
+
+                                Spacer(Modifier.height(10.dp))
                                 SurveyStatusRow(
                                     "H-Accuracy",
                                     accuracy.horizontalAccuracyM?.let {
@@ -265,6 +278,26 @@ fun ConnectionPanel(
                                     )
                                 }
                             }
+
+                            Spacer(Modifier.height(10.dp))
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        bluetoothService.disconnect()
+                                        usbService.disconnect()
+                                        internalService.disconnect()
+                                    },
+                                    shape = MaterialTheme.shapes.extraLarge,
+                                ) {
+                                    Text(
+                                        "Disconnect",
+                                        style = MaterialTheme.typography.labelLargeEmphasized,
+                                    )
+                                }
+                            }
                         }
                     }
                 } else if (connectionType == 0) {
@@ -273,38 +306,39 @@ fun ConnectionPanel(
                     UsbPicker(usbService)
                 } else {
                     // Internal GPS — show connect button only when not connected
-                    if (!isConnected && !isConnecting) {
-                        val scope = rememberCoroutineScope()
-                        val activity = LocalContext.current as? org.opentopo.app.MainActivity
-                        val permissionLauncher = rememberLauncherForActivityResult(
-                            androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-                        ) { granted ->
-                            if (granted) {
+                    val scope = rememberCoroutineScope()
+                    val activity = LocalContext.current as? org.opentopo.app.MainActivity
+                    val permissionLauncher = rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                    ) { granted ->
+                        if (granted) {
+                            internalService.connect()
+                            scope.launch { activity?.prefs?.setConnectionType(2) }
+                        }
+                    }
+                    Text(
+                        "Use device\u2019s built-in GPS. No RTK corrections available.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(
+                        onClick = {
+                            if (internalService.hasPermission()) {
                                 internalService.connect()
                                 scope.launch { activity?.prefs?.setConnectionType(2) }
+                            } else {
+                                permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
                             }
-                        }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(percent = 50),
+                    ) {
+                        Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            "Use device\u2019s built-in GPS. No RTK corrections available.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            "Connect Internal GPS",
+                            style = MaterialTheme.typography.labelLargeEmphasized,
                         )
-                        Button(
-                            onClick = {
-                                if (internalService.hasPermission()) {
-                                    internalService.connect()
-                                    scope.launch { activity?.prefs?.setConnectionType(2) }
-                                } else {
-                                    permissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(percent = 50),
-                        ) {
-                            Icon(Icons.Outlined.PhoneAndroid, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Connect Internal GPS")
-                        }
                     }
                 }
             }
@@ -364,7 +398,10 @@ fun ConnectionPanel(
                                     onClick = { ntripClient.disconnect() },
                                     shape = MaterialTheme.shapes.extraLarge,
                                 ) {
-                                    Text("Stop")
+                                    Text(
+                                        "Stop",
+                                        style = MaterialTheme.typography.labelLargeEmphasized,
+                                    )
                                 }
                             }
 
@@ -388,6 +425,13 @@ fun ConnectionPanel(
                             )
                         }
                     }
+
+                    // Compact streaming-state row
+                    NtripStreamingRow(
+                        isConnecting = isNtripConnecting,
+                        bytesReceived = ntripState.bytesReceived,
+                        ageOfCorrectionSeconds = ntripState.ageOfCorrectionSeconds,
+                    )
 
                     // Stale corrections warning chip
                     if (ntripState.ageOfCorrectionSeconds > 5) {
@@ -485,7 +529,10 @@ private fun BluetoothPicker(bluetoothService: BluetoothGnssService) {
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(8.dp))
-            Text("Connect Bluetooth")
+            Text(
+                "Connect Bluetooth",
+                style = MaterialTheme.typography.labelLargeEmphasized,
+            )
         }
     }
 }
@@ -548,7 +595,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("Refresh")
+                Text("Refresh", style = MaterialTheme.typography.labelLargeEmphasized)
             }
             Button(
                 onClick = {
@@ -567,7 +614,7 @@ private fun UsbPicker(usbService: UsbGnssService) {
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("Connect")
+                Text("Connect", style = MaterialTheme.typography.labelLargeEmphasized)
             }
         }
     }
@@ -589,27 +636,34 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
     val savedPassword by prefs?.ntripPassword?.collectAsState(initial = "") ?: remember { mutableStateOf("") }
     val savedMountpoint by prefs?.ntripMountpoint?.collectAsState(initial = "") ?: remember { mutableStateOf("") }
 
-    // -1 means "Custom server"
-    var selectedPresetIndex by remember { mutableIntStateOf(savedPreset) }
-    var host by remember { mutableStateOf(
-        if (savedHost.isNotBlank()) savedHost
-        else NtripConfig.PRESETS[0].host
-    ) }
-    var port by remember { mutableStateOf(
-        if (savedPort.isNotBlank()) savedPort
-        else NtripConfig.PRESETS[0].port.toString()
-    ) }
+    // Persisted preset index: -1 (legacy "Custom") maps to our Custom button (index 3).
+    val initialPreset = if (savedPreset in 0..2) savedPreset else NTRIP_CUSTOM_INDEX
+    var selectedPresetIndex by remember { mutableIntStateOf(initialPreset) }
+    var host by remember {
+        mutableStateOf(
+            if (savedHost.isNotBlank()) savedHost else NtripPresets[initialPreset].host,
+        )
+    }
+    var port by remember {
+        mutableStateOf(
+            if (savedPort.isNotBlank()) savedPort else NtripPresets[initialPreset].port,
+        )
+    }
     var username by remember { mutableStateOf(savedUsername) }
     var password by remember { mutableStateOf(savedPassword) }
-    var mountpoint by remember { mutableStateOf(savedMountpoint) }
+    var mountpoint by remember {
+        mutableStateOf(
+            if (savedMountpoint.isNotBlank()) savedMountpoint else NtripPresets[initialPreset].mount,
+        )
+    }
     var mountpoints by remember { mutableStateOf<List<NtripMountpoint>>(emptyList()) }
     var fetchingSourcetable by remember { mutableStateOf(false) }
-    val isCustom = selectedPresetIndex == -1
+    val isCustom = selectedPresetIndex == NTRIP_CUSTOM_INDEX
 
     // Sync when saved values load (DataStore is async)
     LaunchedEffect(savedPreset, savedHost, savedPort, savedUsername, savedPassword, savedMountpoint) {
         if (savedPreset != 0 || savedHost.isNotBlank()) {
-            selectedPresetIndex = savedPreset
+            selectedPresetIndex = if (savedPreset in 0..2) savedPreset else NTRIP_CUSTOM_INDEX
             if (savedHost.isNotBlank()) host = savedHost
             if (savedPort.isNotBlank()) port = savedPort
             username = savedUsername
@@ -619,106 +673,59 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Caster preset picker
-        var presetExpanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = presetExpanded,
-            onExpandedChange = { presetExpanded = it },
-        ) {
-            TextField(
-                value = if (isCustom) "Custom server" else NtripConfig.PRESETS.getOrNull(selectedPresetIndex)?.name ?: "Custom server",
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Caster") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(presetExpanded) },
-                colors = ExposedDropdownMenuDefaults.textFieldColors(),
-                modifier = Modifier
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    .fillMaxWidth(),
-            )
-            ExposedDropdownMenu(
-                expanded = presetExpanded,
-                onDismissRequest = { presetExpanded = false },
-            ) {
-                NtripConfig.PRESETS.forEachIndexed { index, preset ->
-                    DropdownMenuItem(
-                        text = { Text(preset.name) },
-                        onClick = {
-                            selectedPresetIndex = index
-                            host = preset.host
-                            port = preset.port.toString()
-                            mountpoints = emptyList()
-                            mountpoint = ""
-                            presetExpanded = false
-                        },
-                    )
-                }
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text("Custom server\u2026") },
-                    onClick = {
-                        selectedPresetIndex = -1
-                        host = ""
-                        port = "2101"
-                        mountpoints = emptyList()
-                        mountpoint = ""
-                        presetExpanded = false
-                    },
-                )
-            }
-        }
+        // Caster preset picker — OpenTopo ButtonGroup
+        SectionLabel("Caster")
+        OpenTopoButtonGroup(
+            options = NtripPresets.map { it.label },
+            selectedIndex = selectedPresetIndex,
+            onSelect = { index ->
+                selectedPresetIndex = index
+                val preset = NtripPresets[index]
+                host = preset.host
+                port = preset.port.ifBlank { "2101" }
+                mountpoint = preset.mount
+                mountpoints = emptyList()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
 
-        // Custom server: host + port fields
-        if (isCustom) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = host,
-                    onValueChange = { host = it },
-                    label = { Text("Host") },
-                    placeholder = { Text("ntrip.example.com") },
-                    modifier = Modifier.weight(2f),
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = port,
-                    onValueChange = { port = it },
-                    label = { Text("Port") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-            }
-        }
+        // Host + Port fields — always visible so user can verify/edit the
+        // auto-filled preset values.
+        SectionLabel("Server")
+        InputRow(
+            label = "Host",
+            value = host,
+            onValueChange = { host = it },
+            placeholder = "ntrip.example.com",
+        )
+        InputRow(
+            label = "Port",
+            value = port,
+            onValueChange = { port = it },
+            keyboardType = KeyboardType.Number,
+        )
 
-        HorizontalDivider()
+        // Credentials
+        SectionLabel("Credentials")
+        InputRow(
+            label = "User",
+            value = username,
+            onValueChange = { username = it },
+        )
+        InputRow(
+            label = "Pass",
+            value = password,
+            onValueChange = { password = it },
+            keyboardType = KeyboardType.Password,
+            visualTransformation = PasswordVisualTransformation(),
+        )
 
-        // Username / Password row
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
-                label = { Text("User") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Pass") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-            )
-        }
-
-        HorizontalDivider()
-
-        // Mountpoint text field
-        OutlinedTextField(
+        // Mountpoint
+        SectionLabel("Mountpoint")
+        InputRow(
+            label = "Mountpoint",
             value = mountpoint,
             onValueChange = { mountpoint = it },
-            label = { Text("Mountpoint") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
         )
 
         // Mountpoint picker (when sourcetable fetched)
@@ -754,8 +761,6 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
             }
         }
 
-        HorizontalDivider()
-
         // Action buttons
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
@@ -782,9 +787,9 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 if (fetchingSourcetable) {
                     ContainedLoadingIndicator(modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Fetching")
+                    Text("Fetching", style = MaterialTheme.typography.labelLargeEmphasized)
                 } else {
-                    Text("Get List")
+                    Text("Get List", style = MaterialTheme.typography.labelLargeEmphasized)
                 }
             }
             Button(
@@ -799,10 +804,12 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                             password,
                         ),
                     )
-                    // Persist connection details
+                    // Persist connection details. For legacy storage we keep 0..2 intact
+                    // and use -1 for the Custom slot.
+                    val persistIndex = if (isCustom) -1 else selectedPresetIndex
                     scope.launch {
                         prefs?.setNtripConfig(
-                            selectedPresetIndex, host, port, username, password, mountpoint,
+                            persistIndex, host, port, username, password, mountpoint,
                         )
                     }
                 },
@@ -810,7 +817,59 @@ private fun NtripConnectForm(ntripClient: NtripClient) {
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(percent = 50),
             ) {
-                Text("Connect")
+                Text("Connect", style = MaterialTheme.typography.labelLargeEmphasized)
+            }
+        }
+    }
+}
+
+/**
+ * Compact streaming-state row for the active NTRIP session. Shows a pulsing
+ * dot, total bytes received, and age of the last correction packet.
+ */
+@Composable
+private fun NtripStreamingRow(
+    isConnecting: Boolean,
+    bytesReceived: Long,
+    ageOfCorrectionSeconds: Long,
+) {
+    TonalCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // Pulsing dot (reuses the FixStatusPill halo pattern)
+            val infiniteTransition = rememberInfiniteTransition(label = "ntripPulse")
+            val alpha by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 0.3f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(800, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "ntripDotAlpha",
+            )
+            val dotColor = MaterialTheme.colorScheme.primary
+            Canvas(Modifier.size(10.dp)) {
+                drawCircle(
+                    color = dotColor,
+                    radius = size.minDimension * 0.4f,
+                    center = Offset(size.width / 2f, size.height / 2f),
+                    alpha = alpha,
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text("NTRIP", style = LabelOverline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val kb = bytesReceived / 1024.0
+                val ageLabel = if (ageOfCorrectionSeconds >= 0) "${ageOfCorrectionSeconds}s" else "\u2014"
+                val stateLabel = if (isConnecting) "connecting" else "streaming"
+                Text(
+                    "%.1f KB \u00b7 $stateLabel \u00b7 age $ageLabel".format(kb),
+                    style = MonoDelta,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }

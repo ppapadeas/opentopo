@@ -1,15 +1,7 @@
 package org.opentopo.app.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -36,30 +28,28 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.ZoomOutMap
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.PinDrop
 import androidx.compose.material.icons.outlined.RadioButtonChecked
-import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FloatingActionButtonMenu
-import androidx.compose.material3.FloatingActionButtonMenuItem
-import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
@@ -67,10 +57,8 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
@@ -78,21 +66,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -127,7 +111,6 @@ import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Polygon
 import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.gnss.BluetoothGnssService
-import org.opentopo.app.gnss.ConnectionStatus
 import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.gnss.UsbGnssService
 import org.opentopo.app.ntrip.NtripClient
@@ -138,23 +121,30 @@ import org.opentopo.app.survey.SurveyManager
 import org.opentopo.app.ui.components.CoordinateBlock
 import org.opentopo.app.ui.components.FixStatusPill
 import org.opentopo.app.ui.theme.CoordinateFont
+import org.opentopo.app.ui.theme.LabelOverline
 import org.opentopo.app.ui.theme.LocalSurveyColors
+import org.opentopo.app.ui.theme.MonoDelta
 import org.opentopo.app.survey.StakeoutTarget
 import org.opentopo.app.survey.TrigPoint
 import org.opentopo.app.survey.TrigPointService
 
-private const val TAB_CONNECTION = 0
-private const val TAB_SURVEY = 1
-private const val TAB_STAKEOUT = 2
-private const val TAB_TOOLS = 3
+/**
+ * v2 sheet routing. `MAP` collapses the sheet (home / peek only); the other modes expand
+ * the sheet and drive which panel is composed inside it.
+ *
+ * The four primary entries (MAP, SURVEY, STAKEOUT, TRIG) are surfaced via the
+ * `ShortNavigationBar`. The remaining entries (CONNECTION, TOOLS, EXPORT) are routed through
+ * the top-bar overflow `DropdownMenu`.
+ */
+private enum class SheetMode { MAP, SURVEY, STAKEOUT, TRIG, CONNECTION, TOOLS, EXPORT }
 
-private data class TabItem(val title: String, val icon: ImageVector)
+private data class TabItem(val mode: SheetMode, val title: String, val icon: ImageVector)
 
-private val tabs = listOf(
-    TabItem("GNSS", Icons.Outlined.Cable),
-    TabItem("Survey", Icons.Outlined.Straighten),
-    TabItem("Stakeout", Icons.Outlined.NearMe),
-    TabItem("Tools", Icons.Outlined.Build),
+private val primaryTabs = listOf(
+    TabItem(SheetMode.MAP, "Map", Icons.Outlined.Map),
+    TabItem(SheetMode.SURVEY, "Survey", Icons.Outlined.RadioButtonChecked),
+    TabItem(SheetMode.STAKEOUT, "Stakeout", Icons.Outlined.NearMe),
+    TabItem(SheetMode.TRIG, "Trig", Icons.Outlined.PinDrop),
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -176,7 +166,6 @@ fun MainMapScreen(
     val position by gnssState.position.collectAsState()
     val accuracy by gnssState.accuracy.collectAsState()
     val satellites by gnssState.satellites.collectAsState()
-    val connectionStatus by gnssState.connectionStatus.collectAsState()
     val ntripState by ntripClient.state.collectAsState()
     val projectedCoords by surveyManager?.projectedPosition?.collectAsState()
         ?: remember { mutableStateOf(null) }
@@ -196,9 +185,8 @@ fun MainMapScreen(
         return
     }
 
-    var selectedTab by remember { mutableIntStateOf(TAB_CONNECTION) }
-    var fabMenuExpanded by remember { mutableStateOf(false) }
-    val coordFormat by activity?.prefs?.coordFormat?.collectAsState(initial = 0) ?: remember { mutableStateOf(0) }
+    var sheetMode by remember { mutableStateOf(SheetMode.MAP) }
+    var overflowMenuExpanded by remember { mutableStateOf(false) }
     val preferReceiverGeoid by activity?.prefs?.preferReceiverGeoid?.collectAsState(initial = false) ?: remember { mutableStateOf(false) }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
@@ -394,6 +382,16 @@ fun MainMapScreen(
         ),
     )
 
+    // Drive sheet open/close from the selected mode. MAP = peek (collapsed);
+    // any other mode expands the sheet so its panel is visible.
+    LaunchedEffect(sheetMode) {
+        if (sheetMode == SheetMode.MAP) {
+            scaffoldState.bottomSheetState.partialExpand()
+        } else {
+            scaffoldState.bottomSheetState.expand()
+        }
+    }
+
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
         modifier = modifier,
@@ -436,10 +434,11 @@ fun MainMapScreen(
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.navigationBars),
             ) {
-                // ── Status bar (visible in peek) ──
-                StatusBar(
-                    position, accuracy,
-                    connectionStatus, ntripState, projectedCoords, surveyColors, coordFormat,
+                // ── v2 peek content: EGSA87 CoordinateBlock + WGS84 secondary row ──
+                PeekCoordinates(
+                    position = position,
+                    accuracy = accuracy,
+                    projectedCoords = projectedCoords,
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -509,12 +508,12 @@ fun MainMapScreen(
                     }
                 }
 
-                // ── M3E Short Navigation Bar (4 tabs) ──
+                // ── M3E Short Navigation Bar (v2: 4 primary tabs) ──
                 ShortNavigationBar {
-                    tabs.forEachIndexed { index, tab ->
+                    primaryTabs.forEach { tab ->
                         ShortNavigationBarItem(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
+                            selected = sheetMode == tab.mode,
+                            onClick = { sheetMode = tab.mode },
                             icon = {
                                 Icon(
                                     tab.icon,
@@ -530,24 +529,22 @@ fun MainMapScreen(
                 // ── Panel content with M3E expressive transitions ──
                 val panelMotion = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
                 AnimatedContent(
-                    targetState = selectedTab,
+                    targetState = sheetMode,
                     transitionSpec = {
                         fadeIn(animationSpec = panelMotion) togetherWith
                             fadeOut(animationSpec = panelMotion)
                     },
                     label = "panel",
-                ) { tab ->
+                ) { mode ->
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(420.dp),
                     ) {
-                        when (tab) {
-                            TAB_CONNECTION -> ConnectionPanel(
-                                gnssState, bluetoothService, usbService, internalService, ntripClient,
-                            )
-                            TAB_SURVEY -> SurveyPanel(db, surveyManager)
-                            TAB_STAKEOUT -> StakeoutPanel(
+                        when (mode) {
+                            SheetMode.MAP -> Unit // no panel; sheet is collapsed to peek
+                            SheetMode.SURVEY -> SurveyPanel(db, surveyManager)
+                            SheetMode.STAKEOUT -> StakeoutPanel(
                                 stakeout,
                                 onImmersiveRequest = {
                                     stakeoutImmersive = true
@@ -556,7 +553,15 @@ fun MainMapScreen(
                                     { activity?.enterPipMode() }
                                 } else null,
                             )
-                            TAB_TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
+                            SheetMode.TRIG -> TrigPanel(
+                                trigPoints = trigPointCache.values.toList(),
+                                onSelect = { selectedTrigPoint = it },
+                            )
+                            SheetMode.CONNECTION -> ConnectionPanel(
+                                gnssState, bluetoothService, usbService, internalService, ntripClient,
+                            )
+                            SheetMode.TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
+                            SheetMode.EXPORT -> ExportPanel(db)
                         }
                     }
                 }
@@ -573,7 +578,6 @@ fun MainMapScreen(
         },
     ) { paddingValues ->
         // ── Map fills the screen ──
-        var layerMenuExpanded by remember { mutableStateOf(false) }
         var orthoVisible by remember { mutableStateOf(false) }
         var contoursVisible by remember { mutableStateOf(true) }
 
@@ -883,73 +887,94 @@ fun MainMapScreen(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // ── Persistent fix status pill (always visible on map) ──
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(12.dp),
-            ) {
-                FixStatusPill(position.fixQuality)
+            // ── v2 Top-right chrome: FixStatusPill + overflow menu ──
+            val fixExtras = remember(accuracy.horizontalAccuracyM, position.numSatellites) {
+                val hAccM = accuracy.horizontalAccuracyM
+                val sats = position.numSatellites
+                when {
+                    hAccM != null && sats > 0 -> {
+                        val hAccCm = hAccM * 100.0
+                        "${"%.1f".format(hAccCm)} cm \u00B7 $sats sats"
+                    }
+                    sats > 0 -> "$sats sats"
+                    else -> null
+                }
             }
-
-            // ── Map controls (top-right): Layers + Zoom Extent ──
-            Column(
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                FixStatusPill(fixQuality = position.fixQuality, extras = fixExtras)
+
                 Box {
-                    SmallFloatingActionButton(
-                        onClick = { layerMenuExpanded = true },
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    FilledIconButton(
+                        onClick = { overflowMenuExpanded = true },
+                        colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
                     ) {
-                        Icon(
-                            Icons.Outlined.Layers,
-                            contentDescription = "Map layers",
-                            modifier = Modifier.size(22.dp),
-                        )
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More actions")
                     }
                     DropdownMenu(
-                        expanded = layerMenuExpanded,
-                        onDismissRequest = { layerMenuExpanded = false },
+                        expanded = overflowMenuExpanded,
+                        onDismissRequest = { overflowMenuExpanded = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Street Map") },
-                            leadingIcon = {
-                                if (!orthoVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
-                            },
+                            text = { Text("Connection") },
+                            leadingIcon = { Icon(Icons.Outlined.Cable, null) },
                             onClick = {
-                                layerMenuExpanded = false
-                                orthoVisible = false
-                                mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
-                                    PropertyFactory.visibility(org.maplibre.android.style.layers.Property.NONE),
-                                )
+                                overflowMenuExpanded = false
+                                sheetMode = SheetMode.CONNECTION
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Orthophoto (Ktimatologio)") },
+                            text = { Text("Tools / Transform / Settings") },
+                            leadingIcon = { Icon(Icons.Outlined.Tune, null) },
+                            onClick = {
+                                overflowMenuExpanded = false
+                                sheetMode = SheetMode.TOOLS
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export") },
+                            leadingIcon = { Icon(Icons.Outlined.IosShare, null) },
+                            onClick = {
+                                overflowMenuExpanded = false
+                                sheetMode = SheetMode.EXPORT
+                            },
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Layer: Ortho") },
                             leadingIcon = {
                                 if (orthoVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                                else Icon(Icons.Outlined.Layers, null, Modifier.size(18.dp))
                             },
                             onClick = {
-                                layerMenuExpanded = false
-                                orthoVisible = true
+                                overflowMenuExpanded = false
+                                orthoVisible = !orthoVisible
+                                val newVis = if (orthoVisible)
+                                    org.maplibre.android.style.layers.Property.VISIBLE
+                                else
+                                    org.maplibre.android.style.layers.Property.NONE
                                 mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
-                                    PropertyFactory.visibility(org.maplibre.android.style.layers.Property.VISIBLE),
+                                    PropertyFactory.visibility(newVis),
                                 )
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Contours") },
+                            text = { Text("Layer: Contours") },
                             leadingIcon = {
                                 if (contoursVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                                else Icon(Icons.Outlined.Layers, null, Modifier.size(18.dp))
                             },
                             onClick = {
-                                layerMenuExpanded = false
+                                overflowMenuExpanded = false
                                 contoursVisible = !contoursVisible
                                 val newVis = if (contoursVisible)
                                     org.maplibre.android.style.layers.Property.VISIBLE
@@ -960,12 +985,13 @@ fun MainMapScreen(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Trig Points (GYS)") },
+                            text = { Text("Layer: Trig Points (GYS)") },
                             leadingIcon = {
                                 if (trigPointsVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                                else Icon(Icons.Outlined.PinDrop, null, Modifier.size(18.dp))
                             },
                             onClick = {
-                                layerMenuExpanded = false
+                                overflowMenuExpanded = false
                                 trigPointsVisible = !trigPointsVisible
                                 val newVis = if (trigPointsVisible)
                                     org.maplibre.android.style.layers.Property.VISIBLE
@@ -977,173 +1003,99 @@ fun MainMapScreen(
                         )
                     }
                 }
-
-                // Zoom to extent of all survey points
-                val validPoints = activePoints.filter { it.latitude != 0.0 || it.longitude != 0.0 }
-                AnimatedVisibility(visible = validPoints.isNotEmpty()) {
-                    SmallFloatingActionButton(
-                        onClick = {
-                            val map = mapRef ?: return@SmallFloatingActionButton
-                            if (validPoints.size == 1) {
-                                val pt = validPoints.first()
-                                map.animateCamera(
-                                    CameraUpdateFactory.newLatLngZoom(
-                                        LatLng(pt.latitude, pt.longitude), 18.0,
-                                    ),
-                                    1000,
-                                )
-                            } else {
-                                val bounds = LatLngBounds.Builder()
-                                validPoints.forEach { pt ->
-                                    bounds.include(LatLng(pt.latitude, pt.longitude))
-                                }
-                                map.animateCamera(
-                                    CameraUpdateFactory.newLatLngBounds(bounds.build(), 80),
-                                    1000,
-                                )
-                            }
-                        },
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        Icon(
-                            Icons.Outlined.ZoomOutMap,
-                            contentDescription = "Zoom to all points",
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
-                }
             }
 
-            // ── FloatingActionButtonMenu: Record actions ──
-            val fabEnabled = position.hasFix
-                    && surveyManager != null
-                    && surveyManager.activeProjectId.collectAsState().value != null
-
-            Box(
+            // ── v2 HorizontalFloatingToolbar: Layers / Center / Fit / Add waypoint ──
+            // Anchored bottom-center, above the bottom sheet peek area.
+            val validPoints = activePoints.filter { it.latitude != 0.0 || it.longitude != 0.0 }
+            val toolbarFabEnabled = position.hasFix
+                && surveyManager != null
+                && surveyManager.activeProjectId.collectAsState().value != null
+            HorizontalFloatingToolbar(
+                expanded = true,
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 8.dp)
-                    .alpha(if (fabEnabled) 1f else 0.4f),
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 164.dp),
             ) {
-                if (recordingState.isRecording) {
-                    // Recording in progress: show a standalone FAB with progress + pulse ring
-                    val pulseTransition = rememberInfiniteTransition(label = "recordPulse")
-                    val ringScale by pulseTransition.animateFloat(
-                        initialValue = 1f,
-                        targetValue = 1.4f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1500, easing = FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Restart,
+                // 1. Layers — cycle through basemap layer combinations
+                IconButton(onClick = {
+                    // Cycle: street -> street+contours -> ortho -> ortho+contours -> back to street
+                    val newOrtho: Boolean
+                    val newContours: Boolean
+                    when {
+                        !orthoVisible && !contoursVisible -> { newOrtho = false; newContours = true }
+                        !orthoVisible && contoursVisible -> { newOrtho = true; newContours = false }
+                        orthoVisible && !contoursVisible -> { newOrtho = true; newContours = true }
+                        else -> { newOrtho = false; newContours = false }
+                    }
+                    orthoVisible = newOrtho
+                    contoursVisible = newContours
+                    mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
+                        PropertyFactory.visibility(
+                            if (newOrtho) org.maplibre.android.style.layers.Property.VISIBLE
+                            else org.maplibre.android.style.layers.Property.NONE,
                         ),
-                        label = "ringScale",
                     )
-                    val ringAlpha by pulseTransition.animateFloat(
-                        initialValue = 0.3f,
-                        targetValue = 0f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1500, easing = LinearOutSlowInEasing),
-                            repeatMode = RepeatMode.Restart,
-                        ),
-                        label = "ringAlpha",
-                    )
-
-                    Box(contentAlignment = Alignment.Center) {
-                        // Pulsing ring behind the FAB
-                        Canvas(Modifier.size(96.dp)) {
-                            drawCircle(
-                                color = Color(0xFFD1416A),
-                                radius = size.minDimension / 2 * ringScale,
-                                alpha = ringAlpha,
+                    val contourVis = if (newContours)
+                        org.maplibre.android.style.layers.Property.VISIBLE
+                    else org.maplibre.android.style.layers.Property.NONE
+                    mapRef?.style?.getLayer("contours-lines")?.setProperties(PropertyFactory.visibility(contourVis))
+                    mapRef?.style?.getLayer("contours-labels")?.setProperties(PropertyFactory.visibility(contourVis))
+                }) {
+                    Icon(Icons.Outlined.Layers, contentDescription = "Cycle basemap")
+                }
+                // 2. Center on me — re-center map on current GPS fix
+                IconButton(
+                    onClick = {
+                        val map = mapRef ?: return@IconButton
+                        if (!position.hasFix) return@IconButton
+                        map.animateCamera(
+                            CameraUpdateFactory.newLatLngZoom(
+                                LatLng(position.latitude, position.longitude),
+                                (map.cameraPosition.zoom).coerceAtLeast(17.0),
+                            ),
+                            800,
+                        )
+                    },
+                    enabled = position.hasFix,
+                ) {
+                    Icon(Icons.Outlined.NearMe, contentDescription = "Center on me")
+                }
+                // 3. Fit bounds — zoom to extent of all survey points
+                IconButton(
+                    onClick = {
+                        val map = mapRef ?: return@IconButton
+                        if (validPoints.isEmpty()) return@IconButton
+                        if (validPoints.size == 1) {
+                            val pt = validPoints.first()
+                            map.animateCamera(
+                                CameraUpdateFactory.newLatLngZoom(
+                                    LatLng(pt.latitude, pt.longitude), 18.0,
+                                ),
+                                1000,
+                            )
+                        } else {
+                            val bounds = LatLngBounds.Builder()
+                            validPoints.forEach { pt -> bounds.include(LatLng(pt.latitude, pt.longitude)) }
+                            map.animateCamera(
+                                CameraUpdateFactory.newLatLngBounds(bounds.build(), 80),
+                                1000,
                             )
                         }
-                        LoadingIndicator(
-                            progress = { recordingState.progress },
-                            modifier = Modifier.size(80.dp),
-                            color = surveyColors.recordingProgress,
-                        )
-                        Surface(
-                            color = surveyColors.recordingActive,
-                            shape = MaterialTheme.shapes.extraLarge,
-                            modifier = Modifier.size(64.dp),
-                            shadowElevation = 6.dp,
-                            onClick = { surveyManager?.cancelRecording() },
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    "${recordingState.totalEpochsTarget - recordingState.epochsCollected}",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = CoordinateFont,
-                                    color = Color.White,
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    // Idle: show FAB menu with survey actions
-                    FloatingActionButtonMenu(
-                        expanded = fabMenuExpanded,
-                        button = {
-                            ToggleFloatingActionButton(
-                                checked = fabMenuExpanded,
-                                onCheckedChange = { if (fabEnabled) fabMenuExpanded = !fabMenuExpanded },
-                            ) {
-                                val imageVector by remember {
-                                    derivedStateOf {
-                                        if (checkedProgress > 0.5f) Icons.Filled.Close
-                                        else Icons.Filled.Add
-                                    }
-                                }
-                                Icon(
-                                    painter = rememberVectorPainter(imageVector),
-                                    contentDescription = "Survey actions",
-                                )
-                            }
-                        },
-                    ) {
-                        FloatingActionButtonMenuItem(
-                            onClick = {
-                                fabMenuExpanded = false
-                                surveyManager?.startRecording()
-                            },
-                            icon = {
-                                Icon(
-                                    Icons.Outlined.RadioButtonChecked,
-                                    contentDescription = null,
-                                )
-                            },
-                            text = { Text("Record Point") },
-                        )
-                        FloatingActionButtonMenuItem(
-                            onClick = {
-                                fabMenuExpanded = false
-                                surveyManager?.quickMark()
-                            },
-                            icon = {
-                                Icon(
-                                    Icons.Outlined.Speed,
-                                    contentDescription = null,
-                                )
-                            },
-                            text = { Text("Quick Mark") },
-                        )
-                        FloatingActionButtonMenuItem(
-                            onClick = {
-                                fabMenuExpanded = false
-                                selectedTab = TAB_STAKEOUT
-                            },
-                            icon = {
-                                Icon(
-                                    Icons.Outlined.NearMe,
-                                    contentDescription = null,
-                                )
-                            },
-                            text = { Text("Stakeout") },
-                        )
-                    }
+                    },
+                    enabled = validPoints.isNotEmpty(),
+                ) {
+                    Icon(Icons.Outlined.ZoomOutMap, contentDescription = "Fit bounds")
+                }
+                // 4. Add waypoint — single-shot mark via SurveyManager.quickMark
+                IconButton(
+                    onClick = { if (toolbarFabEnabled) surveyManager?.quickMark() },
+                    enabled = toolbarFabEnabled,
+                ) {
+                    Icon(Icons.Outlined.PinDrop, contentDescription = "Add waypoint")
                 }
             }
+
         }
     }
 
@@ -1304,7 +1256,7 @@ fun MainMapScreen(
                                         elevation = tp.elevation,
                                     ),
                                 )
-                                selectedTab = TAB_STAKEOUT
+                                sheetMode = SheetMode.STAKEOUT
                                 selectedTrigPoint = null
                             },
                         ) {
@@ -1348,114 +1300,74 @@ fun MainMapScreen(
     }
 }
 
-// ── Status bar shown in bottom sheet peek ──
+// ── v2 peek content ──
 
+/**
+ * v2 peek card. Shows the projected EGSA87 coordinate as a `CoordinateBlock` with the
+ * fix pill + σH footer, followed by a thin WGS84 secondary row below.
+ */
 @Composable
-private fun StatusBar(
+private fun PeekCoordinates(
     position: org.opentopo.app.gnss.PositionState,
     accuracy: org.opentopo.app.gnss.AccuracyState,
-    connectionStatus: ConnectionStatus,
-    ntripState: org.opentopo.app.ntrip.NtripState,
     projectedCoords: org.opentopo.transform.ProjectedCoordinate?,
-    surveyColors: org.opentopo.app.ui.theme.SurveyColors,
-    coordFormat: Int = 0,
 ) {
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        // Row 1: Fix pill + accuracy
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FixStatusPill(position.fixQuality)
-            Spacer(Modifier.weight(1f))
-            if (position.hasFix) {
-                accuracy.horizontalAccuracyM?.let { AccuracyBadge(it, "H") }
-                Spacer(Modifier.width(6.dp))
-                accuracy.altitudeErrorM?.let { AccuracyBadge(it, "V") }
-            } else {
-                Text(
-                    if (connectionStatus == ConnectionStatus.CONNECTED) "Waiting for fix\u2026"
-                    else "Swipe up to connect",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        val sigmaH = accuracy.horizontalAccuracyM
+        val sigmaLabel = sigmaH?.let { "\u03C3H ${"%.3f".format(it)} m" }
+
+        if (projectedCoords != null && position.hasFix) {
+            val ellipsoidal = position.altitude?.let { alt ->
+                position.geoidSeparation?.let { n -> alt + n } ?: alt
             }
+            val heightStr = ellipsoidal?.let { "${"%.3f".format(it)} m" }
+            CoordinateBlock(
+                label = "EGSA87 \u00B7 EPSG 2100",
+                easting = "${"%.3f".format(projectedCoords.eastingM)} m",
+                northing = "${"%.3f".format(projectedCoords.northingM)} m",
+                height = heightStr,
+                fixQuality = position.fixQuality,
+                sigmaH = sigmaLabel,
+            )
+        } else {
+            // No fix yet — show a placeholder EGSA87 block with empty values.
+            CoordinateBlock(
+                label = "EGSA87 \u00B7 EPSG 2100",
+                easting = "\u2014",
+                northing = "\u2014",
+                height = null,
+                fixQuality = position.fixQuality,
+                sigmaH = null,
+            )
         }
 
-        // Constellation chips moved to ConnectionPanel
-
-        // Row 2: Coordinates
         if (position.hasFix) {
-            Spacer(Modifier.height(8.dp))
-            when (coordFormat) {
-                0 -> projectedCoords?.let {
-                    CoordinateBlock("EGSA87", "%.3f".format(it.eastingM), "%.3f".format(it.northingM))
-                } ?: CoordinateBlock("WGS84", "%.8f\u00B0".format(position.latitude), "%.8f\u00B0".format(position.longitude))
-                1 -> CoordinateBlock("WGS84", "%.8f\u00B0".format(position.latitude), "%.8f\u00B0".format(position.longitude))
-                2 -> CoordinateBlock("WGS84 DMS", decimalToDms(position.latitude, true), decimalToDms(position.longitude, false))
-            }
-
-            // Row 3: Alt + NTRIP status
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Dual height display
-                position.altitude?.let { alt ->
-                    val geoidN = position.geoidSeparation
-                    if (geoidN != null) {
-                        // Show both: H (MSL) and h (ellipsoidal)
-                        val ellipsoidal = alt + geoidN
-                        Text(
-                            "H:${"%.2f".format(alt)}m  h:${"%.2f".format(ellipsoidal)}m",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontFamily = CoordinateFont,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            "Alt: ${"%.2f".format(alt)}m",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } ?: Spacer(Modifier.width(1.dp))
-
-                if (ntripState.status == NtripStatus.CONNECTED) {
-                    val ageColor =
-                        surveyColors.correctionAgeColor(ntripState.ageOfCorrectionSeconds)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        NtripIndicator(ageColor)
-                        Text(
-                            "NTRIP ${"%.0f".format(ntripState.dataRateBps / 1024.0)}KB/s",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontFamily = CoordinateFont,
-                            color = ageColor,
-                        )
-                    }
-                }
+                Text(
+                    "WGS84",
+                    style = LabelOverline,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    "%.6f\u00B0, %.6f\u00B0".format(position.latitude, position.longitude),
+                    style = MonoDelta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
 }
 
 // ── Reusable composables ──
-
-@Composable
-private fun NtripIndicator(color: Color) {
-    Canvas(Modifier.size(8.dp)) { drawCircle(color) }
-}
 
 @Composable
 fun FixTypeBadge(fixQuality: Int) {
@@ -1509,17 +1421,6 @@ fun AccuracyBadge(accuracyM: Double, prefix: String) {
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
     )
-}
-
-/** Convert decimal degrees to DMS string. */
-private fun decimalToDms(decimal: Double, isLatitude: Boolean): String {
-    val abs = kotlin.math.abs(decimal)
-    val deg = abs.toInt()
-    val minFloat = (abs - deg) * 60
-    val min = minFloat.toInt()
-    val sec = (minFloat - min) * 60
-    val dir = if (isLatitude) { if (decimal >= 0) "N" else "S" } else { if (decimal >= 0) "E" else "W" }
-    return "%d\u00B0%02d\u2032%06.3f\u2033%s".format(deg, min, sec, dir)
 }
 
 // ── New project dialog (used from project header) ──

@@ -15,7 +15,12 @@ import kotlin.math.sqrt
  * Stakeout navigation — computes live delta to a target point.
  */
 class Stakeout(
-    private val gnssState: GnssState,
+    /**
+     * Shared [GnssState] pipeline. Public so that the Stakeout UI panel can surface
+     * σH and satellite count in its status pill without duplicating the flow
+     * through separate parameters.
+     */
+    val gnssState: GnssState,
     gridDeStream: InputStream,
     gridDnStream: InputStream,
 ) {

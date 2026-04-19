@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import org.opentopo.app.ui.theme.CoordinateFont
 
@@ -24,6 +25,7 @@ fun InputRow(
     modifier: Modifier = Modifier,
     placeholder: String = "",
     keyboardType: KeyboardType = KeyboardType.Text,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -43,6 +45,7 @@ fun InputRow(
                     color = MaterialTheme.colorScheme.onSurface,
                 ),
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                visualTransformation = visualTransformation,
                 modifier = Modifier.weight(1f),
                 singleLine = true,
             )

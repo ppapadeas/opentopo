@@ -2,10 +2,8 @@ package org.opentopo.app.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Close
@@ -33,35 +34,81 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import kotlin.math.abs
 import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.StakeoutTarget
 import org.opentopo.app.ui.components.FixStatusPill
+import org.opentopo.app.ui.components.survey.CompassRing
+import org.opentopo.app.ui.components.survey.RecordButton
 import org.opentopo.app.ui.theme.CoordinateFont
+import org.opentopo.app.ui.theme.LabelOverline
 import org.opentopo.app.ui.theme.LocalSurveyColors
+import org.opentopo.app.ui.theme.MonoCoord
+import org.opentopo.app.ui.theme.MonoDelta
+import org.opentopo.app.ui.theme.StakeoutClose
+import org.opentopo.app.ui.theme.StakeoutCloseDark
+import org.opentopo.app.ui.theme.StakeoutFar
+import org.opentopo.app.ui.theme.StakeoutFarDark
+import org.opentopo.app.ui.theme.StakeoutOnPoint
+import org.opentopo.app.ui.theme.StakeoutOnPointDark
+
+/**
+ * Remember a device heading (clockwise from true north, degrees) driven by
+ * TYPE_ROTATION_VECTOR. Falls back to a null listener (heading = 0f) on devices
+ * without a rotation-vector sensor.
+ */
+@Composable
+private fun rememberDeviceHeadingDeg(): Float {
+    val context = LocalContext.current
+    var heading by remember { mutableFloatStateOf(0f) }
+
+    DisposableEffect(context) {
+        val sensorManager = context.getSystemService(android.content.Context.SENSOR_SERVICE)
+            as? android.hardware.SensorManager
+        val rotationSensor = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR)
+
+        val listener = object : android.hardware.SensorEventListener {
+            private val rotationMatrix = FloatArray(9)
+            private val orientationAngles = FloatArray(3)
+
+            override fun onSensorChanged(event: android.hardware.SensorEvent) {
+                android.hardware.SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                android.hardware.SensorManager.getOrientation(rotationMatrix, orientationAngles)
+                val deg = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+                heading = ((deg + 360f) % 360f)
+            }
+
+            override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) = Unit
+        }
+
+        if (rotationSensor != null) {
+            sensorManager.registerListener(listener, rotationSensor, android.hardware.SensorManager.SENSOR_DELAY_UI)
+        }
+        onDispose {
+            if (rotationSensor != null) {
+                sensorManager.unregisterListener(listener)
+            }
+        }
+    }
+    return heading
+}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -71,15 +118,11 @@ fun StakeoutPanel(
     onPipRequest: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val surveyColors = LocalSurveyColors.current
     val result by stakeout?.result?.collectAsState(initial = null) ?: remember { mutableStateOf(null) }
     val currentTarget by stakeout?.target?.collectAsState() ?: remember { mutableStateOf(null) }
     var targetName by remember { mutableStateOf("") }
     var targetE by remember { mutableStateOf("") }
     var targetN by remember { mutableStateOf("") }
-
-    // Derive hasTarget from actual stakeout target (supports external target setting)
-    val hasTarget = currentTarget != null
 
     // Sync text fields when target is set externally (e.g. from trig point dialog)
     LaunchedEffect(currentTarget) {
@@ -90,186 +133,220 @@ fun StakeoutPanel(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Spacer(Modifier.height(8.dp))
+    val hasTarget = currentTarget != null
 
-        if (!hasTarget) {
-            // Import target from CSV
-            val context = LocalContext.current
-            val importLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.GetContent()
-            ) { uri ->
-                uri?.let {
-                    try {
-                        val input = context.contentResolver.openInputStream(it) ?: return@let
-                        val reader = input.bufferedReader()
-                        val header = reader.readLine() // skip header
-                        val firstLine = reader.readLine() ?: return@let
-                        val fields = firstLine.split(",")
-                        if (fields.size >= 3) {
-                            targetName = fields[0].trim()
-                            targetE = fields[1].trim()
-                            targetN = fields[2].trim()
-                        }
-                        input.close()
-                    } catch (_: Exception) {}
+    if (!hasTarget) {
+        // ─── Target-entry form (preserved from v1) ───────────────────────────
+        StakeoutTargetForm(
+            stakeout = stakeout,
+            targetName = targetName,
+            targetE = targetE,
+            targetN = targetN,
+            onTargetName = { targetName = it },
+            onTargetE = { targetE = it },
+            onTargetN = { targetN = it },
+            modifier = modifier,
+        )
+    } else {
+        StakeoutHud(
+            stakeout = stakeout,
+            result = result,
+            targetName = currentTarget?.name ?: targetName,
+            targetEasting = currentTarget?.easting,
+            targetNorthing = currentTarget?.northing,
+            onImmersiveRequest = onImmersiveRequest,
+            onPipRequest = onPipRequest,
+            onClearTarget = {
+                stakeout?.setTarget(null)
+                targetName = ""
+                targetE = ""
+                targetN = ""
+            },
+            modifier = modifier,
+        )
+    }
+}
+
+/**
+ * v2 immersive Stakeout HUD — shown once a target is active.
+ *
+ * Layout (top → bottom):
+ *   1. Status strip — FixStatusPill + close/exit
+ *   2. Target card  — name + EGSA87 E/N
+ *   3. CompassRing  — 240 dp focal navigation dial
+ *   4. ΔE / ΔN / ΔH readouts with tolerance coloring
+ *   5. σH and bearing accuracy footer
+ *   6. Action row   — RecordButton (on-point gated) + Full Screen / PiP
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun StakeoutHud(
+    stakeout: Stakeout?,
+    result: org.opentopo.app.survey.StakeoutResult?,
+    targetName: String,
+    targetEasting: Double?,
+    targetNorthing: Double?,
+    onImmersiveRequest: (() -> Unit)?,
+    onPipRequest: (() -> Unit)?,
+    onClearTarget: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // ── Hoisted derivations (previously done inline in the old Canvas) ──
+    val bearingToTarget = result?.bearingDeg?.toFloat() ?: 0f
+    val horizontalDelta: Double? = result?.distance
+    val deltaE: Double? = result?.deltaEasting
+    val deltaN: Double? = result?.deltaNorthing
+    // ΔH is not available from the current Stakeout result (horizontal only);
+    // surface as null so the row shows the "—" placeholder in neutral color.
+    val deltaH: Double? = null
+
+    val deviceHeading = rememberDeviceHeadingDeg()
+    val onPoint = remember(horizontalDelta) {
+        horizontalDelta != null && horizontalDelta < 0.05
+    }
+
+    // Live GNSS telemetry from the shared GnssState pipeline (Stakeout.gnssState
+    // is public in v2). Falls back to a coarse "no fix" status when the
+    // Stakeout instance itself is null.
+    val gnssPos by stakeout?.gnssState?.position?.collectAsState()
+        ?: remember { mutableStateOf(org.opentopo.app.gnss.PositionState()) }
+    val gnssAcc by stakeout?.gnssState?.accuracy?.collectAsState()
+        ?: remember { mutableStateOf(org.opentopo.app.gnss.AccuracyState()) }
+    val fixQuality = gnssPos.fixQuality
+    val sigmaH = gnssAcc.horizontalAccuracyM
+    val numSats = gnssPos.numSatellites
+
+    Box(
+        modifier = modifier.fillMaxSize(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // ── 1. Top status strip ────────────────────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                FixStatusPill(
+                    fixQuality = fixQuality,
+                    extras = sigmaH?.let { "${"%.1f".format(it * 100)} cm · $numSats sats" },
+                )
+                IconButton(onClick = onClearTarget) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "Clear target",
+                    )
                 }
             }
 
-            OutlinedButton(
-                onClick = { importLauncher.launch("text/*") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-            ) {
-                Icon(Icons.Outlined.FileUpload, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Import Target from CSV")
-            }
-
-            // Target input form
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = MaterialTheme.shapes.large,
-                tonalElevation = 1.dp,
-            ) {
-                Column(
-                    Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+            // ── 2. Target card ─────────────────────────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "TARGET · EGSA87",
+                    style = LabelOverline,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    targetName.ifBlank { "—" },
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                if (targetEasting != null && targetNorthing != null) {
                     Text(
-                        "Target (EGSA87)",
-                        style = MaterialTheme.typography.titleSmall,
+                        "E ${"%.3f".format(targetEasting)}  N ${"%.3f".format(targetNorthing)}",
+                        style = MonoDelta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    TextField(
-                        value = targetName,
-                        onValueChange = { targetName = it },
-                        label = { Text("Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.small,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextField(
-                            value = targetE,
-                            onValueChange = { targetE = it },
-                            label = { Text("E (m)") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            shape = MaterialTheme.shapes.small,
-                        )
-                        TextField(
-                            value = targetN,
-                            onValueChange = { targetN = it },
-                            label = { Text("N (m)") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            shape = MaterialTheme.shapes.small,
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    FilledTonalButton(
-                        onClick = {
-                            val e = targetE.toDoubleOrNull()
-                            val n = targetN.toDoubleOrNull()
-                            if (e != null && n != null) {
-                                stakeout?.setTarget(
-                                    StakeoutTarget(targetName.ifBlank { "Target" }, e, n),
-                                )
-                            }
-                        },
-                        enabled = targetE.toDoubleOrNull() != null && targetN.toDoubleOrNull() != null,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(percent = 50),
-                    ) {
-                        Text("Start")
-                    }
                 }
             }
-        } else {
-            val r = result
-            if (r == null) {
-                // Waiting state with ContainedLoadingIndicator
+
+            // ── 3. CompassRing (focal element) ─────────────────────────────
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (result == null) {
+                    // Waiting-for-fix shim so the layout doesn't collapse.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(vertical = 32.dp),
+                    ) {
+                        ContainedLoadingIndicator(modifier = Modifier.size(48.dp))
+                        Text(
+                            "Waiting for fix\u2026",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    CompassRing(
+                        currentHeadingDeg = deviceHeading,
+                        bearingToTargetDeg = bearingToTarget,
+                        distanceMeters = horizontalDelta,
+                        ringDiameter = 240.dp,
+                        onPoint = onPoint,
+                    )
+                }
+            }
+
+            // ── 4. ΔE / ΔN / ΔH readouts ──────────────────────────────────
+            if (result != null) {
                 Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    DeltaRow(label = "\u0394E", value = deltaE)
+                    DeltaRow(label = "\u0394N", value = deltaN)
+                    DeltaRow(label = "\u0394H", value = deltaH)
+                }
+
+                // ── 5. Accuracy footer ────────────────────────────────────
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                 ) {
-                    ContainedLoadingIndicator(modifier = Modifier.size(48.dp))
+                    Text("\u03C3H", style = LabelOverline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(6.dp))
                     Text(
-                        "Waiting for fix\u2026",
-                        style = MaterialTheme.typography.bodyLarge,
+                        sigmaH?.let { "${"%.3f".format(it)} m" } ?: "—",
+                        style = MonoDelta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-            } else {
-                val distColor = surveyColors.stakeoutColor(r.distance)
-
-                // Compass arrow
-                Column(
-                    Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    StakeoutArrow(bearingDeg = r.bearingDeg, distance = r.distance)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.width(24.dp))
+                    Text("BRG", style = LabelOverline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(6.dp))
                     Text(
-                        "%.3f m".format(r.distance),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontFamily = CoordinateFont,
-                        color = distColor,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "${r.bearingCardinal} (%.1f\u00B0)".format(r.bearingDeg),
-                        style = MaterialTheme.typography.titleMedium,
+                        "${"%.1f".format(result.bearingDeg)}\u00B0",
+                        style = MonoDelta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
-                // Delta card
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    shape = MaterialTheme.shapes.medium,
-                    tonalElevation = 1.dp,
-                ) {
-                    Column(
-                        Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        SurveyStatusRow(
-                            "\u0394E",
-                            "%.3f m".format(r.deltaEasting),
-                        )
-                        SurveyStatusRow(
-                            "\u0394N",
-                            "%.3f m".format(r.deltaNorthing),
-                        )
-                        SurveyStatusRow("Target", r.target.name)
-                    }
-                }
-            }
-
-            // Full Screen + PiP buttons (when target is active and has fix)
-            if (result != null) {
+                // ── 6. Bottom action row ──────────────────────────────────
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    RecordButton(
+                        onClick = { /* Stake record — wired via parent in later work. */ },
+                        enabled = onPoint,
+                        isRecording = false,
+                        progress = 0f,
+                        contentDescription = "Record staked point",
+                    )
                     if (onImmersiveRequest != null) {
                         FilledTonalButton(
                             onClick = onImmersiveRequest,
-                            modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(percent = 50),
                         ) {
                             Icon(
@@ -278,13 +355,12 @@ fun StakeoutPanel(
                                 modifier = Modifier.size(18.dp),
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text("Full Screen")
+                            Text("Full")
                         }
                     }
                     if (onPipRequest != null) {
                         FilledTonalButton(
                             onClick = onPipRequest,
-                            modifier = if (onImmersiveRequest != null) Modifier.weight(1f) else Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(percent = 50),
                         ) {
                             Icon(
@@ -298,104 +374,170 @@ fun StakeoutPanel(
                     }
                 }
             }
-
-            // Clear Target button (always visible when target is set)
-            OutlinedButton(
-                onClick = {
-                    stakeout?.setTarget(null)
-                    targetName = ""
-                    targetE = ""
-                    targetN = ""
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Close,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text("Clear Target")
-            }
         }
     }
 }
 
+/**
+ * Delta readout row — overline label + monospace signed value, color-coded by
+ * magnitude using the [StakeoutFar]/[StakeoutClose]/[StakeoutOnPoint] ramp.
+ */
+@Composable
+private fun DeltaRow(label: String, value: Double?) {
+    val dark = isSystemInDarkTheme()
+    val color: Color = when {
+        value == null -> MaterialTheme.colorScheme.onSurfaceVariant
+        abs(value) < 0.02 -> if (dark) StakeoutOnPointDark else StakeoutOnPoint
+        abs(value) < 0.05 -> if (dark) StakeoutCloseDark else StakeoutClose
+        else -> if (dark) StakeoutFarDark else StakeoutFar
+    }
+    val formatted = when {
+        value == null -> "—"
+        value >= 0 -> "+${"%.3f".format(value)} m"
+        else -> "${"%.3f".format(value)} m"
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            label,
+            style = LabelOverline,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(26.dp),
+        )
+        Text(
+            formatted,
+            style = MonoCoord.copy(fontSize = 28.sp),
+            color = color,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/**
+ * Target-entry form shown while no stakeout target has been set.
+ *
+ * Preserves the v1 CSV import launcher and manual name/E/N entry form so
+ * externally-set targets (trig-point dialog etc.) still flow through.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StakeoutArrow(bearingDeg: Double, distance: Double) {
-    val surveyColors = LocalSurveyColors.current
-    val color = surveyColors.stakeoutColor(distance)
-    val outlineVariant = MaterialTheme.colorScheme.outlineVariant
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+private fun StakeoutTargetForm(
+    stakeout: Stakeout?,
+    targetName: String,
+    targetE: String,
+    targetN: String,
+    onTargetName: (String) -> Unit,
+    onTargetE: (String) -> Unit,
+    onTargetN: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            try {
+                val input = context.contentResolver.openInputStream(it) ?: return@let
+                val reader = input.bufferedReader()
+                reader.readLine() // skip header
+                val firstLine = reader.readLine() ?: return@let
+                val fields = firstLine.split(",")
+                if (fields.size >= 3) {
+                    onTargetName(fields[0].trim())
+                    onTargetE(fields[1].trim())
+                    onTargetN(fields[2].trim())
+                }
+                input.close()
+            } catch (_: Exception) {
+            }
+        }
+    }
 
-    val textMeasurer = rememberTextMeasurer()
-    val cardinalStyle = TextStyle(
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        color = onSurfaceVariant,
-    )
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Spacer(Modifier.height(8.dp))
 
-    Canvas(modifier = Modifier.size(180.dp)) {
-        val center = Offset(size.width / 2, size.height / 2)
-        val radius = size.minDimension / 2
-        val innerRadius = radius - 16.dp.toPx()
-
-        // Outer ring
-        drawCircle(
-            color = outlineVariant,
-            radius = radius,
-            center = center,
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
-        )
-
-        // Fill circle with stakeout color at low alpha
-        drawCircle(
-            color = color.copy(alpha = 0.08f),
-            radius = radius,
-            center = center,
-        )
-
-        // Cardinal direction labels
-        val cardinals = listOf("N" to 0f, "E" to 90f, "S" to 180f, "W" to 270f)
-        for ((label, deg) in cardinals) {
-            val measured = textMeasurer.measure(label, cardinalStyle)
-            val angleRad = Math.toRadians((deg - 90).toDouble())
-            val labelRadius = radius - 10.dp.toPx()
-            val lx = center.x + (labelRadius * kotlin.math.cos(angleRad)).toFloat() - measured.size.width / 2f
-            val ly = center.y + (labelRadius * kotlin.math.sin(angleRad)).toFloat() - measured.size.height / 2f
-            drawText(measured, topLeft = Offset(lx, ly))
+        OutlinedButton(
+            onClick = { importLauncher.launch("text/*") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+        ) {
+            Icon(Icons.Outlined.FileUpload, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Import Target from CSV")
         }
 
-        // Tick marks at cardinal directions
-        val tickLen = 6.dp.toPx()
-        for (deg in listOf(0f, 90f, 180f, 270f)) {
-            rotate(deg, pivot = center) {
-                drawLine(
-                    outlineVariant,
-                    Offset(center.x, center.y - radius),
-                    Offset(center.x, center.y - radius + tickLen),
-                    strokeWidth = 1.5f.dp.toPx(),
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 1.dp,
+        ) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    "Target (EGSA87)",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                TextField(
+                    value = targetName,
+                    onValueChange = onTargetName,
+                    label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.small,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextField(
+                        value = targetE,
+                        onValueChange = onTargetE,
+                        label = { Text("E (m)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.small,
+                    )
+                    TextField(
+                        value = targetN,
+                        onValueChange = onTargetN,
+                        label = { Text("N (m)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.small,
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                FilledTonalButton(
+                    onClick = {
+                        val e = targetE.toDoubleOrNull()
+                        val n = targetN.toDoubleOrNull()
+                        if (e != null && n != null) {
+                            stakeout?.setTarget(
+                                StakeoutTarget(targetName.ifBlank { "Target" }, e, n),
+                            )
+                        }
+                    },
+                    enabled = targetE.toDoubleOrNull() != null && targetN.toDoubleOrNull() != null,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(percent = 50),
+                ) {
+                    Text("Start")
+                }
             }
-        }
-
-        // Arrow pointing in bearing direction
-        rotate(bearingDeg.toFloat(), pivot = center) {
-            val arrowPath = Path().apply {
-                moveTo(center.x, center.y - innerRadius * 0.85f)               // tip
-                lineTo(center.x - 14.dp.toPx(), center.y - innerRadius * 0.15f) // left
-                lineTo(center.x, center.y - innerRadius * 0.30f)               // notch
-                lineTo(center.x + 14.dp.toPx(), center.y - innerRadius * 0.15f) // right
-                close()
-            }
-            drawPath(arrowPath, color)
         }
     }
 }
 
-// ── Stakeout immersive full-screen overlay ──
+// ── Stakeout immersive full-screen overlay (kept from v1, unchanged) ──
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -453,36 +595,24 @@ fun StakeoutImmersiveOverlay(
             val r = result
             if (r != null) {
                 val distColor = surveyColors.stakeoutColor(r.distance)
+                val dark = isSystemInDarkTheme()
+                val onPoint = r.distance < 0.05
+                val deviceHeading = rememberDeviceHeadingDeg()
 
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // Large distance display
-                    Text(
-                        "%.3f".format(r.distance),
-                        style = MaterialTheme.typography.displayLarge,
-                        fontFamily = CoordinateFont,
-                        color = distColor,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        "metres",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.6f),
+                    CompassRing(
+                        currentHeadingDeg = deviceHeading,
+                        bearingToTargetDeg = r.bearingDeg.toFloat(),
+                        distanceMeters = r.distance,
+                        ringDiameter = 280.dp,
+                        onPoint = onPoint,
                     )
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    // Larger compass arrow (240dp)
-                    ImmersiveStakeoutArrow(
-                        bearingDeg = r.bearingDeg,
-                        distance = r.distance,
-                    )
-
-                    Spacer(Modifier.height(24.dp))
-
-                    // Bearing text
                     Text(
                         "${r.bearingCardinal} (${"%.1f".format(r.bearingDeg)}\u00B0)",
                         style = MaterialTheme.typography.titleLarge,
@@ -502,7 +632,7 @@ fun StakeoutImmersiveOverlay(
                             "%.3f".format(r.deltaEasting),
                             style = MaterialTheme.typography.headlineMedium,
                             fontFamily = CoordinateFont,
-                            color = MaterialTheme.colorScheme.inversePrimary,
+                            color = distColor,
                         )
                         Text(
                             "\u0394E",
@@ -515,7 +645,7 @@ fun StakeoutImmersiveOverlay(
                             "%.3f".format(r.deltaNorthing),
                             style = MaterialTheme.typography.headlineMedium,
                             fontFamily = CoordinateFont,
-                            color = MaterialTheme.colorScheme.inversePrimary,
+                            color = distColor,
                         )
                         Text(
                             "\u0394N",
@@ -539,82 +669,6 @@ fun StakeoutImmersiveOverlay(
                     )
                 }
             }
-        }
-    }
-}
-
-/**
- * Larger stakeout arrow (240dp) for the immersive overlay.
- * Uses inverse colour scheme to work on dark backgrounds.
- */
-@Composable
-private fun ImmersiveStakeoutArrow(bearingDeg: Double, distance: Double) {
-    val surveyColors = LocalSurveyColors.current
-    val color = surveyColors.stakeoutColor(distance)
-    val outlineVariant = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.3f)
-    val onSurfaceVariant = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f)
-
-    val textMeasurer = rememberTextMeasurer()
-    val cardinalStyle = TextStyle(
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Medium,
-        color = onSurfaceVariant,
-    )
-
-    Canvas(modifier = Modifier.size(240.dp)) {
-        val center = Offset(size.width / 2, size.height / 2)
-        val radius = size.minDimension / 2
-        val innerRadius = radius - 20.dp.toPx()
-
-        // Outer ring
-        drawCircle(
-            color = outlineVariant,
-            radius = radius,
-            center = center,
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
-        )
-
-        // Fill circle with stakeout color at low alpha
-        drawCircle(
-            color = color.copy(alpha = 0.10f),
-            radius = radius,
-            center = center,
-        )
-
-        // Cardinal direction labels
-        val cardinals = listOf("N" to 0f, "E" to 90f, "S" to 180f, "W" to 270f)
-        for ((label, deg) in cardinals) {
-            val measured = textMeasurer.measure(label, cardinalStyle)
-            val angleRad = Math.toRadians((deg - 90).toDouble())
-            val labelRadius = radius - 12.dp.toPx()
-            val lx = center.x + (labelRadius * kotlin.math.cos(angleRad)).toFloat() - measured.size.width / 2f
-            val ly = center.y + (labelRadius * kotlin.math.sin(angleRad)).toFloat() - measured.size.height / 2f
-            drawText(measured, topLeft = Offset(lx, ly))
-        }
-
-        // Tick marks at cardinal directions
-        val tickLen = 8.dp.toPx()
-        for (deg in listOf(0f, 90f, 180f, 270f)) {
-            rotate(deg, pivot = center) {
-                drawLine(
-                    outlineVariant,
-                    Offset(center.x, center.y - radius),
-                    Offset(center.x, center.y - radius + tickLen),
-                    strokeWidth = 2f.dp.toPx(),
-                )
-            }
-        }
-
-        // Arrow pointing in bearing direction
-        rotate(bearingDeg.toFloat(), pivot = center) {
-            val arrowPath = Path().apply {
-                moveTo(center.x, center.y - innerRadius * 0.85f)
-                lineTo(center.x - 18.dp.toPx(), center.y - innerRadius * 0.15f)
-                lineTo(center.x, center.y - innerRadius * 0.30f)
-                lineTo(center.x + 18.dp.toPx(), center.y - innerRadius * 0.15f)
-                close()
-            }
-            drawPath(arrowPath, color)
         }
     }
 }

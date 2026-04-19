@@ -3,23 +3,27 @@ package org.opentopo.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Verified
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import org.opentopo.app.ui.components.CoordinateBlock
+import org.opentopo.app.ui.components.TonalCard
 import org.opentopo.app.ui.theme.CoordinateFont
+import org.opentopo.app.ui.theme.LabelOverline
 import org.opentopo.app.ui.theme.LocalSurveyColors
+import org.opentopo.app.ui.theme.MonoDelta
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -86,6 +90,7 @@ data class VerificationResult(
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun VerificationReportDialog(
     result: VerificationResult,
@@ -93,14 +98,20 @@ fun VerificationReportDialog(
     onShare: (String) -> Unit,
 ) {
     val surveyColors = LocalSurveyColors.current
+    val headlineColor = when {
+        result.horizontalResidual < 0.02 -> surveyColors.fixColor(4) // green
+        result.horizontalResidual < 0.05 -> surveyColors.fixColor(5) // amber
+        else -> surveyColors.fixColor(0) // red
+    }
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.extraLarge,
         icon = {
             Icon(
                 Icons.Outlined.Verified,
                 contentDescription = null,
-                tint = if (result.horizontalResidual < 0.05) MaterialTheme.colorScheme.primary
+                tint = if (result.horizontalResidual < 0.05) surveyColors.fixColor(4)
                 else MaterialTheme.colorScheme.error,
             )
         },
@@ -108,88 +119,88 @@ fun VerificationReportDialog(
             Text("Verification: ${result.pointName}")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Residuals (the key info)
-                Text(
-                    "Residuals",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                ResidualRow("\u0394E", result.deltaE)
-                ResidualRow("\u0394N", result.deltaN)
-                result.deltaH?.let { ResidualRow("\u0394H", it) }
-
-                Spacer(Modifier.height(4.dp))
-                val residualColor = when {
-                    result.horizontalResidual < 0.02 -> surveyColors.fixColor(4) // green
-                    result.horizontalResidual < 0.05 -> surveyColors.fixColor(5) // amber
-                    else -> surveyColors.fixColor(0) // red
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Section 1 — Headline residual (centered)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "Horizontal residual",
+                        style = LabelOverline,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        "${"%.3f".format(result.horizontalResidual)} m",
+                        style = MaterialTheme.typography.displaySmallEmphasized,
+                        fontFamily = CoordinateFont,
+                        color = headlineColor,
+                        textAlign = TextAlign.Center,
+                    )
                 }
-                Text(
-                    "Horizontal: ${"%.3f".format(result.horizontalResidual)} m",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontFamily = CoordinateFont,
-                    fontWeight = FontWeight.Bold,
-                    color = residualColor,
-                )
 
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                // Section 2 — Component residuals ΔE / ΔN / ΔH
+                TonalCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ResidualRow("\u0394E", result.deltaE)
+                        ResidualRow("\u0394N", result.deltaN)
+                        result.deltaH?.let { ResidualRow("\u0394H", it) }
+                    }
+                }
 
-                // Coordinates comparison
-                Text(
-                    "Published",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "E ${"%.3f".format(result.publishedE)}  N ${"%.3f".format(result.publishedN)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = CoordinateFont,
-                )
+                // Section 3 — Published vs Measured coordinate blocks
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CoordinateBlock(
+                        label = "PUBLISHED \u00B7 EGSA87",
+                        easting = "${"%.3f".format(result.publishedE)} m",
+                        northing = "${"%.3f".format(result.publishedN)} m",
+                        height = result.publishedH?.let { "${"%.3f".format(it)} m" },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-                Text(
-                    "Measured",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "E ${"%.3f".format(result.measuredE)}  N ${"%.3f".format(result.measuredN)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = CoordinateFont,
-                )
+                    CoordinateBlock(
+                        label = "MEASURED \u00B7 EGSA87",
+                        easting = "${"%.3f".format(result.measuredE)} m",
+                        northing = "${"%.3f".format(result.measuredN)} m",
+                        height = result.measuredH?.let { "${"%.3f".format(it)} m" },
+                        modifier = Modifier.fillMaxWidth(),
+                        fixQuality = result.fixQuality,
+                        sigmaH = result.horizontalAccuracy?.let { "\u03C3H ${"%.3f".format(it)} m" },
+                    )
+                }
 
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-
-                // GNSS quality
+                // Section 4 — Timestamp + sats footer
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        result.fixLabel,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = surveyColors.fixColor(result.fixQuality),
-                    )
-                    result.horizontalAccuracy?.let {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.AccessTime,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Text(
-                            "\u00B1${"%.3f".format(it)}m",
-                            style = MaterialTheme.typography.labelLarge,
+                            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                                .format(Date(result.timestamp)),
+                            style = MaterialTheme.typography.labelSmall,
                             fontFamily = CoordinateFont,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Text(
                         "${result.numSatellites} sats",
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.labelSmall,
                         fontFamily = CoordinateFont,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-
-                // Timestamp
-                Text(
-                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(result.timestamp)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         },
         confirmButton = {
@@ -207,26 +218,17 @@ fun VerificationReportDialog(
 
 @Composable
 private fun ResidualRow(label: String, value: Double) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-        )
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = LabelOverline)
         Text(
             "${"%.3f".format(value)} m",
-            style = MaterialTheme.typography.bodyMedium,
-            fontFamily = CoordinateFont,
-            fontWeight = FontWeight.Bold,
-            color = if (kotlin.math.abs(value) < 0.02)
-                MaterialTheme.colorScheme.primary
-            else if (kotlin.math.abs(value) < 0.05)
-                MaterialTheme.colorScheme.tertiary
-            else
-                MaterialTheme.colorScheme.error,
+            style = MonoDelta,
+            color = when {
+                kotlin.math.abs(value) < 0.02 -> MaterialTheme.colorScheme.primary
+                kotlin.math.abs(value) < 0.05 -> MaterialTheme.colorScheme.tertiary
+                else -> MaterialTheme.colorScheme.error
+            },
+            fontWeight = FontWeight.W500,
         )
     }
 }
