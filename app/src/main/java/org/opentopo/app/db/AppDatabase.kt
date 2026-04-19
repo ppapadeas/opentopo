@@ -6,16 +6,19 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import org.opentopo.app.ntrip.NtripProfile
+import org.opentopo.app.ntrip.NtripProfileDao
 
 @Database(
-    entities = [ProjectEntity::class, PointEntity::class, TrigPointCacheEntity::class],
-    version = 7,
+    entities = [ProjectEntity::class, PointEntity::class, TrigPointCacheEntity::class, NtripProfile::class],
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
     abstract fun pointDao(): PointDao
     abstract fun trigPointCacheDao(): TrigPointCacheDao
+    abstract fun ntripProfileDao(): NtripProfileDao
 
     companion object {
         @Volatile
@@ -73,6 +76,38 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v7 → v8: add the NTRIP profiles table. Seeding is done at runtime
+         * by [org.opentopo.app.ntrip.NtripProfileRepository.seedIfEmpty] so
+         * the legacy DataStore-backed NTRIP config can migrate in.
+         */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS ntrip_profile (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        displayName TEXT NOT NULL,
+                        code TEXT NOT NULL,
+                        tintColor INTEGER NOT NULL,
+                        badgeFgColor INTEGER NOT NULL,
+                        host TEXT NOT NULL,
+                        port INTEGER NOT NULL,
+                        useTls INTEGER NOT NULL DEFAULT 0,
+                        username TEXT NOT NULL DEFAULT '',
+                        password TEXT NOT NULL DEFAULT '',
+                        mountpoint TEXT NOT NULL DEFAULT '',
+                        sendGga INTEGER NOT NULL DEFAULT 1,
+                        rtcm_preference TEXT NOT NULL DEFAULT 'ANY',
+                        isActive INTEGER NOT NULL DEFAULT 0,
+                        lastUsedAt INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent(),
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -80,7 +115,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "opentopo.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                        MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8,
+                    )
                     .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
             }

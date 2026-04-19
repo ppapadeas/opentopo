@@ -27,8 +27,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
-import androidx.compose.material.icons.outlined.CellTower
-import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
@@ -65,8 +63,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hoho.android.usbserial.driver.UsbSerialDriver
@@ -79,32 +75,12 @@ import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.gnss.SatelliteInfo
 import org.opentopo.app.gnss.UsbGnssService
 import org.opentopo.app.ntrip.NtripClient
-import org.opentopo.app.ntrip.NtripConfig
-import org.opentopo.app.ntrip.NtripMountpoint
-import org.opentopo.app.ntrip.NtripStatus
+import org.opentopo.app.ntrip.NtripConnectionState
 import org.opentopo.app.ui.components.ButtonGroup as OpenTopoButtonGroup
-import org.opentopo.app.ui.components.InputRow
-import org.opentopo.app.ui.components.SectionLabel
+import org.opentopo.app.ui.components.ntrip.NtripActiveProfileRow
 import org.opentopo.app.ui.theme.ConstellationColors
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.FixNoneRed
-
-// Hard-coded preset targets for the NTRIP caster selector. Order must match the
-// labels passed to the OpenTopoButtonGroup below.
-private data class NtripPreset(
-    val label: String,
-    val host: String,
-    val port: String,
-    val mount: String,
-)
-
-private val NtripPresets = listOf(
-    NtripPreset("HEPOS", "rtk.hepos.gr", "2101", "RTCM32"),
-    NtripPreset("CivilPOS", "civilpos.net", "2101", "RTCM3_NET"),
-    NtripPreset("SmartNet", "rtk.smartnet.leica-geosystems.com", "2101", "iMAX_Eur"),
-    NtripPreset("Custom", "", "", ""),
-)
-private const val NTRIP_CUSTOM_INDEX = 3
 
 // ── Mono styles matching the mockup ──
 private val MonoOverline = TextStyle(
@@ -144,13 +120,6 @@ private val MonoSub = TextStyle(
     fontWeight = FontWeight.W400,
 )
 
-private val MonoStreamLine = TextStyle(
-    fontFamily = CoordinateFont,
-    fontSize = 12.sp,
-    lineHeight = 19.sp,
-    fontWeight = FontWeight.W400,
-)
-
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -160,6 +129,9 @@ fun ConnectionPanel(
     usbService: UsbGnssService,
     internalService: org.opentopo.app.gnss.InternalGnssService,
     ntripClient: NtripClient,
+    ntripProfileRepo: org.opentopo.app.ntrip.NtripProfileRepository,
+    onNtripRowClick: () -> Unit,
+    onNtripReconnectClick: () -> Unit = onNtripRowClick,
     modifier: Modifier = Modifier,
 ) {
     val connectionStatus by gnssState.connectionStatus.collectAsState()
@@ -276,9 +248,18 @@ fun ConnectionPanel(
             Skyplot(satellites = satellites.satellites)
         }
 
-        // ── NTRIP card ──
+        // ── NTRIP — compact active-profile row ──
         Spacer(Modifier.height(14.dp))
-        NtripCard(ntripClient = ntripClient, ntripState = ntripState)
+        val activeProfile by ntripProfileRepo.activeProfile.collectAsState(initial = null)
+        val ntripConnectionState by ntripProfileRepo.state.collectAsState(
+            initial = org.opentopo.app.ntrip.NtripConnectionState.Empty,
+        )
+        NtripActiveProfileRow(
+            profile = activeProfile,
+            state = ntripConnectionState,
+            onClick = onNtripRowClick,
+            onReconnectClick = onNtripReconnectClick,
+        )
 
         Spacer(Modifier.height(24.dp))
     }
@@ -569,260 +550,6 @@ private fun ConstellationCell(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  NTRIP card
-// ─────────────────────────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun NtripCard(
-    ntripClient: NtripClient,
-    ntripState: org.opentopo.app.ntrip.NtripState,
-) {
-    val activity = LocalContext.current as? org.opentopo.app.MainActivity
-    val prefs = activity?.prefs
-    val scope = rememberCoroutineScope()
-
-    val savedPreset by prefs?.ntripPresetIndex?.collectAsState(initial = 0)
-        ?: remember { mutableStateOf(0) }
-    val savedHost by prefs?.ntripHost?.collectAsState(initial = "")
-        ?: remember { mutableStateOf("") }
-    val savedPort by prefs?.ntripPort?.collectAsState(initial = "2101")
-        ?: remember { mutableStateOf("2101") }
-    val savedUsername by prefs?.ntripUsername?.collectAsState(initial = "")
-        ?: remember { mutableStateOf("") }
-    val savedPassword by prefs?.ntripPassword?.collectAsState(initial = "")
-        ?: remember { mutableStateOf("") }
-    val savedMountpoint by prefs?.ntripMountpoint?.collectAsState(initial = "")
-        ?: remember { mutableStateOf("") }
-
-    val initialPreset = if (savedPreset in 0..2) savedPreset else NTRIP_CUSTOM_INDEX
-    var selectedPresetIndex by remember { mutableIntStateOf(initialPreset) }
-    var host by remember {
-        mutableStateOf(if (savedHost.isNotBlank()) savedHost else NtripPresets[initialPreset].host)
-    }
-    var port by remember {
-        mutableStateOf(if (savedPort.isNotBlank()) savedPort else NtripPresets[initialPreset].port)
-    }
-    var username by remember { mutableStateOf(savedUsername) }
-    var password by remember { mutableStateOf(savedPassword) }
-    var mountpoint by remember {
-        mutableStateOf(
-            if (savedMountpoint.isNotBlank()) savedMountpoint else NtripPresets[initialPreset].mount,
-        )
-    }
-    var mountpoints by remember { mutableStateOf<List<NtripMountpoint>>(emptyList()) }
-    var fetchingSourcetable by remember { mutableStateOf(false) }
-    val isCustom = selectedPresetIndex == NTRIP_CUSTOM_INDEX
-
-    LaunchedEffect(savedPreset, savedHost, savedPort, savedUsername, savedPassword, savedMountpoint) {
-        if (savedPreset != 0 || savedHost.isNotBlank()) {
-            selectedPresetIndex = if (savedPreset in 0..2) savedPreset else NTRIP_CUSTOM_INDEX
-            if (savedHost.isNotBlank()) host = savedHost
-            if (savedPort.isNotBlank()) port = savedPort
-            username = savedUsername
-            password = savedPassword
-            mountpoint = savedMountpoint
-        }
-    }
-
-    val isNtripConnected = ntripState.status == NtripStatus.CONNECTED
-    val isNtripConnecting = ntripState.status == NtripStatus.CONNECTING ||
-        ntripState.status == NtripStatus.RECONNECTING
-
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-            // Header row: icon + label + flexible spacer + live/stale chip
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    Icons.Outlined.CellTower,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    "NTRIP CORRECTIONS",
-                    style = MonoOverline,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f),
-                )
-                NtripStatusChip(
-                    isConnected = isNtripConnected,
-                    isConnecting = isNtripConnecting,
-                    isStale = ntripState.ageOfCorrectionSeconds > 5 && isNtripConnected,
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-
-            // Preset ButtonGroup (HEPOS / CivilPOS / SmartNet)
-            OpenTopoButtonGroup(
-                options = listOf("HEPOS", "CivilPOS", "SmartNet"),
-                selectedIndex = selectedPresetIndex.coerceIn(0, 2),
-                onSelect = { index ->
-                    selectedPresetIndex = index
-                    val preset = NtripPresets[index]
-                    host = preset.host
-                    port = preset.port.ifBlank { "2101" }
-                    mountpoint = preset.mount
-                    mountpoints = emptyList()
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(10.dp))
-
-            if (isNtripConnected || isNtripConnecting) {
-                // Two-line streaming stats
-                Column {
-                    Row {
-                        Text(
-                            "mountpoint \u00B7 ",
-                            style = MonoStreamLine,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            ntripState.mountpoint.ifBlank { mountpoint.ifBlank { "\u2014" } },
-                            style = MonoStreamLine.copy(fontWeight = FontWeight.W700),
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    val age = if (ntripState.ageOfCorrectionSeconds >= 0) {
-                        "%.1f s".format(ntripState.ageOfCorrectionSeconds.toDouble())
-                    } else {
-                        "\u2014"
-                    }
-                    val rate = ntripState.dataRateFormatted
-                    Text(
-                        "age \u00B7 $age    $rate    VRS \u00B7 RTCM 3.2",
-                        style = MonoStreamLine,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                OutlinedButton(
-                    onClick = { ntripClient.disconnect() },
-                    shape = RoundedCornerShape(999.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        "Stop corrections",
-                        style = MaterialTheme.typography.labelLargeEmphasized,
-                    )
-                }
-                ntripState.error?.let {
-                    Spacer(Modifier.height(6.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(
-                            Icons.Outlined.ErrorOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
-            } else {
-                NtripCredentialFields(
-                    isCustom = isCustom,
-                    host = host,
-                    port = port,
-                    username = username,
-                    password = password,
-                    mountpoint = mountpoint,
-                    mountpoints = mountpoints,
-                    fetchingSourcetable = fetchingSourcetable,
-                    onHostChange = { host = it },
-                    onPortChange = { port = it },
-                    onUsernameChange = { username = it },
-                    onPasswordChange = { password = it },
-                    onMountpointChange = { mountpoint = it },
-                    onFetchList = {
-                        fetchingSourcetable = true
-                        ntripClient.fetchSourcetable(
-                            NtripConfig(
-                                "",
-                                host,
-                                port.toIntOrNull() ?: 2101,
-                                "",
-                                username,
-                                password,
-                            ),
-                        ) { result ->
-                            fetchingSourcetable = false
-                            result.onSuccess { mountpoints = it }
-                        }
-                    },
-                    onConnect = {
-                        ntripClient.connect(
-                            NtripConfig(
-                                "",
-                                host,
-                                port.toIntOrNull() ?: 2101,
-                                mountpoint,
-                                username,
-                                password,
-                            ),
-                        )
-                        val persistIndex = if (isCustom) -1 else selectedPresetIndex
-                        scope.launch {
-                            prefs?.setNtripConfig(
-                                persistIndex, host, port, username, password, mountpoint,
-                            )
-                        }
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NtripStatusChip(isConnected: Boolean, isConnecting: Boolean, isStale: Boolean) {
-    val (bg, fg, label) = when {
-        isStale -> Triple(
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer,
-            "stale",
-        )
-        isConnected -> Triple(
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
-            "live",
-        )
-        isConnecting -> Triple(
-            MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.onTertiaryContainer,
-            "sync\u2026",
-        )
-        else -> Triple(
-            MaterialTheme.colorScheme.surfaceContainerHighest,
-            MaterialTheme.colorScheme.onSurfaceVariant,
-            "idle",
-        )
-    }
-    Surface(color = bg, shape = RoundedCornerShape(999.dp)) {
-        Text(
-            label,
-            color = fg,
-            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.W700),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 //  Disconnected pickers (same behaviour as before, restyled to match the
 //  surface-container-low cards used elsewhere on the screen).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1027,103 +754,6 @@ private fun InternalGpsPicker(internalService: org.opentopo.app.gnss.InternalGns
                     "Connect Internal GPS",
                     style = MaterialTheme.typography.labelLargeEmphasized,
                 )
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  NTRIP credential sub-form (used only when disconnected)
-// ─────────────────────────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun NtripCredentialFields(
-    isCustom: Boolean,
-    host: String,
-    port: String,
-    username: String,
-    password: String,
-    mountpoint: String,
-    mountpoints: List<NtripMountpoint>,
-    fetchingSourcetable: Boolean,
-    onHostChange: (String) -> Unit,
-    onPortChange: (String) -> Unit,
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onMountpointChange: (String) -> Unit,
-    onFetchList: () -> Unit,
-    onConnect: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (isCustom) {
-            SectionLabel("Server")
-            InputRow(label = "Host", value = host, onValueChange = onHostChange, placeholder = "ntrip.example.com")
-            InputRow(label = "Port", value = port, onValueChange = onPortChange, keyboardType = KeyboardType.Number)
-        }
-        SectionLabel("Credentials")
-        InputRow(label = "User", value = username, onValueChange = onUsernameChange)
-        InputRow(
-            label = "Pass",
-            value = password,
-            onValueChange = onPasswordChange,
-            keyboardType = KeyboardType.Password,
-            visualTransformation = PasswordVisualTransformation(),
-        )
-        SectionLabel("Mountpoint")
-        InputRow(label = "Mountpoint", value = mountpoint, onValueChange = onMountpointChange)
-
-        if (mountpoints.isNotEmpty()) {
-            var mpExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = mpExpanded,
-                onExpandedChange = { mpExpanded = it },
-            ) {
-                TextField(
-                    value = mountpoint.ifBlank { "" },
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Select mountpoint") },
-                    placeholder = { Text("Select\u2026") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(mpExpanded) },
-                    colors = ExposedDropdownMenuDefaults.textFieldColors(),
-                    modifier = Modifier
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth(),
-                )
-                ExposedDropdownMenu(expanded = mpExpanded, onDismissRequest = { mpExpanded = false }) {
-                    mountpoints.forEach { mp ->
-                        DropdownMenuItem(
-                            text = { Text("${mp.name} (${mp.format})") },
-                            onClick = { onMountpointChange(mp.name); mpExpanded = false },
-                        )
-                    }
-                }
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = onFetchList,
-                enabled = !fetchingSourcetable && host.isNotBlank(),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(999.dp),
-            ) {
-                if (fetchingSourcetable) {
-                    ContainedLoadingIndicator(modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Fetching", style = MaterialTheme.typography.labelLargeEmphasized)
-                } else {
-                    Text("Get List", style = MaterialTheme.typography.labelLargeEmphasized)
-                }
-            }
-            Button(
-                onClick = onConnect,
-                enabled = host.isNotBlank() && mountpoint.isNotBlank(),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(999.dp),
-            ) {
-                Text("Connect", style = MaterialTheme.typography.labelLargeEmphasized)
             }
         }
     }

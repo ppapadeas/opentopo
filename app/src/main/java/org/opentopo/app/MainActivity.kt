@@ -36,7 +36,7 @@ import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.gnss.InternalGnssService
 import org.opentopo.app.gnss.UsbGnssService
 import org.opentopo.app.ntrip.NtripClient
-import org.opentopo.app.ntrip.NtripConfig
+import org.opentopo.app.ntrip.NtripProfileRepository
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.SurveyManager
 import org.opentopo.app.ui.MainMapScreen
@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var usbService: UsbGnssService
     private lateinit var internalService: InternalGnssService
     private lateinit var ntripClient: NtripClient
+    private lateinit var ntripProfileRepo: NtripProfileRepository
     private lateinit var db: AppDatabase
     lateinit var prefs: org.opentopo.app.prefs.UserPreferences
         private set
@@ -114,6 +115,14 @@ class MainActivity : ComponentActivity() {
                 pos.fixQuality, pos.numSatellites, pos.hdop ?: 1.0,
             )
         }
+
+        // NTRIP profile repository — owns the saved-profile list, auto-connects
+        // whenever the active profile changes, and derives the high-level
+        // NtripConnectionState exposed to UI. On first run it migrates the
+        // legacy single-profile DataStore config into a real row and seeds
+        // HEPOS / CivilPOS / SmartNet templates.
+        ntripProfileRepo = NtripProfileRepository(this, db, ntripClient, prefs)
+        lifecycleScope.launch { ntripProfileRepo.seedIfEmpty() }
 
         // Initialize transform-dependent services
         try {
@@ -180,6 +189,7 @@ class MainActivity : ComponentActivity() {
                     usbService = usbService,
                     internalService = internalService,
                     ntripClient = ntripClient,
+                    ntripProfileRepo = ntripProfileRepo,
                     db = db,
                     surveyManager = surveyManager,
                     stakeout = stakeout,
@@ -210,17 +220,9 @@ class MainActivity : ComponentActivity() {
             // Internal GPS (connectionType == 2) does NOT auto-connect —
             // requires explicit user action due to permission dialog
 
-            // Auto-connect NTRIP if settings are saved
-            val host = prefs.ntripHost.first()
-            val mountpoint = prefs.ntripMountpoint.first()
-            if (host.isNotBlank() && mountpoint.isNotBlank()) {
-                // Wait for GNSS fix first
-                gnssState.position.first { it.hasFix }
-                val port = prefs.ntripPort.first().toIntOrNull() ?: 2101
-                val username = prefs.ntripUsername.first()
-                val password = prefs.ntripPassword.first()
-                ntripClient.connect(NtripConfig("", host, port, mountpoint, username, password))
-            }
+            // NTRIP auto-connect is now owned by NtripProfileRepository — it
+            // observes the active profile Flow and calls connect/disconnect
+            // on the transport whenever the user switches profiles.
         }
     }
 

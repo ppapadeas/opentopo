@@ -47,7 +47,10 @@ fun Skyplot(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val bgColor = MaterialTheme.colorScheme.surfaceContainerHigh
 
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
     Canvas(modifier = Modifier.size(220.dp)) {
         val cx = size.width / 2
         val cy = size.height / 2

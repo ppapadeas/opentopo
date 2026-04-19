@@ -104,8 +104,10 @@ import org.opentopo.app.db.AppDatabase
 import org.opentopo.app.gnss.BluetoothGnssService
 import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.gnss.UsbGnssService
+import kotlinx.coroutines.flow.first
 import org.opentopo.app.ntrip.NtripClient
 import org.opentopo.app.ntrip.NtripStatus
+import org.opentopo.app.ui.components.ntrip.NtripProfileSwitchSheet
 import org.opentopo.app.survey.RecordingState
 import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.SurveyManager
@@ -139,6 +141,7 @@ fun MainMapScreen(
     usbService: UsbGnssService,
     internalService: org.opentopo.app.gnss.InternalGnssService,
     ntripClient: NtripClient,
+    ntripProfileRepo: org.opentopo.app.ntrip.NtripProfileRepository,
     db: AppDatabase,
     surveyManager: SurveyManager?,
     stakeout: Stakeout?,
@@ -175,6 +178,15 @@ fun MainMapScreen(
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
     var stakeoutImmersive by remember { mutableStateOf(false) }
+
+    // NTRIP UI overlay state — Connect screen opens the profile switch sheet;
+    // that sheet can route into the Profiles management screen, which in turn
+    // opens the Edit screen. All three are full-screen overlays managed here
+    // so they can survive sheetMode changes.
+    var ntripSwitchSheetOpen by remember { mutableStateOf(false) }
+    var ntripProfilesOpen by remember { mutableStateOf(false) }
+    var ntripProfileEditing by remember { mutableStateOf<org.opentopo.app.ntrip.NtripProfile?>(null) }
+    var ntripProfileCreating by remember { mutableStateOf(false) }
 
     // Trig point layer state
     var trigPointsVisible by remember { mutableStateOf(true) }
@@ -680,7 +692,23 @@ fun MainMapScreen(
                                     },
                                 )
                                 SheetMode.CONNECTION -> ConnectionPanel(
-                                    gnssState, bluetoothService, usbService, internalService, ntripClient,
+                                    gnssState = gnssState,
+                                    bluetoothService = bluetoothService,
+                                    usbService = usbService,
+                                    internalService = internalService,
+                                    ntripClient = ntripClient,
+                                    ntripProfileRepo = ntripProfileRepo,
+                                    onNtripRowClick = { ntripSwitchSheetOpen = true },
+                                    onNtripReconnectClick = {
+                                        // Bounce the caster — repository auto-reconnects on active change.
+                                        scope.launch {
+                                            ntripClient.disconnect()
+                                            val active = ntripProfileRepo.activeProfile.first()
+                                            if (active != null) {
+                                                ntripClient.connect(active.toConfig())
+                                            }
+                                        }
+                                    },
                                 )
                                 SheetMode.TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
                                 SheetMode.EXPORT -> ExportPanel(db)
@@ -1132,8 +1160,13 @@ fun MainMapScreen(
                                 mapRef?.style?.getLayer("contours-labels")?.setProperties(PropertyFactory.visibility(newVis))
                             },
                         )
+                        HorizontalDivider()
+                        // Trig points are an *overlay*, not a basemap layer — they sit
+                        // on top of whichever layer combo (ortho / contours / both) the
+                        // user has active. Separated from the "Layer:" items visually
+                        // to make that clear.
                         DropdownMenuItem(
-                            text = { Text("Layer: Trig Points (GYS)") },
+                            text = { Text("Show Trig Points (GYS)") },
                             leadingIcon = {
                                 if (trigPointsVisible) Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
                                 else Icon(Icons.Outlined.PinDrop, null, Modifier.size(18.dp))
@@ -1468,6 +1501,61 @@ fun MainMapScreen(
             stakeout = stakeout,
             gnssState = gnssState,
             onExit = { stakeoutImmersive = false },
+        )
+    }
+
+    // ── NTRIP profile management overlays ──
+    val ntripProfiles by ntripProfileRepo.profiles.collectAsState(initial = emptyList())
+    val ntripActiveProfile by ntripProfileRepo.activeProfile.collectAsState(initial = null)
+    val ntripConnectionState by ntripProfileRepo.state.collectAsState(
+        initial = org.opentopo.app.ntrip.NtripConnectionState.Empty,
+    )
+
+    if (ntripSwitchSheetOpen) {
+        NtripProfileSwitchSheet(
+            profiles = ntripProfiles,
+            activeProfileId = ntripActiveProfile?.id,
+            onSelect = { picked ->
+                scope.launch { ntripProfileRepo.setActive(picked.id) }
+                android.widget.Toast.makeText(context, "Switched to ${picked.displayName}", android.widget.Toast.LENGTH_SHORT).show()
+            },
+            onManageClick = {
+                ntripSwitchSheetOpen = false
+                ntripProfilesOpen = true
+            },
+            onDismiss = { ntripSwitchSheetOpen = false },
+        )
+    }
+
+    if (ntripProfilesOpen) {
+        NtripProfilesScreen(
+            profiles = ntripProfiles,
+            activeProfile = ntripActiveProfile,
+            state = ntripConnectionState,
+            onBack = { ntripProfilesOpen = false },
+            onActivate = { p -> scope.launch { ntripProfileRepo.setActive(p.id) } },
+            onEdit = { p -> ntripProfileEditing = p },
+            onDuplicate = { p -> scope.launch { ntripProfileRepo.duplicate(p.id) } },
+            onDelete = { p -> scope.launch { ntripProfileRepo.delete(p.id) } },
+            onAdd = { ntripProfileCreating = true },
+        )
+    }
+
+    if (ntripProfileCreating || ntripProfileEditing != null) {
+        NtripProfileEditScreen(
+            initial = ntripProfileEditing,
+            onScanSourcetable = { host, port, user, pass ->
+                ntripProfileRepo.scanSourcetable(host, port, user, pass)
+            },
+            onSave = { updated ->
+                scope.launch { ntripProfileRepo.upsert(updated) }
+                ntripProfileEditing = null
+                ntripProfileCreating = false
+            },
+            onCancel = {
+                ntripProfileEditing = null
+                ntripProfileCreating = false
+            },
         )
     }
 }

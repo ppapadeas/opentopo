@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "opentopo_prefs")
@@ -102,6 +103,13 @@ class UserPreferences(private val context: Context) {
             it[KEY_NTRIP_MOUNTPOINT] = mountpoint
         }
     }
+
+    // ── One-shot read helpers used by NtripProfileRepository.seedIfEmpty() ──
+    suspend fun ntripHostOnce(): String = ntripHost.first()
+    suspend fun ntripPortOnce(): String = ntripPort.first()
+    suspend fun ntripUsernameOnce(): String = ntripUsername.first()
+    suspend fun ntripPasswordOnce(): String = ntripPassword.first()
+    suspend fun ntripMountpointOnce(): String = ntripMountpoint.first()
 
     suspend fun setAntennaHeight(value: String) {
         context.dataStore.edit { it[KEY_ANTENNA_HEIGHT] = value }
