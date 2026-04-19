@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **OpenTopo v2.0 design system foundation** from the Claude Design handoff bundle (`opentopo-v2.html`, M3E / SPEC_2025):
+  - Refreshed color palette — pine-teal primary (`#1C6E5A`), river-stone secondary, **HEPOS ochre tertiary** (`#B0522C`) to flag corrections/transforms, and the full SPEC_2025 surface-container hierarchy (light + dark + AMOLED-aware)
+  - Dedicated fix-quality semantic ramp (RTK `#1C6E5A` · Float `#B0A300` · DGPS `#4A73C4` · GPS `#707A75` · None `#9B3A2E`) plus matching pill containers for both themes
+  - Constellation palette aligned with the design (GPS blue, GLONASS red, Galileo teal, BeiDou ochre)
+  - Roboto Flex + JetBrains Mono served via Google Fonts (`androidx.compose.ui:ui-text-google-fonts` + cert resources); `CoordinateFont` now resolves to JetBrains Mono
+  - New text-style extensions `MonoCoord` (20 sp / 500 — E/N/H) and `MonoDelta` (15 sp / 400 — ΔE/ΔN/σ) plus `LabelOverline`
+  - Full M3E Typography scales rebuilt from the design spec (display 57/45/36, headline 32/28/24, title 22/16/14, body 16/14/12, label 14/12/11) with Emphasized variants at +200 wght
+- **ButtonGroup** component — M3E connected-toggle row for Bluetooth/USB/Internal, NTRIP presets, survey mode — replaces one-off segmented buttons
+- **FixStatusPill v2** — tonal pill backgrounds from the design ramp, animated halo ring on transitional states (None, Float), optional trailing `extras` string for σ / sats / HDOP
+- **CoordinateBlock v2** — overlined header, stacked monospace E/N/H, optional footer with FixStatusPill and σH in `MonoDelta`
 - **Geoid source toggle** in Settings → Display — choose between Greek HEPOS07 (default) and receiver EGM96 for orthometric height H = h − N; falls back to the other source when the preferred one is unavailable
 - **Geoid grid metadata block** in Transform panel — shows HEPOS07 version, dimensions (408 × 422 nodes), cell size (2000 m), TM07 coverage bounds, source (Ktimatologio / NTUA), licence, and the currently active source
 - `HeposTransform.forwardDetailed(preferReceiverGeoid=…)` parameter in `lib-transform` inverts the geoid precedence

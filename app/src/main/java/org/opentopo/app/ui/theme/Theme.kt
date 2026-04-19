@@ -152,10 +152,13 @@ private val LightColorScheme = lightColorScheme(
     inversePrimary = md_theme_light_inversePrimary,
     surfaceTint = md_theme_light_surfaceTint,
     scrim = md_theme_light_scrim,
-    surfaceContainerLow = Color(0xFFF5FBF7),
-    surfaceContainer = Color(0xFFEFF5F1),
-    surfaceContainerHigh = Color(0xFFE9EFEB),
-    surfaceContainerHighest = Color(0xFFE3EAE6),
+    surfaceBright = md_theme_light_surfaceBright,
+    surfaceDim = md_theme_light_surfaceDim,
+    surfaceContainerLowest = md_theme_light_surfaceContainerLowest,
+    surfaceContainerLow = md_theme_light_surfaceContainerLow,
+    surfaceContainer = md_theme_light_surfaceContainer,
+    surfaceContainerHigh = md_theme_light_surfaceContainerHigh,
+    surfaceContainerHighest = md_theme_light_surfaceContainerHighest,
 )
 
 private val DarkColorScheme = darkColorScheme(
@@ -188,11 +191,13 @@ private val DarkColorScheme = darkColorScheme(
     inversePrimary = md_theme_dark_inversePrimary,
     surfaceTint = md_theme_dark_surfaceTint,
     scrim = md_theme_dark_scrim,
-    surfaceContainerLowest = Color(0xFF070D0A),
-    surfaceContainerLow = Color(0xFF171D1A),
-    surfaceContainer = Color(0xFF1B211E),
-    surfaceContainerHigh = Color(0xFF252B28),
-    surfaceContainerHighest = Color(0xFF303633),
+    surfaceBright = md_theme_dark_surfaceBright,
+    surfaceDim = md_theme_dark_surfaceDim,
+    surfaceContainerLowest = md_theme_dark_surfaceContainerLowest,
+    surfaceContainerLow = md_theme_dark_surfaceContainerLow,
+    surfaceContainer = md_theme_dark_surfaceContainer,
+    surfaceContainerHigh = md_theme_dark_surfaceContainerHigh,
+    surfaceContainerHighest = md_theme_dark_surfaceContainerHighest,
 )
 
 private val OpenTopoShapes = Shapes(
