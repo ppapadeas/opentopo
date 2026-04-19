@@ -1,6 +1,11 @@
 package org.opentopo.app.ui.components.survey
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -9,6 +14,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material3.Icon
@@ -22,6 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -30,6 +38,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.toPath
@@ -71,14 +80,19 @@ fun RecordButton(
     isRecording: Boolean,
     progress: Float,
     modifier: Modifier = Modifier,
+    size: Dp = 84.dp,
     contentDescription: String = "Record epoch",
 ) {
     val dark = isSystemInDarkTheme()
 
+    // OpenTopo v2 mockup specifies the Cookie9Sided record shape in the
+    // primary teal ramp (#1c6e5a). Keep the legacy RecordingActive tokens as
+    // the dark fallback so existing theme work is preserved.
+    val primaryContainer = MaterialTheme.colorScheme.primary
     val background: Color = when {
         !enabled -> MaterialTheme.colorScheme.surfaceContainerHigh
         dark -> RecordingActiveDark
-        else -> RecordingActive
+        else -> primaryContainer
     }
     val iconTint: Color = if (enabled) {
         if (dark) Color(0xFF3A0B1A) else Color.White
@@ -86,6 +100,7 @@ fun RecordButton(
         MaterialTheme.colorScheme.onSurfaceVariant
     }
     val progressColor: Color = if (dark) RecordingProgressDark else RecordingProgress
+    val haloColor: Color = if (dark) RecordingProgressDark else primaryContainer
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -108,43 +123,92 @@ fun RecordButton(
         label = "recordSweep",
     )
 
-    Surface(
-        color = background,
-        shape = morphShape,
-        modifier = modifier
-            .size(84.dp)
-            .clip(morphShape)
-            .clickable(
-                enabled = enabled,
-                onClick = onClick,
-                role = Role.Button,
-                interactionSource = interactionSource,
-                indication = ripple(),
-            ),
+    // Ring-pulse overlay for averaging state (matches mockup ringpulse keyframes:
+    // scale 0.85 → 1.45, opacity 0.7 → 0, linear 1.6s loop).
+    val ringTransition = rememberInfiniteTransition(label = "recordRingPulse")
+    val ringT by ringTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1600, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "ringT",
+    )
+    val ringScale = 0.85f + ringT * (1.45f - 0.85f)
+    val ringAlpha = (0.7f * (1f - ringT)).coerceIn(0f, 0.7f)
+
+    Box(
+        modifier = modifier.size(size),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            // Progress ring — drawn just inside the outer edge when recording.
-            if (isRecording) {
-                Canvas(Modifier.size(84.dp)) {
-                    val inset = 6.dp.toPx()
-                    val strokeWidth = 3.dp.toPx()
-                    drawArc(
-                        color = progressColor,
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(inset, inset),
-                        size = Size(size.width - inset * 2, size.height - inset * 2),
-                        style = Stroke(width = strokeWidth),
+        // Soft pulsing halo ring — behind the morph surface, only while recording.
+        if (isRecording) {
+            Canvas(
+                Modifier
+                    .size(size)
+                    .drawBehind { },
+            ) {
+                val radius = (this.size.minDimension / 2f) * ringScale
+                drawCircle(
+                    color = haloColor,
+                    radius = radius,
+                    center = center,
+                    alpha = ringAlpha,
+                    style = Stroke(width = 2.dp.toPx()),
+                )
+            }
+        }
+
+        Surface(
+            color = background,
+            shape = morphShape,
+            modifier = Modifier
+                .size(size)
+                .clip(morphShape)
+                .clickable(
+                    enabled = enabled,
+                    onClick = onClick,
+                    role = Role.Button,
+                    interactionSource = interactionSource,
+                    indication = ripple(),
+                ),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                // Progress ring — drawn just inside the outer edge when recording.
+                if (isRecording) {
+                    Canvas(Modifier.size(size)) {
+                        val inset = 6.dp.toPx()
+                        val strokeWidth = 3.dp.toPx()
+                        drawArc(
+                            color = progressColor,
+                            startAngle = -90f,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = Size(this.size.width - inset * 2, this.size.height - inset * 2),
+                            style = Stroke(width = strokeWidth),
+                        )
+                    }
+                }
+                if (isRecording) {
+                    // Stop-square overlay (28dp rounded 4dp) — the visual stop cue
+                    // specified by the mockup in recording state.
+                    Canvas(Modifier.size(28.dp)) {
+                        drawRoundRect(
+                            color = Color.White,
+                            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.RadioButtonChecked,
+                        contentDescription = contentDescription,
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
-            Icon(
-                imageVector = Icons.Outlined.RadioButtonChecked,
-                contentDescription = contentDescription,
-                tint = iconTint,
-                modifier = Modifier.size(24.dp),
-            )
         }
     }
 }

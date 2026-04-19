@@ -1,13 +1,12 @@
 package org.opentopo.app.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,33 +25,25 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.GpsFixed
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.ZoomOutMap
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.PinDrop
 import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ShortNavigationBar
-import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -72,11 +63,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -92,7 +84,6 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.style.expressions.Expression
@@ -120,6 +111,7 @@ import org.opentopo.app.survey.Stakeout
 import org.opentopo.app.survey.SurveyManager
 import org.opentopo.app.ui.components.CoordinateBlock
 import org.opentopo.app.ui.components.FixStatusPill
+import org.opentopo.app.ui.components.survey.SplitButton
 import org.opentopo.app.ui.theme.CoordinateFont
 import org.opentopo.app.ui.theme.LabelOverline
 import org.opentopo.app.ui.theme.LocalSurveyColors
@@ -138,14 +130,6 @@ import org.opentopo.app.survey.TrigPointService
  */
 private enum class SheetMode { MAP, SURVEY, STAKEOUT, TRIG, CONNECTION, TOOLS, EXPORT }
 
-private data class TabItem(val mode: SheetMode, val title: String, val icon: ImageVector)
-
-private val primaryTabs = listOf(
-    TabItem(SheetMode.MAP, "Map", Icons.Outlined.Map),
-    TabItem(SheetMode.SURVEY, "Survey", Icons.Outlined.RadioButtonChecked),
-    TabItem(SheetMode.STAKEOUT, "Stakeout", Icons.Outlined.NearMe),
-    TabItem(SheetMode.TRIG, "Trig", Icons.Outlined.PinDrop),
-)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -204,6 +188,71 @@ fun MainMapScreen(
     val activePoints by activeProjectId?.let {
         db.pointDao().getByProject(it).collectAsState(initial = emptyList())
     } ?: remember { mutableStateOf(emptyList()) }
+
+    // Auto-compute verification residuals when the user is viewing a trig point
+    // inside the Trig sheet panel and has a fix. Mirrors the legacy AlertDialog
+    // "Verify" button logic but runs continuously so the inline Verify screen
+    // always shows live residuals without an extra tap.
+    LaunchedEffect(
+        sheetMode,
+        selectedTrigPoint?.gysId,
+        position.hasFix,
+        position.latitude,
+        position.longitude,
+    ) {
+        if (sheetMode != SheetMode.TRIG) return@LaunchedEffect
+        val tp = selectedTrigPoint ?: return@LaunchedEffect
+        if (!position.hasFix) return@LaunchedEffect
+        val ht = heposTransform ?: return@LaunchedEffect
+
+        val publishedProjected = if (tp.egsa87Easting != null && tp.egsa87Northing != null) {
+            org.opentopo.transform.ProjectedCoordinate(tp.egsa87Easting, tp.egsa87Northing)
+        } else {
+            ht.forward(
+                org.opentopo.transform.GeographicCoordinate(tp.latitude, tp.longitude, tp.elevation ?: 0.0),
+            )
+        }
+        val measured = ht.forward(
+            org.opentopo.transform.GeographicCoordinate(
+                position.latitude, position.longitude, position.altitude ?: 0.0,
+            ),
+        )
+        val dE = measured.eastingM - publishedProjected.eastingM
+        val dN = measured.northingM - publishedProjected.northingM
+
+        val hEllipsoidal = position.altitude?.let { alt ->
+            position.geoidSeparation?.let { n -> alt + n }
+        }
+        val measuredOrtho = hEllipsoidal?.let { h ->
+            val tm07 = org.opentopo.transform.TransverseMercator.forward(
+                position.latitude, position.longitude,
+                24.0, 0.9996, 500_000.0, -2_000_000.0,
+            )
+            val greekN = ht.geoidUndulation(tm07.eastingM, tm07.northingM)
+            val receiverN = position.geoidSeparation
+            val effectiveN = if (preferReceiverGeoid) receiverN ?: greekN else greekN ?: receiverN
+            effectiveN?.let { h - it }
+        }
+        val publishedH = tp.elevation
+        val dH = if (measuredOrtho != null && publishedH != null) measuredOrtho - publishedH else null
+
+        verificationResult = VerificationResult(
+            pointName = "GYS ${tp.gysId}",
+            publishedE = publishedProjected.eastingM,
+            publishedN = publishedProjected.northingM,
+            publishedH = publishedH,
+            measuredE = measured.eastingM,
+            measuredN = measured.northingM,
+            measuredH = measuredOrtho,
+            deltaE = dE,
+            deltaN = dN,
+            deltaH = dH,
+            horizontalResidual = kotlin.math.sqrt(dE * dE + dN * dN),
+            fixQuality = position.fixQuality,
+            horizontalAccuracy = accuracy.horizontalAccuracyM,
+            numSatellites = position.numSatellites,
+        )
+    }
 
     // Update user location on map when position changes
     LaunchedEffect(position.latitude, position.longitude, position.fixQuality) {
@@ -395,24 +444,31 @@ fun MainMapScreen(
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
         modifier = modifier,
-        sheetPeekHeight = 148.dp,
+        sheetPeekHeight = 320.dp,
         sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        sheetContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         sheetTonalElevation = 0.dp,
-        sheetShadowElevation = 8.dp,
+        sheetShadowElevation = 12.dp,
         sheetDragHandle = {
-            Surface(
-                modifier = Modifier.padding(vertical = 14.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(percent = 50),
+            // Drag handle spec: 36x4dp, outlineVariant, centered with 10dp bottom gap
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 4.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.size(width = 40.dp, height = 5.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    shape = RoundedCornerShape(2.dp),
+                ) {
+                    Box(Modifier.size(width = 36.dp, height = 4.dp))
+                }
             }
         },
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
-                modifier = Modifier.padding(bottom = 160.dp),
+                modifier = Modifier.padding(bottom = 340.dp),
             )
         },
         sheetContent = {
@@ -426,142 +482,209 @@ fun MainMapScreen(
             }?.let { state -> remember { derivedStateOf { state.value.size } } }
                 ?: remember { mutableStateOf(0) }
 
+            val headerLineCount by headerActiveProjectId?.let {
+                db.pointDao().getByProject(it).collectAsState(initial = emptyList())
+            }?.let { state ->
+                remember {
+                    derivedStateOf {
+                        state.value
+                            .filter { it.layerType == "line_vertex" && it.featureId != null }
+                            .map { it.featureId }
+                            .distinct()
+                            .size
+                    }
+                }
+            } ?: remember { mutableStateOf(0) }
+
             var projectMenuExpanded by remember { mutableStateOf(false) }
             var showNewProjectDialog by remember { mutableStateOf(false) }
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars),
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
             ) {
-                // ── v2 peek content: EGSA87 CoordinateBlock + WGS84 secondary row ──
+                // ── Project header row: "THIS PROJECT · name" + "N pts · M lines" ──
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.weight(1f)) {
+                        val projectName = headerActiveProject?.name ?: "No project"
+                        Text(
+                            text = "THIS PROJECT \u00B7 $projectName",
+                            style = LabelOverline,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(percent = 50))
+                                .clickable { projectMenuExpanded = true }
+                                .padding(vertical = 4.dp),
+                        )
+                        DropdownMenu(
+                            expanded = projectMenuExpanded,
+                            onDismissRequest = { projectMenuExpanded = false },
+                        ) {
+                            projects.forEach { project ->
+                                DropdownMenuItem(
+                                    text = { Text(project.name) },
+                                    onClick = {
+                                        surveyManager?.setActiveProject(project.id)
+                                        projectMenuExpanded = false
+                                    },
+                                    leadingIcon = { Icon(Icons.Outlined.Folder, null) },
+                                )
+                            }
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("New Project") },
+                                onClick = {
+                                    showNewProjectDialog = true
+                                    projectMenuExpanded = false
+                                },
+                                leadingIcon = { Icon(Icons.Filled.Add, null) },
+                            )
+                        }
+                    }
+                    Text(
+                        text = "$headerActivePointCount pts \u00B7 $headerLineCount lines",
+                        style = MonoDelta,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                // ── v2 peek content: EGSA87 CoordinateBlock (no pill — pill lives up top) ──
                 PeekCoordinates(
                     position = position,
                     accuracy = accuracy,
                     projectedCoords = projectedCoords,
                 )
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(12.dp))
 
-                // ── Active project header ──
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                // ── Record SplitButton row ──
+                val nextPointPreview = "P%03d".format((headerActivePointCount + 1).coerceAtLeast(1))
+                val recordEnabled = position.hasFix
+                    && surveyManager != null
+                    && headerActiveProjectId != null
+                val onRecord: () -> Unit = {
+                    if (recordingState.isRecording) {
+                        surveyManager?.cancelRecording()
+                    } else {
+                        surveyManager?.startRecording()
+                    }
+                }
+                SplitButton(
+                    primaryLabel = if (recordingState.isRecording) "Cancel" else "\u25CF Record $nextPointPreview",
+                    onPrimaryClick = onRecord,
+                    secondaryLabel = "",
+                    onSecondaryClick = { sheetMode = SheetMode.SURVEY },
+                    enabled = recordEnabled || recordingState.isRecording,
                     modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        // Project name (tappable to switch)
-                        Box(Modifier.weight(1f)) {
-                            TextButton(onClick = { projectMenuExpanded = true }) {
-                                Icon(Icons.Outlined.Folder, null, Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    headerActiveProject?.name ?: "No project",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                )
-                                Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp))
-                            }
-                            // Project switcher dropdown
-                            DropdownMenu(
-                                expanded = projectMenuExpanded,
-                                onDismissRequest = { projectMenuExpanded = false },
-                            ) {
-                                projects.forEach { project ->
-                                    DropdownMenuItem(
-                                        text = { Text(project.name) },
-                                        onClick = {
-                                            surveyManager?.setActiveProject(project.id)
-                                            projectMenuExpanded = false
-                                        },
-                                        leadingIcon = { Icon(Icons.Outlined.Folder, null) },
-                                    )
-                                }
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text("New Project") },
-                                    onClick = {
-                                        showNewProjectDialog = true
-                                        projectMenuExpanded = false
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                // ── ShortNavigationBar inlined inside the sheet (pill-shaped) ──
+                InlineShortNavBar(
+                    selected = sheetMode,
+                    onSelect = { sheetMode = it },
+                )
+
+                // ── Panel content with M3E expressive transitions (only when expanded) ──
+                if (sheetMode != SheetMode.MAP) {
+                    Spacer(Modifier.height(12.dp))
+                    val panelMotion = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+                    AnimatedContent(
+                        targetState = sheetMode,
+                        transitionSpec = {
+                            fadeIn(animationSpec = panelMotion) togetherWith
+                                fadeOut(animationSpec = panelMotion)
+                        },
+                        label = "panel",
+                    ) { mode ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(420.dp),
+                        ) {
+                            when (mode) {
+                                SheetMode.MAP -> Unit
+                                SheetMode.SURVEY -> SurveyPanel(db, surveyManager)
+                                SheetMode.STAKEOUT -> StakeoutPanel(
+                                    stakeout,
+                                    onImmersiveRequest = {
+                                        stakeoutImmersive = true
                                     },
-                                    leadingIcon = {
-                                        Icon(Icons.Filled.Add, null)
+                                    onPipRequest = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                        { activity?.enterPipMode() }
+                                    } else null,
+                                    onVerifyRequest = {
+                                        // If target is a GYS trig point, jump to Trig verify.
+                                        // Otherwise the immersive HUD stays put.
+                                        val targetName = stakeout?.target?.value?.name.orEmpty()
+                                        if (targetName.startsWith("GYS ")) {
+                                            val gysId = targetName.removePrefix("GYS ").trim()
+                                            val match = trigPointCache.values.firstOrNull { it.gysId == gysId }
+                                            if (match != null) {
+                                                selectedTrigPoint = match
+                                                sheetMode = SheetMode.TRIG
+                                            } else {
+                                                stakeoutImmersive = true
+                                            }
+                                        } else {
+                                            stakeoutImmersive = true
+                                        }
                                     },
                                 )
-                            }
-                        }
-
-                        // Point count badge
-                        if (headerActiveProject != null) {
-                            Text(
-                                "$headerActivePointCount pts",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontFamily = CoordinateFont,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
-                // ── M3E Short Navigation Bar (v2: 4 primary tabs) ──
-                ShortNavigationBar {
-                    primaryTabs.forEach { tab ->
-                        ShortNavigationBarItem(
-                            selected = sheetMode == tab.mode,
-                            onClick = { sheetMode = tab.mode },
-                            icon = {
-                                Icon(
-                                    tab.icon,
-                                    contentDescription = tab.title,
-                                    modifier = Modifier.size(24.dp),
+                                SheetMode.TRIG -> TrigPanel(
+                                    trigPoints = trigPointCache.values.toList(),
+                                    onSelect = { selectedTrigPoint = it },
+                                    selectedTrigPoint = selectedTrigPoint,
+                                    verificationResult = verificationResult,
+                                    onBack = {
+                                        selectedTrigPoint = null
+                                        verificationResult = null
+                                    },
+                                    onStakeout = { tp ->
+                                        val projected = try {
+                                            heposTransform?.forward(
+                                                org.opentopo.transform.GeographicCoordinate(
+                                                    tp.latitude, tp.longitude, tp.elevation ?: 0.0,
+                                                ),
+                                            )
+                                        } catch (_: Exception) { null }
+                                        if (projected != null && stakeout != null) {
+                                            stakeout.setTarget(
+                                                StakeoutTarget(
+                                                    name = "GYS ${tp.gysId}",
+                                                    easting = projected.eastingM,
+                                                    northing = projected.northingM,
+                                                    elevation = tp.elevation,
+                                                ),
+                                            )
+                                            sheetMode = SheetMode.STAKEOUT
+                                            selectedTrigPoint = null
+                                        }
+                                    },
+                                    onSubmit = { _ ->
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "vathra.xyz submit endpoint not wired yet",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
                                 )
-                            },
-                            label = { Text(tab.title) },
-                        )
-                    }
-                }
-
-                // ── Panel content with M3E expressive transitions ──
-                val panelMotion = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
-                AnimatedContent(
-                    targetState = sheetMode,
-                    transitionSpec = {
-                        fadeIn(animationSpec = panelMotion) togetherWith
-                            fadeOut(animationSpec = panelMotion)
-                    },
-                    label = "panel",
-                ) { mode ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(420.dp),
-                    ) {
-                        when (mode) {
-                            SheetMode.MAP -> Unit // no panel; sheet is collapsed to peek
-                            SheetMode.SURVEY -> SurveyPanel(db, surveyManager)
-                            SheetMode.STAKEOUT -> StakeoutPanel(
-                                stakeout,
-                                onImmersiveRequest = {
-                                    stakeoutImmersive = true
-                                },
-                                onPipRequest = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                    { activity?.enterPipMode() }
-                                } else null,
-                            )
-                            SheetMode.TRIG -> TrigPanel(
-                                trigPoints = trigPointCache.values.toList(),
-                                onSelect = { selectedTrigPoint = it },
-                            )
-                            SheetMode.CONNECTION -> ConnectionPanel(
-                                gnssState, bluetoothService, usbService, internalService, ntripClient,
-                            )
-                            SheetMode.TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
-                            SheetMode.EXPORT -> ExportPanel(db)
+                                SheetMode.CONNECTION -> ConnectionPanel(
+                                    gnssState, bluetoothService, usbService, internalService, ntripClient,
+                                )
+                                SheetMode.TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
+                                SheetMode.EXPORT -> ExportPanel(db)
+                            }
                         }
                     }
                 }
@@ -887,7 +1010,7 @@ fun MainMapScreen(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // ── v2 Top-right chrome: FixStatusPill + overflow menu ──
+            // ── v2 Top chrome: FixStatusPill (TopStart) + overflow menu (TopEnd) ──
             val fixExtras = remember(accuracy.horizontalAccuracyM, position.numSatellites) {
                 val hAccM = accuracy.horizontalAccuracyM
                 val sats = position.numSatellites
@@ -902,23 +1025,40 @@ fun MainMapScreen(
             }
             Row(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(16.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                FixStatusPill(fixQuality = position.fixQuality, extras = fixExtras)
+                // Left: Fix status pill with elevation shadow
+                FixStatusPill(
+                    fixQuality = position.fixQuality,
+                    extras = fixExtras,
+                    modifier = Modifier.shadow(
+                        elevation = 6.dp,
+                        shape = RoundedCornerShape(percent = 50),
+                        clip = false,
+                    ),
+                )
 
+                // Right: hamburger/more icon button (44x44, rounded 12dp)
                 Box {
-                    FilledIconButton(
+                    Surface(
                         onClick = { overflowMenuExpanded = true },
-                        colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shadowElevation = 4.dp,
+                        modifier = Modifier.size(44.dp),
                     ) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "More actions")
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Filled.Menu,
+                                contentDescription = "More actions",
+                            )
+                        }
                     }
                     DropdownMenu(
                         expanded = overflowMenuExpanded,
@@ -930,6 +1070,14 @@ fun MainMapScreen(
                             onClick = {
                                 overflowMenuExpanded = false
                                 sheetMode = SheetMode.CONNECTION
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Trig Points (GYS)") },
+                            leadingIcon = { Icon(Icons.Outlined.PinDrop, null) },
+                            onClick = {
+                                overflowMenuExpanded = false
+                                sheetMode = SheetMode.TRIG
                             },
                         )
                         DropdownMenuItem(
@@ -1005,94 +1153,111 @@ fun MainMapScreen(
                 }
             }
 
-            // ── v2 HorizontalFloatingToolbar: Layers / Center / Fit / Add waypoint ──
-            // Anchored bottom-center, above the bottom sheet peek area.
-            val validPoints = activePoints.filter { it.latitude != 0.0 || it.longitude != 0.0 }
+            // ── v2 vertical floating toolbar: Center / Layers / Stake ──
+            // Anchored right=16dp, bottom=24dp inside the map area Box. The parent Box
+            // ends at the peek-sheet top edge, so this sits just above the peek sheet
+            // without stealing the hamburger's top-right slot.
             val toolbarFabEnabled = position.hasFix
                 && surveyManager != null
                 && surveyManager.activeProjectId.collectAsState().value != null
-            HorizontalFloatingToolbar(
-                expanded = true,
+            val centerOnMeSelected = true // always highlight — user location is the focal
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shape = RoundedCornerShape(28.dp),
+                shadowElevation = 8.dp,
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 164.dp),
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 24.dp),
             ) {
-                // 1. Layers — cycle through basemap layer combinations
-                IconButton(onClick = {
-                    // Cycle: street -> street+contours -> ortho -> ortho+contours -> back to street
-                    val newOrtho: Boolean
-                    val newContours: Boolean
-                    when {
-                        !orthoVisible && !contoursVisible -> { newOrtho = false; newContours = true }
-                        !orthoVisible && contoursVisible -> { newOrtho = true; newContours = false }
-                        orthoVisible && !contoursVisible -> { newOrtho = true; newContours = true }
-                        else -> { newOrtho = false; newContours = false }
-                    }
-                    orthoVisible = newOrtho
-                    contoursVisible = newContours
-                    mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
-                        PropertyFactory.visibility(
-                            if (newOrtho) org.maplibre.android.style.layers.Property.VISIBLE
-                            else org.maplibre.android.style.layers.Property.NONE,
-                        ),
-                    )
-                    val contourVis = if (newContours)
-                        org.maplibre.android.style.layers.Property.VISIBLE
-                    else org.maplibre.android.style.layers.Property.NONE
-                    mapRef?.style?.getLayer("contours-lines")?.setProperties(PropertyFactory.visibility(contourVis))
-                    mapRef?.style?.getLayer("contours-labels")?.setProperties(PropertyFactory.visibility(contourVis))
-                }) {
-                    Icon(Icons.Outlined.Layers, contentDescription = "Cycle basemap")
-                }
-                // 2. Center on me — re-center map on current GPS fix
-                IconButton(
-                    onClick = {
-                        val map = mapRef ?: return@IconButton
-                        if (!position.hasFix) return@IconButton
-                        map.animateCamera(
-                            CameraUpdateFactory.newLatLngZoom(
-                                LatLng(position.latitude, position.longitude),
-                                (map.cameraPosition.zoom).coerceAtLeast(17.0),
-                            ),
-                            800,
-                        )
-                    },
-                    enabled = position.hasFix,
+                Column(
+                    Modifier.padding(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Icon(Icons.Outlined.NearMe, contentDescription = "Center on me")
-                }
-                // 3. Fit bounds — zoom to extent of all survey points
-                IconButton(
-                    onClick = {
-                        val map = mapRef ?: return@IconButton
-                        if (validPoints.isEmpty()) return@IconButton
-                        if (validPoints.size == 1) {
-                            val pt = validPoints.first()
+                    // 1. Center-on-me (primaryContainer when selected)
+                    Surface(
+                        onClick = {
+                            val map = mapRef ?: return@Surface
+                            if (!position.hasFix) return@Surface
                             map.animateCamera(
                                 CameraUpdateFactory.newLatLngZoom(
-                                    LatLng(pt.latitude, pt.longitude), 18.0,
+                                    LatLng(position.latitude, position.longitude),
+                                    (map.cameraPosition.zoom).coerceAtLeast(17.0),
                                 ),
-                                1000,
+                                800,
                             )
-                        } else {
-                            val bounds = LatLngBounds.Builder()
-                            validPoints.forEach { pt -> bounds.include(LatLng(pt.latitude, pt.longitude)) }
-                            map.animateCamera(
-                                CameraUpdateFactory.newLatLngBounds(bounds.build(), 80),
-                                1000,
+                        },
+                        shape = RoundedCornerShape(22.dp),
+                        color = if (centerOnMeSelected)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else androidx.compose.ui.graphics.Color.Transparent,
+                        contentColor = if (centerOnMeSelected)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Outlined.GpsFixed,
+                                contentDescription = "Center on me",
                             )
                         }
-                    },
-                    enabled = validPoints.isNotEmpty(),
-                ) {
-                    Icon(Icons.Outlined.ZoomOutMap, contentDescription = "Fit bounds")
-                }
-                // 4. Add waypoint — single-shot mark via SurveyManager.quickMark
-                IconButton(
-                    onClick = { if (toolbarFabEnabled) surveyManager?.quickMark() },
-                    enabled = toolbarFabEnabled,
-                ) {
-                    Icon(Icons.Outlined.PinDrop, contentDescription = "Add waypoint")
+                    }
+                    // 2. Layers — cycle through basemap layer combinations
+                    Surface(
+                        onClick = {
+                            val newOrtho: Boolean
+                            val newContours: Boolean
+                            when {
+                                !orthoVisible && !contoursVisible -> { newOrtho = false; newContours = true }
+                                !orthoVisible && contoursVisible -> { newOrtho = true; newContours = false }
+                                orthoVisible && !contoursVisible -> { newOrtho = true; newContours = true }
+                                else -> { newOrtho = false; newContours = false }
+                            }
+                            orthoVisible = newOrtho
+                            contoursVisible = newContours
+                            mapRef?.style?.getLayer("ktima-ortho-layer")?.setProperties(
+                                PropertyFactory.visibility(
+                                    if (newOrtho) org.maplibre.android.style.layers.Property.VISIBLE
+                                    else org.maplibre.android.style.layers.Property.NONE,
+                                ),
+                            )
+                            val contourVis = if (newContours)
+                                org.maplibre.android.style.layers.Property.VISIBLE
+                            else org.maplibre.android.style.layers.Property.NONE
+                            mapRef?.style?.getLayer("contours-lines")?.setProperties(PropertyFactory.visibility(contourVis))
+                            mapRef?.style?.getLayer("contours-labels")?.setProperties(PropertyFactory.visibility(contourVis))
+                        },
+                        shape = RoundedCornerShape(22.dp),
+                        color = androidx.compose.ui.graphics.Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Outlined.Layers,
+                                contentDescription = "Cycle basemap",
+                            )
+                        }
+                    }
+                    // 3. Stake — quick-mark a waypoint at current position
+                    Surface(
+                        onClick = {
+                            if (toolbarFabEnabled) surveyManager?.quickMark()
+                        },
+                        shape = RoundedCornerShape(22.dp),
+                        color = androidx.compose.ui.graphics.Color.Transparent,
+                        contentColor = if (toolbarFabEnabled)
+                            MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Outlined.PinDrop,
+                                contentDescription = "Stake / waypoint",
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1100,7 +1265,11 @@ fun MainMapScreen(
     }
 
     // ── Trig point detail dialog ──
-    selectedTrigPoint?.let { tp ->
+    // When the user is already inside the Trig sheet panel (sheetMode == TRIG) the
+    // inline TrigVerifyScreen handles presentation, so we suppress the legacy
+    // AlertDialog to avoid doubling up. The AlertDialog still fires for map-marker
+    // taps (which set selectedTrigPoint from outside the sheet flow).
+    if (sheetMode != SheetMode.TRIG) selectedTrigPoint?.let { tp ->
         // Use the published EGSA87 E/N directly from the API when available.
         // The API lat/lon are WGS84 (transformed from EGSA87 by GDAL using PROJ's
         // Helmert params which differ from the HEPOS params we use).  Recomputing
@@ -1274,7 +1443,10 @@ fun MainMapScreen(
     }
 
     // ── Verification report dialog ──
-    verificationResult?.let { result ->
+    // Only shown from the legacy map-marker → AlertDialog → Verify flow.
+    // When the inline TrigPanel verify screen owns the presentation, we render
+    // residuals in the sheet instead of a modal dialog.
+    if (sheetMode != SheetMode.TRIG) verificationResult?.let { result ->
         VerificationReportDialog(
             result = result,
             onDismiss = { verificationResult = null },
@@ -1303,6 +1475,74 @@ fun MainMapScreen(
 // ── v2 peek content ──
 
 /**
+ * Inline pill-shaped ShortNavigationBar rendered inside the bottom peek sheet.
+ *
+ * Matches the v2 mockup (`.short-nav` at surface-container, 999 radius, 4 tabs).
+ * Renders the four primary tabs (GNSS, Survey, Stake, More). The Map tab is mapped to "More"
+ * which routes to the Tools sheet so the user can escape back to overflow commands.
+ */
+@Composable
+private fun InlineShortNavBar(
+    selected: SheetMode,
+    onSelect: (SheetMode) -> Unit,
+) {
+    val tabs = listOf(
+        Triple(SheetMode.CONNECTION, "GNSS", Icons.Outlined.Cable),
+        Triple(SheetMode.SURVEY, "Survey", Icons.Outlined.RadioButtonChecked),
+        Triple(SheetMode.STAKEOUT, "Stake", Icons.Outlined.NearMe),
+        Triple(SheetMode.TOOLS, "More", Icons.Outlined.Tune),
+    )
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(percent = 50),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Row(
+            Modifier.padding(6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            tabs.forEach { (mode, label, icon) ->
+                val isActive = selected == mode
+                val bg = if (isActive) MaterialTheme.colorScheme.primaryContainer
+                else Color.Transparent
+                val fg = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant
+                val hPadding = if (isActive) 14.dp else 10.dp
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(bg)
+                        .clickable { onSelect(mode) }
+                        .padding(horizontal = hPadding, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = label,
+                        tint = fg,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = fg,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Clip,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * v2 peek card. Shows the projected EGSA87 coordinate as a `CoordinateBlock` with the
  * fix pill + σH footer, followed by a thin WGS84 secondary row below.
  */
@@ -1312,58 +1552,40 @@ private fun PeekCoordinates(
     accuracy: org.opentopo.app.gnss.AccuracyState,
     projectedCoords: org.opentopo.transform.ProjectedCoordinate?,
 ) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        val sigmaH = accuracy.horizontalAccuracyM
-        val sigmaLabel = sigmaH?.let { "\u03C3H ${"%.3f".format(it)} m" }
-
-        if (projectedCoords != null && position.hasFix) {
-            val ellipsoidal = position.altitude?.let { alt ->
-                position.geoidSeparation?.let { n -> alt + n } ?: alt
-            }
-            val heightStr = ellipsoidal?.let { "${"%.3f".format(it)} m" }
-            CoordinateBlock(
-                label = "EGSA87 \u00B7 EPSG 2100",
-                easting = "${"%.3f".format(projectedCoords.eastingM)} m",
-                northing = "${"%.3f".format(projectedCoords.northingM)} m",
-                height = heightStr,
-                fixQuality = position.fixQuality,
-                sigmaH = sigmaLabel,
-            )
-        } else {
-            // No fix yet — show a placeholder EGSA87 block with empty values.
-            CoordinateBlock(
-                label = "EGSA87 \u00B7 EPSG 2100",
-                easting = "\u2014",
-                northing = "\u2014",
-                height = null,
-                fixQuality = position.fixQuality,
-                sigmaH = null,
-            )
+    val sigmaH = accuracy.horizontalAccuracyM
+    val sigmaV = accuracy.altitudeErrorM
+    val sigmaHStr = sigmaH?.let { "\u03C3H ${"%.3f".format(it)} m" }
+    val sigmaFooter = buildString {
+        if (sigmaHStr != null) append(sigmaHStr)
+        if (sigmaV != null) {
+            if (isNotEmpty()) append(" \u00B7 ")
+            append("\u03C3V ${"%.3f".format(sigmaV)} m")
         }
+    }.ifBlank { null }
 
-        if (position.hasFix) {
-            Spacer(Modifier.height(6.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    "WGS84",
-                    style = LabelOverline,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    "%.6f\u00B0, %.6f\u00B0".format(position.latitude, position.longitude),
-                    style = MonoDelta,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+    if (projectedCoords != null && position.hasFix) {
+        val ellipsoidal = position.altitude?.let { alt ->
+            position.geoidSeparation?.let { n -> alt + n } ?: alt
         }
+        val heightStr = ellipsoidal?.let { "${"%.3f".format(it)} m" }
+        CoordinateBlock(
+            label = "EGSA87 \u00B7 EPSG 2100",
+            easting = "${"%.3f".format(projectedCoords.eastingM)} m",
+            northing = "${"%.3f".format(projectedCoords.northingM)} m",
+            height = heightStr,
+            fixQuality = null,
+            sigmaH = sigmaFooter,
+        )
+    } else {
+        // No fix yet — show a placeholder EGSA87 block with empty values.
+        CoordinateBlock(
+            label = "EGSA87 \u00B7 EPSG 2100",
+            easting = "\u2014",
+            northing = "\u2014",
+            height = null,
+            fixQuality = null,
+            sigmaH = null,
+        )
     }
 }
 
