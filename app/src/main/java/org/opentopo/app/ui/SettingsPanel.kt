@@ -60,6 +60,8 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
         ?: remember { mutableStateOf(0) }
     val gloveMode by prefs?.gloveMode?.collectAsState(initial = false)
         ?: remember { mutableStateOf(false) }
+    val preferReceiverGeoid by prefs?.preferReceiverGeoid?.collectAsState(initial = false)
+        ?: remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -242,6 +244,43 @@ fun SettingsPanel(modifier: Modifier = Modifier) {
                                         },
                                     )
                                 }
+                            }
+                        }
+                    },
+                )
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text("Geoid source") },
+                    supportingContent = {
+                        Text(
+                            if (preferReceiverGeoid)
+                                "Receiver EGM96 (GGA geoid separation)"
+                            else
+                                "Greek HEPOS07 grid (recommended)",
+                        )
+                    },
+                    trailingContent = {
+                        var expanded by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { expanded = true }) {
+                                Text(if (preferReceiverGeoid) "Receiver" else "Greek")
+                                Icon(Icons.Default.ArrowDropDown, null, Modifier.size(18.dp))
+                            }
+                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Greek HEPOS07") },
+                                    onClick = {
+                                        scope.launch { prefs?.setPreferReceiverGeoid(false) }
+                                        expanded = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Receiver EGM96") },
+                                    onClick = {
+                                        scope.launch { prefs?.setPreferReceiverGeoid(true) }
+                                        expanded = false
+                                    },
+                                )
                             }
                         }
                     },

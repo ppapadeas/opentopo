@@ -46,6 +46,11 @@ class UserPreferences(private val context: Context) {
     private val KEY_COORD_FORMAT = intPreferencesKey("coord_format") // 0=EGSA87, 1=WGS84 decimal, 2=WGS84 DMS
     private val KEY_GLOVE_MODE = booleanPreferencesKey("glove_mode")
 
+    // ── Geoid source ──
+    // false = Greek HEPOS07 geoid grid (default, more accurate for Greece)
+    // true  = receiver-reported EGM96 geoid separation (fall back to Greek if receiver N missing)
+    private val KEY_PREFER_RECEIVER_GEOID = booleanPreferencesKey("prefer_receiver_geoid")
+
     // ── Flows ──
 
     val connectionType: Flow<Int> = context.dataStore.data.map { it[KEY_CONNECTION_TYPE] ?: 0 }
@@ -65,6 +70,7 @@ class UserPreferences(private val context: Context) {
     val ggaIntervalSeconds: Flow<Int> = context.dataStore.data.map { it[KEY_GGA_INTERVAL] ?: 10 }
     val coordFormat: Flow<Int> = context.dataStore.data.map { it[KEY_COORD_FORMAT] ?: 0 }
     val gloveMode: Flow<Boolean> = context.dataStore.data.map { it[KEY_GLOVE_MODE] ?: false }
+    val preferReceiverGeoid: Flow<Boolean> = context.dataStore.data.map { it[KEY_PREFER_RECEIVER_GEOID] ?: false }
 
     // ── Setters ──
 
@@ -127,5 +133,9 @@ class UserPreferences(private val context: Context) {
 
     suspend fun setGloveMode(value: Boolean) {
         context.dataStore.edit { it[KEY_GLOVE_MODE] = value }
+    }
+
+    suspend fun setPreferReceiverGeoid(value: Boolean) {
+        context.dataStore.edit { it[KEY_PREFER_RECEIVER_GEOID] = value }
     }
 }

@@ -199,6 +199,7 @@ fun MainMapScreen(
     var selectedTab by remember { mutableIntStateOf(TAB_CONNECTION) }
     var fabMenuExpanded by remember { mutableStateOf(false) }
     val coordFormat by activity?.prefs?.coordFormat?.collectAsState(initial = 0) ?: remember { mutableStateOf(0) }
+    val preferReceiverGeoid by activity?.prefs?.preferReceiverGeoid?.collectAsState(initial = false) ?: remember { mutableStateOf(false) }
     var mapRef by remember { mutableStateOf<MapLibreMap?>(null) }
     var hasAnimatedToFirstFix by remember { mutableStateOf(false) }
     var stakeoutImmersive by remember { mutableStateOf(false) }
@@ -1255,7 +1256,14 @@ fun MainMapScreen(
                                                 24.0, 0.9996, 500_000.0, -2_000_000.0,
                                             )
                                             val greekN = ht.geoidUndulation(tm07.eastingM, tm07.northingM)
-                                            greekN?.let { h - it }
+                                            val receiverN = position.geoidSeparation
+                                            // Honor user-selected geoid source; fall back to the other source when null
+                                            val effectiveN = if (preferReceiverGeoid) {
+                                                receiverN ?: greekN
+                                            } else {
+                                                greekN ?: receiverN
+                                            }
+                                            effectiveN?.let { h - it }
                                         }
                                     }
                                     val publishedH = tp.elevation

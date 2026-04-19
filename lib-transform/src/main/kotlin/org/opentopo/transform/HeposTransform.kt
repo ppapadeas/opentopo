@@ -27,6 +27,20 @@ class HeposTransform(
     val hasGeoidGrid: Boolean get() = gridGeoid != null
 
     /**
+     * Metadata of the loaded Greek geoid grid, or null if no grid is loaded.
+     * Useful for displaying grid coverage/resolution in the UI.
+     */
+    val geoidGridMetadata: GridMetadata? get() = gridGeoid?.let {
+        GridMetadata(
+            nRows = it.nRows,
+            nCols = it.nCols,
+            cellSizeM = it.cellSize,
+            swEastingM = it.swEasting,
+            swNorthingM = it.swNorthing,
+        )
+    }
+
+    /**
      * Interpolate Greek geoid undulation at the given TM07 coordinates.
      * @return geoid undulation N in metres, or null if no geoid grid loaded
      */
@@ -34,8 +48,18 @@ class HeposTransform(
         return gridGeoid?.interpolate(tm07Easting, tm07Northing)
     }
 
-    /** Forward transform with all intermediate results exposed. */
-    fun forwardDetailed(coord: GeographicCoordinate, geoidSeparation: Double? = null): TransformResult {
+    /**
+     * Forward transform with all intermediate results exposed.
+     *
+     * Geoid precedence for H = h - N:
+     * - default (preferReceiverGeoid = false): Greek HEPOS07 geoid, fall back to receiver [geoidSeparation]
+     * - preferReceiverGeoid = true: receiver [geoidSeparation], fall back to Greek HEPOS07 geoid
+     */
+    fun forwardDetailed(
+        coord: GeographicCoordinate,
+        geoidSeparation: Double? = null,
+        preferReceiverGeoid: Boolean = false,
+    ): TransformResult {
         val xyz = Ellipsoid.geographicToCartesian(coord)
         val xyzEgsa = Helmert.forward(xyz)
         val geoEgsa = Ellipsoid.cartesianToGeographic(xyzEgsa)
@@ -44,9 +68,12 @@ class HeposTransform(
         val deCm = gridDe.interpolate(tm07.eastingM, tm07.northingM)
         val dnCm = gridDn.interpolate(tm07.eastingM, tm07.northingM)
         val output = ProjectedCoordinate(tm87.eastingM + deCm / 100.0, tm87.northingM + dnCm / 100.0)
-        // Prefer Greek geoid for orthometric height; fall back to receiver geoid separation
         val greekGeoidN = gridGeoid?.interpolate(tm07.eastingM, tm07.northingM)
-        val effectiveN = greekGeoidN ?: geoidSeparation
+        val effectiveN = if (preferReceiverGeoid) {
+            geoidSeparation ?: greekGeoidN
+        } else {
+            greekGeoidN ?: geoidSeparation
+        }
         val orthoHeight = if (effectiveN != null) coord.heightM - effectiveN else null
         return TransformResult(coord, xyz, xyzEgsa, geoEgsa, tm87, tm07, deCm, dnCm, output, effectiveN, orthoHeight)
     }

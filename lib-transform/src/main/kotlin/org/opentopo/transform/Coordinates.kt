@@ -20,6 +20,21 @@ data class ProjectedCoordinate(
     val northingM: Double,
 )
 
+/**
+ * Metadata of a correction grid loaded into [HeposTransform].
+ * Exposed for UI display; all bounds are in TM07 (EPSG:2100 with false northing -2,000,000 m).
+ */
+data class GridMetadata(
+    val nRows: Int,
+    val nCols: Int,
+    val cellSizeM: Double,
+    val swEastingM: Double,
+    val swNorthingM: Double,
+) {
+    val neEastingM: Double get() = swEastingM + (nCols - 1) * cellSizeM
+    val neNorthingM: Double get() = swNorthingM + (nRows - 1) * cellSizeM
+}
+
 /** All intermediate results from the HEPOS transformation pipeline. */
 data class TransformResult(
     val input: GeographicCoordinate,

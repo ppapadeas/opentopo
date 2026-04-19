@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.GridOn
+import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.FilledTonalButton
@@ -22,12 +23,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
@@ -41,6 +44,11 @@ fun TransformPanel(
     transform: HeposTransform?,
     modifier: Modifier = Modifier,
 ) {
+    val activity = LocalContext.current as? org.opentopo.app.MainActivity
+    val prefs = activity?.prefs
+    val preferReceiverGeoid by prefs?.preferReceiverGeoid?.collectAsState(initial = false)
+        ?: remember { mutableStateOf(false) }
+
     var latInput by remember { mutableStateOf("") }
     var lonInput by remember { mutableStateOf("") }
     var heightInput by remember { mutableStateOf("0.0") }
@@ -112,6 +120,7 @@ fun TransformPanel(
                                 result = transform.forwardDetailed(
                                     GeographicCoordinate(lat, lon, h),
                                     geoidSeparation = geoidSepInput.toDoubleOrNull(),
+                                    preferReceiverGeoid = preferReceiverGeoid,
                                 )
                                 errorMsg = null
                                 showPipeline = true
@@ -295,6 +304,57 @@ fun TransformPanel(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "Grid files not loaded \u2014 transformation unavailable",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+
+        // ── Geoid Grid Info ──
+        val geoidMeta = transform?.geoidGridMetadata
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Outlined.Landscape, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Text("GEOID GRID", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.height(4.dp))
+                if (geoidMeta != null) {
+                    CoordRow("Version", "HEPOS07")
+                    CoordRow("Grid size", "${geoidMeta.nRows} \u00D7 ${geoidMeta.nCols} nodes")
+                    CoordRow("Cell size", "%,.0f m".format(geoidMeta.cellSizeM))
+                    CoordRow(
+                        "Easting range",
+                        "%,.0f \u2013 %,.0f m (TM07)".format(geoidMeta.swEastingM, geoidMeta.neEastingM),
+                    )
+                    CoordRow(
+                        "Northing range",
+                        "%,.0f \u2013 %,.0f m (TM07)".format(geoidMeta.swNorthingM, geoidMeta.neNorthingM),
+                    )
+                    CoordRow("File", "geoid_hepos07.grd")
+                    CoordRow("Source", "Ktimatologio / NTUA")
+                    CoordRow("Licence", "CC BY-NC-SA 3.0 + GPLv3")
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Active source for H = h \u2212 N: " + if (preferReceiverGeoid)
+                            "Receiver EGM96 (fallback: HEPOS07)"
+                        else
+                            "Greek HEPOS07 (fallback: receiver EGM96)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "Change in Config \u2192 Display \u2192 Geoid source",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                } else {
+                    Text(
+                        "Greek geoid grid not loaded \u2014 H uses receiver EGM96 if available",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )

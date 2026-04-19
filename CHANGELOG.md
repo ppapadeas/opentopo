@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Geoid source toggle** in Settings → Display — choose between Greek HEPOS07 (default) and receiver EGM96 for orthometric height H = h − N; falls back to the other source when the preferred one is unavailable
+- **Geoid grid metadata block** in Transform panel — shows HEPOS07 version, dimensions (408 × 422 nodes), cell size (2000 m), TM07 coverage bounds, source (Ktimatologio / NTUA), licence, and the currently active source
+- `HeposTransform.forwardDetailed(preferReceiverGeoid=…)` parameter in `lib-transform` inverts the geoid precedence
+- `HeposTransform.geoidGridMetadata` property exposing grid bounds/resolution as a `GridMetadata` data class
+- `UserPreferences.preferReceiverGeoid` persisted preference (default `false` = Greek HEPOS07)
+- 4 new unit tests covering the toggle and metadata accessor
+- `docs/USER_STORIES.md` — catalogue of user stories grouped by persona and functional area, tagged shipped vs planned
+
+### Changed
+- `MainMapScreen` Verify button honours the geoid source preference when computing measured orthometric height for trig-point verification
+
 ## [1.9.5] - 2026-04-18
 
 ### Fixed

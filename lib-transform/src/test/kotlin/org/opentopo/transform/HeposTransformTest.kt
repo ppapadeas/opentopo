@@ -142,4 +142,53 @@ class HeposTransformTest {
         assertTrue(result.geoidUndulation != 36.5, "Greek geoid should override receiver geoid separation")
         assertNotNull(result.orthometricHeight)
     }
+
+    @Test fun `forwardDetailed with preferReceiverGeoid uses receiver N when available`() {
+        val transform = createTransformWithGeoid()
+        val result = transform.forwardDetailed(
+            GeographicCoordinate(37.9715, 23.7267, 150.0),
+            geoidSeparation = 36.5,
+            preferReceiverGeoid = true,
+        )
+        assertNotNull(result.geoidUndulation)
+        // With the toggle on, the receiver value wins
+        assertEquals(36.5, result.geoidUndulation!!, 1e-9)
+        // H = h - N = 150.0 - 36.5 = 113.5
+        assertNotNull(result.orthometricHeight)
+        assertEquals(113.5, result.orthometricHeight!!, 1e-9)
+    }
+
+    @Test fun `forwardDetailed with preferReceiverGeoid falls back to Greek when receiver N is null`() {
+        val transform = createTransformWithGeoid()
+        val result = transform.forwardDetailed(
+            GeographicCoordinate(37.9715, 23.7267, 150.0),
+            geoidSeparation = null,
+            preferReceiverGeoid = true,
+        )
+        // No receiver value -> fall back to Greek HEPOS07
+        assertNotNull(result.geoidUndulation)
+        assertNotNull(result.orthometricHeight)
+    }
+
+    @Test fun `geoidGridMetadata exposes bounds and resolution`() {
+        val transform = createTransformWithGeoid()
+        val meta = transform.geoidGridMetadata
+        assertNotNull(meta)
+        assertEquals(408, meta!!.nRows)
+        assertEquals(422, meta.nCols)
+        assertEquals(2000.0, meta.cellSizeM, 1e-9)
+        assertEquals(41_600.0, meta.swEastingM, 1e-9)
+        assertEquals(1_845_619.0, meta.swNorthingM, 1e-9)
+        // NE corner = SW + (n-1) * cell
+        assertEquals(41_600.0 + 421 * 2000.0, meta.neEastingM, 1e-9)
+        assertEquals(1_845_619.0 + 407 * 2000.0, meta.neNorthingM, 1e-9)
+    }
+
+    @Test fun `geoidGridMetadata is null when no geoid grid loaded`() {
+        val transform = HeposTransform(
+            this::class.java.getResourceAsStream("/dE_2km_V1-0.grd")!!,
+            this::class.java.getResourceAsStream("/dN_2km_V1-0.grd")!!,
+        )
+        assertNull(transform.geoidGridMetadata)
+    }
 }

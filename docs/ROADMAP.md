@@ -116,8 +116,8 @@
 - [x] **Greek geoid grid** — bundled HEPOS07 geoid (geoid_hepos07.grd, 985 KB, Ktimatologio/NTUA, CC BY-NC-SA 3.0 + GPLv3)
 - [x] **Re-enable ΔH verification** — H = h_ellipsoidal - N_greek; eliminates 6.2 m EGM96 vs Greek geoid mismatch
 - [x] **HeposTransform geoid API** — geoidUndulation() interpolation, hasGeoidGrid property, forwardDetailed() prefers Greek geoid
-- [ ] **Geoid source toggle** — switch between receiver EGM96 and Greek geoid for orthometric display
-- [ ] **Geoid grid metadata** — show version, coverage, and source in Tools panel
+- [x] **Geoid source toggle** — Settings → Display → Geoid source; switch between Greek HEPOS07 (default) and receiver EGM96; HeposTransform.forwardDetailed(preferReceiverGeoid) applies the precedence
+- [x] **Geoid grid metadata** — HEPOS07 version, 408×422 nodes, 2000 m cell, TM07 coverage, Ktimatologio/NTUA source and licence shown in Transform panel
 
 ### v1.9.4 -- Basemap Style Regeneration
 - [x] **Regenerated style** from `@protomaps/basemaps@5.7.1` to align with current vathra.xyz tile data schema (protomaps v4.14.1)
