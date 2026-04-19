@@ -161,6 +161,16 @@ model for NTRIP that replaces the always-visible provider picker.
 - [x] **Floating toolbar repositioned** above peek sheet (bottom = 24 dp)
 - [x] **Edge-to-edge safe zones** via `WindowInsets.systemBars` on full-screen overlays
 
+### v2.1.0 -- More / Settings / About
+**Goal:** Land the second design handoff — refresh the fourth-tab landing
+surface and split settings + about into their own screens.
+
+- [x] **More Hub** — mono kicker + 30 sp title, stub search bar, 6 tool tiles (CC/GY/IM/EX/AR/TR) in a 2-col grid, 4-row App list card (Settings · Recent activity · What's new · About)
+- [x] **SettingsScreen** — profile hero in `primaryContainer` with 48 dp avatar, 5 grouped section cards (Coordinates · Survey · Display · Storage & sync · Danger zone) with a shared `SettingsRow`; RTK switch persists via DataStore; danger tone on destructive rows
+- [x] **AboutScreen** — deep-pine gradient header with mint radial highlight, 72 dp app mark, "Up to date" badge (sealed `AboutUpdateStatus`), 3-cell stats strip, 6-row link list wired to GitHub / mailto URLs, `tertiaryContainer` credits strip, mono footer
+- [x] **MainMapScreen wiring** — three full-screen overlays (`settingsScreenOpen` / `aboutScreenOpen` / `transformScreenOpen`) rendered after the NTRIP overlay block; the MoreHub's 10 tap callbacks are routed
+- [x] **Transform overlay** — existing `TransformPanel` rehomed as a full-screen overlay with a back button, reached from the More Hub's `TR` tile
+
 ### v1.10.0 -- Advanced Innovations
 **Goal:** Differentiating features no competitor has.
 

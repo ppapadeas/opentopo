@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-19
+
+Adds the three new top-level screens from the
+`design_handoff_more_settings_about` bundle: a refreshed **More Hub** as the
+fourth-tab landing surface, a grouped **Settings** screen with a profile
+hero, and a deep-pine **About** screen with gradient header, stats strip,
+and credits.
+
+### Added
+
+#### More Hub (replaces the old ToolsPanel body)
+- Page header — mono kicker `TOOLS · SETTINGS · ABOUT` + 30 sp bold "More" title
+- Stub search bar at `surfaceContainer` 28 dp radius (not wired yet)
+- **6 tool tiles** in a 2-column grid (`surfaceContainerLow`, 20 dp corners, 100 dp min-height), each with a tinted 38 × 38 dp mono monogram chip:
+  - `CC` Coord. converter (mint) · `GY` GYS search (blue) · `IM` Import (orange) · `EX` Export project (amber) · `AR` Area & perimeter (stone) · `TR` Transform pipeline (red)
+- **App list** card — Settings / Recent activity / What's new in v2.0 / About OpenTopo, with `surfaceContainerHigh` icon chips, `primary`-tinted icons, and trailing chevrons
+- All 10 tile/row callbacks are wired in `MainMapScreen`: tools route to existing sheets or a new Transform overlay, Settings opens the new `SettingsScreen`, What's new and About both open the new `AboutScreen`
+
+#### SettingsScreen (new full-screen overlay)
+- Custom top bar — 40 dp rounded back button + mono `MORE · APP` kicker + 24 sp bold "Settings" title
+- **Profile hero** in `primaryContainer` (24 dp radius) with 48 × 48 dp avatar (pine-teal bg, white mono initials), Greek placeholder name + org, trailing chevron
+- **5 grouped section cards** (`surfaceContainerLow`, 20 dp corners, `outlineVariant` dividers) — Coordinates · Survey · Display · Storage & sync · Danger zone — with a shared `SettingsRow` composable (36 × 36 dp icon chip, 14 sp title, 11 sp sub, trailing slot for chevron / `Mono` value / switch / combo)
+- Live switches wired to DataStore: **Require RTK Fix to record** persists via `UserPreferences.setRequireRtkFix`. AMOLED toggle is present but the pref key isn't wired yet (stub)
+- Destructive rows (Clear cached tiles, Reset all settings) carry the `#FFD9D2` danger tone on the icon chip
+- Edge-to-edge safe zone via `WindowInsets.systemBars`
+
+#### AboutScreen (new full-screen overlay)
+- Full-bleed **deep-pine gradient header** (`#06332A` → `#0A4B3C` → `#156854`) with a mint radial highlight in the top-right corner
+- Back button over a translucent white pill, mono `ABOUT` kicker, 72 × 72 dp app mark (dark container + mint border + soft shadow, falls back to a styled "OT" text mark when no SVG drawable is bundled), "OpenTopo" brand + "Survey, simply." tagline + mono version line
+- **"You're up to date" badge** (mint pill with pulsing dot, sealed `AboutUpdateStatus` for future `UpdateAvailable` / `Checking` variants)
+- **Stats strip** — 3-cell grid with `surfaceContainerLow` cells (25,259 GYS pillars · 47 contributors · 6 y in the field)
+- **Link list** card — What's new · Documentation · Source code · Open-source licences · Privacy & data · Contact the team. All outbound URLs wired in `MainMapScreen` (GitHub README, CHANGELOG, PRIVACY_POLICY, source repo, mailto)
+- **Credits strip** in `tertiaryContainer` — "BUILT WITH ❤ IN GREECE" + attribution line
+- Mono footer with navigation-bar safe-area padding
+
+#### MainMapScreen wiring
+- Three new overlay state flags (`settingsScreenOpen`, `aboutScreenOpen`, `transformScreenOpen`) with dedicated renderers after the NTRIP overlay block
+- The existing `TransformPanel` is now reachable from the More Hub's TR tile via a full-screen wrapper with its own back button + `MORE · TOOLS` overline
+
+### Changed
+- `ToolsPanel.kt` rewritten — the old `EXPORT/IMPORT` block + inline transform inspector are gone. The Composable name is unchanged so the `SheetMode.TOOLS` call site still compiles. 10 new default-valued callback parameters route tile/row taps to the Phase 3 overlays
+- Bumped `versionCode` 16 → 17
+
+### Developer notes
+- Rebuilt the three screens by orchestrating three parallel Compose agents against the handoff spec; each file compiled clean on first attempt.
+
 ## [2.0.0] - 2026-04-19
 
 OpenTopo 2.0 is a top-to-bottom redesign on top of the Material 3 Expressive

@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Menu
@@ -71,7 +72,10 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import android.content.Context
 import android.graphics.PointF
@@ -187,6 +191,11 @@ fun MainMapScreen(
     var ntripProfilesOpen by remember { mutableStateOf(false) }
     var ntripProfileEditing by remember { mutableStateOf<org.opentopo.app.ntrip.NtripProfile?>(null) }
     var ntripProfileCreating by remember { mutableStateOf(false) }
+
+    // More-tab overlays — full-screen Settings and About reached from the More Hub.
+    var settingsScreenOpen by remember { mutableStateOf(false) }
+    var aboutScreenOpen by remember { mutableStateOf(false) }
+    var transformScreenOpen by remember { mutableStateOf(false) }
 
     // Trig point layer state
     var trigPointsVisible by remember { mutableStateOf(true) }
@@ -710,7 +719,33 @@ fun MainMapScreen(
                                         }
                                     },
                                 )
-                                SheetMode.TOOLS -> ToolsPanel(db, surveyManager, heposTransform)
+                                SheetMode.TOOLS -> ToolsPanel(
+                                    db = db,
+                                    surveyManager = surveyManager,
+                                    transform = heposTransform,
+                                    onOpenCoordConverter = { transformScreenOpen = true },
+                                    onOpenGysSearch = { sheetMode = SheetMode.TRIG },
+                                    onOpenImport = { sheetMode = SheetMode.EXPORT },
+                                    onOpenExportProject = { sheetMode = SheetMode.EXPORT },
+                                    onOpenAreaPerimeter = {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Area & perimeter: record a polygon to see live totals",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
+                                    onOpenTransformPipeline = { transformScreenOpen = true },
+                                    onOpenSettings = { settingsScreenOpen = true },
+                                    onOpenRecentActivity = {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Recent activity — coming in a future release",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
+                                    onOpenWhatsNew = { aboutScreenOpen = true },
+                                    onOpenAbout = { aboutScreenOpen = true },
+                                )
                                 SheetMode.EXPORT -> ExportPanel(db)
                             }
                         }
@@ -1557,6 +1592,127 @@ fun MainMapScreen(
                 ntripProfileCreating = false
             },
         )
+    }
+
+    // ── More-hub full-screen overlays ──
+    if (settingsScreenOpen) {
+        val amoledPref by (activity?.prefs?.preferReceiverGeoid?.collectAsState(initial = false)
+            ?: remember { mutableStateOf(false) })
+        val requireRtk by (surveyManager?.let {
+            activity?.prefs?.requireRtkFix?.collectAsState(initial = false)
+        } ?: remember { mutableStateOf(false) })
+        SettingsScreen(
+            userName = "",
+            userOrg = "",
+            amoledEnabled = amoledPref,
+            requireRtkFix = requireRtk,
+            onAmoledChange = { /* stub: AMOLED theme flag not yet in UserPreferences */ },
+            onRequireRtkChange = { v ->
+                scope.launch { activity?.prefs?.setRequireRtkFix(v) }
+            },
+            onBack = { settingsScreenOpen = false },
+        )
+    }
+
+    if (aboutScreenOpen) {
+        AboutScreen(
+            versionName = "v2.0.0",
+            buildNumber = "16",
+            license = "AGPLv3",
+            onBack = { aboutScreenOpen = false },
+            onSourceCodeClick = {
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://github.com/ppapadeas/opentopo"),
+                )
+                context.startActivity(intent)
+            },
+            onDocsClick = {
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://github.com/ppapadeas/opentopo/blob/main/README.md"),
+                )
+                context.startActivity(intent)
+            },
+            onPrivacyClick = {
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://github.com/ppapadeas/opentopo/blob/main/PRIVACY_POLICY.md"),
+                )
+                context.startActivity(intent)
+            },
+            onWhatsNewClick = {
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://github.com/ppapadeas/opentopo/blob/main/CHANGELOG.md"),
+                )
+                context.startActivity(intent)
+            },
+            onContactClick = {
+                val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                    data = android.net.Uri.parse("mailto:pierros@papadeas.gr")
+                }
+                context.startActivity(intent)
+            },
+            onLicencesClick = {
+                android.widget.Toast.makeText(
+                    context,
+                    "Licences screen — coming in a future release",
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            },
+        )
+    }
+
+    // Transform pipeline inspector — full-screen overlay wrapping the existing
+    // TransformPanel with a back button. This replaces the transform inspector
+    // that used to live inline in ToolsPanel before the v2.0 More-Hub rewrite.
+    if (transformScreenOpen && heposTransform != null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.systemBars)
+                    .padding(horizontal = 16.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 18.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Surface(
+                        onClick = { transformScreenOpen = false },
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "MORE · TOOLS",
+                            fontFamily = org.opentopo.app.ui.theme.CoordinateFont,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "Transform",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+                TransformPanel(transform = heposTransform)
+            }
+        }
     }
 }
 
