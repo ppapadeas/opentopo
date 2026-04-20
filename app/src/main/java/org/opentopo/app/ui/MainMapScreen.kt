@@ -192,7 +192,11 @@ fun MainMapScreen(
     var ntripProfileEditing by remember { mutableStateOf<org.opentopo.app.ntrip.NtripProfile?>(null) }
     var ntripProfileCreating by remember { mutableStateOf(false) }
 
-    // More-tab overlays — full-screen Settings and About reached from the More Hub.
+    // More-tab overlays — the entire More Hub now opens as a full-screen
+    // overlay (like Settings / About). Tools, settings, and about are all
+    // top-level overlay flags; they're managed here so they can survive
+    // sheetMode changes and system back navigation routes them correctly.
+    var moreScreenOpen by remember { mutableStateOf(false) }
     var settingsScreenOpen by remember { mutableStateOf(false) }
     var aboutScreenOpen by remember { mutableStateOf(false) }
     var transformScreenOpen by remember { mutableStateOf(false) }
@@ -611,9 +615,17 @@ fun MainMapScreen(
                 Spacer(Modifier.height(10.dp))
 
                 // ── ShortNavigationBar inlined inside the sheet (pill-shaped) ──
+                // The "More" tab opens a full-screen overlay rather than a sheet
+                // panel, so intercept it here and leave sheetMode unchanged.
                 InlineShortNavBar(
                     selected = sheetMode,
-                    onSelect = { sheetMode = it },
+                    onSelect = { picked ->
+                        if (picked == SheetMode.TOOLS) {
+                            moreScreenOpen = true
+                        } else {
+                            sheetMode = picked
+                        }
+                    },
                 )
 
                 // ── Panel content with M3E expressive transitions (only when expanded) ──
@@ -719,33 +731,12 @@ fun MainMapScreen(
                                         }
                                     },
                                 )
-                                SheetMode.TOOLS -> ToolsPanel(
-                                    db = db,
-                                    surveyManager = surveyManager,
-                                    transform = heposTransform,
-                                    onOpenCoordConverter = { transformScreenOpen = true },
-                                    onOpenGysSearch = { sheetMode = SheetMode.TRIG },
-                                    onOpenImport = { sheetMode = SheetMode.EXPORT },
-                                    onOpenExportProject = { sheetMode = SheetMode.EXPORT },
-                                    onOpenAreaPerimeter = {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Area & perimeter: record a polygon to see live totals",
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                    },
-                                    onOpenTransformPipeline = { transformScreenOpen = true },
-                                    onOpenSettings = { settingsScreenOpen = true },
-                                    onOpenRecentActivity = {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Recent activity — coming in a future release",
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                    },
-                                    onOpenWhatsNew = { aboutScreenOpen = true },
-                                    onOpenAbout = { aboutScreenOpen = true },
-                                )
+                                // SheetMode.TOOLS is a routing target for the hamburger
+                                // overflow menu but never renders in the sheet — the
+                                // More tab opens the full-screen MoreHubScreen overlay
+                                // instead. Render nothing here; the overlay handler at
+                                // the bottom of MainMapScreen owns the presentation.
+                                SheetMode.TOOLS -> Unit
                                 SheetMode.EXPORT -> ExportPanel(db)
                             }
                         }
@@ -1144,11 +1135,11 @@ fun MainMapScreen(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Tools / Transform / Settings") },
+                            text = { Text("More") },
                             leadingIcon = { Icon(Icons.Outlined.Tune, null) },
                             onClick = {
                                 overflowMenuExpanded = false
-                                sheetMode = SheetMode.TOOLS
+                                moreScreenOpen = true
                             },
                         )
                         DropdownMenuItem(
@@ -1596,6 +1587,9 @@ fun MainMapScreen(
 
     // ── More-hub full-screen overlays ──
     if (settingsScreenOpen) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            settingsScreenOpen = false
+        }
         val amoledPref by (activity?.prefs?.preferReceiverGeoid?.collectAsState(initial = false)
             ?: remember { mutableStateOf(false) })
         val requireRtk by (surveyManager?.let {
@@ -1615,6 +1609,9 @@ fun MainMapScreen(
     }
 
     if (aboutScreenOpen) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            aboutScreenOpen = false
+        }
         AboutScreen(
             versionName = "v2.0.0",
             buildNumber = "16",
@@ -1664,10 +1661,102 @@ fun MainMapScreen(
         )
     }
 
+    // ── More Hub full-screen overlay ──
+    // Tapping the "More" tab on the bottom nav opens this screen (not a
+    // sheet panel). Back button + Android system back both close the
+    // overlay and return to the previous sheet state.
+    if (moreScreenOpen) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            moreScreenOpen = false
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.systemBars),
+            ) {
+                // Header row (back + MORE overline + title)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Surface(
+                        onClick = { moreScreenOpen = false },
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                }
+                // Reuse ToolsPanel's body — it already has the "More" title,
+                // mono kicker, search bar, tool grid, and app list.
+                ToolsPanel(
+                    db = db,
+                    surveyManager = surveyManager,
+                    transform = heposTransform,
+                    onOpenCoordConverter = { transformScreenOpen = true },
+                    onOpenGysSearch = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.TRIG
+                    },
+                    onOpenImport = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.EXPORT
+                    },
+                    onOpenExportProject = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.EXPORT
+                    },
+                    onOpenAreaPerimeter = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.SURVEY
+                        android.widget.Toast.makeText(
+                            context,
+                            "Switch to Polygon mode in Survey to see live area + perimeter",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    },
+                    onOpenTransformPipeline = { transformScreenOpen = true },
+                    onOpenSettings = { settingsScreenOpen = true },
+                    onOpenRecentActivity = {
+                        // "Recent activity" reuses the Survey panel which shows
+                        // the active project's recorded point history.
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.SURVEY
+                    },
+                    onOpenWhatsNew = {
+                        // Deep-link to the CHANGELOG on GitHub rather than the
+                        // generic About screen.
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://github.com/ppapadeas/opentopo/blob/main/CHANGELOG.md"),
+                        )
+                        context.startActivity(intent)
+                    },
+                    onOpenAbout = { aboutScreenOpen = true },
+                )
+            }
+        }
+    }
+
     // Transform pipeline inspector — full-screen overlay wrapping the existing
     // TransformPanel with a back button. This replaces the transform inspector
     // that used to live inline in ToolsPanel before the v2.0 More-Hub rewrite.
     if (transformScreenOpen && heposTransform != null) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            transformScreenOpen = false
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
