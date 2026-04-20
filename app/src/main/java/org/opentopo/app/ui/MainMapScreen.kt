@@ -1586,6 +1586,89 @@ fun MainMapScreen(
     }
 
     // ── More-hub full-screen overlays ──
+    // Draw order matters: the More Hub is declared first so that Settings /
+    // About / Transform (declared below) render on TOP of it when opened from
+    // a tile or row tap. Back from a child overlay reveals the More Hub again;
+    // Back from the More Hub itself returns to the map.
+    if (moreScreenOpen) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            moreScreenOpen = false
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.systemBars),
+            ) {
+                // Header row (back button only — ToolsPanel renders its own title below)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Surface(
+                        onClick = { moreScreenOpen = false },
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                }
+                ToolsPanel(
+                    db = db,
+                    surveyManager = surveyManager,
+                    transform = heposTransform,
+                    onOpenCoordConverter = { transformScreenOpen = true },
+                    onOpenGysSearch = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.TRIG
+                    },
+                    onOpenImport = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.EXPORT
+                    },
+                    onOpenExportProject = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.EXPORT
+                    },
+                    onOpenAreaPerimeter = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.SURVEY
+                        android.widget.Toast.makeText(
+                            context,
+                            "Switch to Polygon mode in Survey to see live area + perimeter",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    },
+                    onOpenTransformPipeline = { transformScreenOpen = true },
+                    onOpenSettings = { settingsScreenOpen = true },
+                    onOpenRecentActivity = {
+                        moreScreenOpen = false
+                        sheetMode = SheetMode.SURVEY
+                    },
+                    onOpenWhatsNew = {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://github.com/ppapadeas/opentopo/blob/main/CHANGELOG.md"),
+                        )
+                        context.startActivity(intent)
+                    },
+                    onOpenAbout = { aboutScreenOpen = true },
+                )
+            }
+        }
+    }
+
     if (settingsScreenOpen) {
         androidx.activity.compose.BackHandler(enabled = true) {
             settingsScreenOpen = false
@@ -1659,95 +1742,6 @@ fun MainMapScreen(
                 ).show()
             },
         )
-    }
-
-    // ── More Hub full-screen overlay ──
-    // Tapping the "More" tab on the bottom nav opens this screen (not a
-    // sheet panel). Back button + Android system back both close the
-    // overlay and return to the previous sheet state.
-    if (moreScreenOpen) {
-        androidx.activity.compose.BackHandler(enabled = true) {
-            moreScreenOpen = false
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.systemBars),
-            ) {
-                // Header row (back + MORE overline + title)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Surface(
-                        onClick = { moreScreenOpen = false },
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier.size(40.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
-                        }
-                    }
-                    Spacer(Modifier.weight(1f))
-                }
-                // Reuse ToolsPanel's body — it already has the "More" title,
-                // mono kicker, search bar, tool grid, and app list.
-                ToolsPanel(
-                    db = db,
-                    surveyManager = surveyManager,
-                    transform = heposTransform,
-                    onOpenCoordConverter = { transformScreenOpen = true },
-                    onOpenGysSearch = {
-                        moreScreenOpen = false
-                        sheetMode = SheetMode.TRIG
-                    },
-                    onOpenImport = {
-                        moreScreenOpen = false
-                        sheetMode = SheetMode.EXPORT
-                    },
-                    onOpenExportProject = {
-                        moreScreenOpen = false
-                        sheetMode = SheetMode.EXPORT
-                    },
-                    onOpenAreaPerimeter = {
-                        moreScreenOpen = false
-                        sheetMode = SheetMode.SURVEY
-                        android.widget.Toast.makeText(
-                            context,
-                            "Switch to Polygon mode in Survey to see live area + perimeter",
-                            android.widget.Toast.LENGTH_LONG,
-                        ).show()
-                    },
-                    onOpenTransformPipeline = { transformScreenOpen = true },
-                    onOpenSettings = { settingsScreenOpen = true },
-                    onOpenRecentActivity = {
-                        // "Recent activity" reuses the Survey panel which shows
-                        // the active project's recorded point history.
-                        moreScreenOpen = false
-                        sheetMode = SheetMode.SURVEY
-                    },
-                    onOpenWhatsNew = {
-                        // Deep-link to the CHANGELOG on GitHub rather than the
-                        // generic About screen.
-                        val intent = android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://github.com/ppapadeas/opentopo/blob/main/CHANGELOG.md"),
-                        )
-                        context.startActivity(intent)
-                    },
-                    onOpenAbout = { aboutScreenOpen = true },
-                )
-            }
-        }
     }
 
     // Transform pipeline inspector — full-screen overlay wrapping the existing
