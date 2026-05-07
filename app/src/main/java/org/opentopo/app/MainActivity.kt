@@ -103,6 +103,24 @@ class MainActivity : ComponentActivity() {
         usbService = UsbGnssService(this, gnssState)
         internalService = InternalGnssService(this, gnssState)
 
+        // Mutual exclusion: only one transport may own the GNSS feed at a
+        // time. Whoever is about to connect first tears down the other two —
+        // otherwise an idle transport (e.g. internal GPS still registered as
+        // an NMEA listener) keeps writing into the shared GnssState and the
+        // satellite/accuracy stats flicker.
+        bluetoothService.onBeforeConnect = {
+            usbService.disconnect()
+            internalService.disconnect()
+        }
+        usbService.onBeforeConnect = {
+            bluetoothService.disconnect()
+            internalService.disconnect()
+        }
+        internalService.onBeforeConnect = {
+            bluetoothService.disconnect()
+            usbService.disconnect()
+        }
+
         // NTRIP RTCM data flows to whichever transport is connected
         ntripClient = NtripClient { rtcmData ->
             bluetoothService.write(rtcmData)

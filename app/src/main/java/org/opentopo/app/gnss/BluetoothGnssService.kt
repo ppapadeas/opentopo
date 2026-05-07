@@ -48,6 +48,14 @@ class BluetoothGnssService(
 
     private val parser = NmeaParser(gnssState)
 
+    /**
+     * Hook invoked at the very start of [connect] to disconnect sibling
+     * transports before this one takes over. Wired by [MainActivity] —
+     * keeping it as a property avoids a circular dep between the three
+     * service classes.
+     */
+    var onBeforeConnect: (() -> Unit)? = null
+
     private val _connectedDevice = MutableStateFlow<BluetoothDevice?>(null)
     val connectedDevice: StateFlow<BluetoothDevice?> = _connectedDevice.asStateFlow()
 
@@ -60,7 +68,9 @@ class BluetoothGnssService(
     /** Connect to a paired Bluetooth device and start reading NMEA. */
     @SuppressLint("MissingPermission")
     fun connect(device: BluetoothDevice) {
+        onBeforeConnect?.invoke()
         disconnect()
+        gnssState.setActiveTransport(Transport.BLUETOOTH)
         gnssState.setConnectionStatus(ConnectionStatus.CONNECTING)
 
         readerJob = scope.launch {
@@ -81,6 +91,7 @@ class BluetoothGnssService(
                 throw e
             } catch (e: IOException) {
                 gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+                gnssState.clearActiveTransport(Transport.BLUETOOTH)
                 _connectedDevice.value = null
             }
         }
@@ -98,6 +109,7 @@ class BluetoothGnssService(
         outputStream = null
         _connectedDevice.value = null
         gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+        gnssState.clearActiveTransport(Transport.BLUETOOTH)
     }
 
     /** Write bytes to the connected device (e.g., RTCM3 corrections from NTRIP). */
@@ -126,6 +138,7 @@ class BluetoothGnssService(
             // Device disconnected
         }
         gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+        gnssState.clearActiveTransport(Transport.BLUETOOTH)
         _connectedDevice.value = null
     }
 

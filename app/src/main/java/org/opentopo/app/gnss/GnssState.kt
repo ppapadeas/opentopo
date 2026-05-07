@@ -24,6 +24,15 @@ class GnssState : NmeaListener {
     private val _connectionStatus = MutableStateFlow(ConnectionStatus.DISCONNECTED)
     val connectionStatus: StateFlow<ConnectionStatus> = _connectionStatus.asStateFlow()
 
+    /**
+     * Which transport currently owns the GNSS feed. Set by the service that
+     * transitions to CONNECTING/CONNECTED, cleared back to null when no
+     * transport is live. The UI uses this — not the user's tab selection — to
+     * decide which device card to render.
+     */
+    private val _activeTransport = MutableStateFlow<Transport?>(null)
+    val activeTransport: StateFlow<Transport?> = _activeTransport.asStateFlow()
+
     // Accumulate GSV messages across a sequence
     private val gsvAccumulator = mutableMapOf<Constellation, MutableList<SatelliteInfo>>()
     private var gsvExpectedMessages = mutableMapOf<Constellation, Int>()
@@ -31,6 +40,25 @@ class GnssState : NmeaListener {
 
     fun setConnectionStatus(status: ConnectionStatus) {
         _connectionStatus.value = status
+    }
+
+    /**
+     * Mark [transport] as the active feed. Should be called when a service
+     * begins connecting; subsequent NMEA updates are attributed to it.
+     */
+    fun setActiveTransport(transport: Transport) {
+        _activeTransport.value = transport
+    }
+
+    /**
+     * Clear the active transport — but only if [transport] is currently the
+     * owner. Prevents a stale disconnect from one service from clobbering
+     * another service that has already taken ownership.
+     */
+    fun clearActiveTransport(transport: Transport) {
+        if (_activeTransport.value == transport) {
+            _activeTransport.value = null
+        }
     }
 
     /** Last raw GGA sentence for NTRIP VRS forwarding. */
@@ -175,4 +203,11 @@ enum class ConnectionStatus {
     CONNECTING,
     CONNECTED,
     RECONNECTING,
+}
+
+/** Which physical transport is feeding the GNSS pipeline. */
+enum class Transport {
+    BLUETOOTH,
+    USB,
+    INTERNAL,
 }

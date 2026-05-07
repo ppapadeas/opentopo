@@ -35,6 +35,12 @@ class InternalGnssService(
     private var locationListener: LocationListener? = null
     private var isConnected = false
 
+    /**
+     * Hook invoked at the very start of [connect] to disconnect sibling
+     * transports before this one takes over. Wired by [MainActivity].
+     */
+    var onBeforeConnect: (() -> Unit)? = null
+
     /** Check if location permission is granted. */
     fun hasPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
@@ -59,7 +65,9 @@ class InternalGnssService(
             return
         }
 
+        onBeforeConnect?.invoke()
         disconnect()
+        gnssState.setActiveTransport(Transport.INTERNAL)
         gnssState.setConnectionStatus(ConnectionStatus.CONNECTING)
         Log.d(TAG, "connecting to internal GPS")
 
@@ -92,9 +100,11 @@ class InternalGnssService(
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException: ${e.message}")
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            gnssState.clearActiveTransport(Transport.INTERNAL)
         } catch (e: Exception) {
             Log.e(TAG, "connect failed: ${e.message}")
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            gnssState.clearActiveTransport(Transport.INTERNAL)
         }
     }
 
@@ -110,6 +120,7 @@ class InternalGnssService(
         locationListener = null
         isConnected = false
         gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+        gnssState.clearActiveTransport(Transport.INTERNAL)
     }
 
     /** No-op — cannot send RTCM corrections to internal GPS. */

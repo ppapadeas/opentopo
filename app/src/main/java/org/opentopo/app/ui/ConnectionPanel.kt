@@ -73,6 +73,7 @@ import org.opentopo.app.gnss.Constellation
 import org.opentopo.app.gnss.ConnectionStatus
 import org.opentopo.app.gnss.GnssState
 import org.opentopo.app.gnss.SatelliteInfo
+import org.opentopo.app.gnss.Transport
 import org.opentopo.app.gnss.UsbGnssService
 import org.opentopo.app.ntrip.NtripClient
 import org.opentopo.app.ntrip.NtripConnectionState
@@ -135,6 +136,7 @@ fun ConnectionPanel(
     modifier: Modifier = Modifier,
 ) {
     val connectionStatus by gnssState.connectionStatus.collectAsState()
+    val activeTransport by gnssState.activeTransport.collectAsState()
     val accuracy by gnssState.accuracy.collectAsState()
     val satellites by gnssState.satellites.collectAsState()
     val ntripState by ntripClient.state.collectAsState()
@@ -150,6 +152,17 @@ fun ConnectionPanel(
 
     val isConnected = connectionStatus == ConnectionStatus.CONNECTED
     val isConnecting = connectionStatus == ConnectionStatus.CONNECTING
+
+    // Index of the actually-connected transport in the ButtonGroup, or -1 if
+    // nothing is live. The card / connecting indicator only appear on the
+    // matching tab — other tabs render their picker so the user can switch.
+    val activeTransportIndex = when (activeTransport) {
+        Transport.BLUETOOTH -> 0
+        Transport.USB -> 1
+        Transport.INTERNAL -> 2
+        null -> -1
+    }
+    val tabMatchesActive = connectionType == activeTransportIndex
 
     // Track elapsed time since connection established — resets on every
     // transition into CONNECTED. Drives the "CONNECTED · mm:ss" overline.
@@ -184,21 +197,25 @@ fun ConnectionPanel(
 
         Spacer(Modifier.height(16.dp))
 
-        if (isConnected) {
-            val methodLabel = when (connectionType) {
-                0 -> "Bluetooth"
-                1 -> "USB-OTG"
-                2 -> "Internal GPS"
-                else -> "Connected"
+        // The connected card only belongs on the tab matching the active
+        // transport \u2014 otherwise every tab would show "CONNECTED" once any
+        // transport came up, regardless of which one. Tabs that don't match
+        // render their picker so the user can switch transports.
+        if (isConnected && tabMatchesActive) {
+            val methodLabel = when (activeTransport) {
+                Transport.BLUETOOTH -> "Bluetooth"
+                Transport.USB -> "USB-OTG"
+                Transport.INTERNAL -> "Internal GPS"
+                null -> "Connected"
             }
-            val deviceName = when (connectionType) {
-                0 -> connectedBtDevice?.name ?: "GNSS Receiver"
-                1 -> "USB Serial GNSS"
-                2 -> "Internal GPS"
-                else -> "GNSS Receiver"
+            val deviceName = when (activeTransport) {
+                Transport.BLUETOOTH -> connectedBtDevice?.name ?: "GNSS Receiver"
+                Transport.USB -> "USB Serial GNSS"
+                Transport.INTERNAL -> "Internal GPS"
+                null -> "GNSS Receiver"
             }
-            val deviceMeta = when (connectionType) {
-                0 -> buildString {
+            val deviceMeta = when (activeTransport) {
+                Transport.BLUETOOTH -> buildString {
                     val addr = connectedBtDevice?.address
                     if (!addr.isNullOrBlank()) {
                         append(addr)
@@ -206,8 +223,8 @@ fun ConnectionPanel(
                     }
                     append("BT SPP")
                 }
-                1 -> "USB \u00B7 $savedBaud bps"
-                else -> methodLabel
+                Transport.USB -> "USB \u00B7 $savedBaud bps"
+                Transport.INTERNAL, null -> methodLabel
             }
             ConnectedReceiverCard(
                 deviceName = deviceName,
@@ -223,7 +240,7 @@ fun ConnectionPanel(
                     internalService.disconnect()
                 },
             )
-        } else if (isConnecting) {
+        } else if (isConnecting && tabMatchesActive) {
             ConnectingCard()
         } else {
             when (connectionType) {
@@ -233,17 +250,15 @@ fun ConnectionPanel(
             }
         }
 
-        // ── Constellations grid (only when we actually have sats) ──
-        if (isConnected && satellites.satellites.isNotEmpty()) {
+        // Constellations + skyplot stay scoped to the connected transport's
+        // tab — otherwise the USB picker would render with BT-derived sky
+        // data attached underneath.
+        if (isConnected && tabMatchesActive && satellites.satellites.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             ConstellationsCard(
                 satellites = satellites.satellites,
                 activePrns = accuracy.activeSatellitePrns,
             )
-        }
-
-        // ── Skyplot, surfaced only when connected ──
-        if (isConnected && satellites.satellites.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             Skyplot(satellites = satellites.satellites)
         }
@@ -558,6 +573,8 @@ private fun ConstellationCell(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BluetoothPicker(bluetoothService: BluetoothGnssService) {
+    val activity = LocalContext.current as? org.opentopo.app.MainActivity
+    val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
     val devices = remember { bluetoothService.getPairedDevices() }
     var selectedDevice by remember { mutableStateOf<BluetoothDevice?>(null) }
@@ -605,7 +622,12 @@ private fun BluetoothPicker(bluetoothService: BluetoothGnssService) {
                 }
             }
             Button(
-                onClick = { selectedDevice?.let { bluetoothService.connect(it) } },
+                onClick = {
+                    selectedDevice?.let { device ->
+                        bluetoothService.connect(device)
+                        scope.launch { activity?.prefs?.setConnectionType(0) }
+                    }
+                },
                 enabled = selectedDevice != null,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(999.dp),

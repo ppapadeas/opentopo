@@ -37,6 +37,12 @@ class UsbGnssService(
     private var ioManager: SerialInputOutputManager? = null
     private val parser = NmeaParser(gnssState)
 
+    /**
+     * Hook invoked at the very start of [connect] to disconnect sibling
+     * transports before this one takes over. Wired by [MainActivity].
+     */
+    var onBeforeConnect: (() -> Unit)? = null
+
     /** Pending driver waiting for USB permission grant. */
     private var pendingDriver: UsbSerialDriver? = null
     private var pendingBaudRate: Int = DEFAULT_BAUD_RATE
@@ -49,6 +55,7 @@ class UsbGnssService(
                     pendingDriver?.let { connectInternal(it, pendingBaudRate) }
                 } else {
                     gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+                    gnssState.clearActiveTransport(Transport.USB)
                 }
                 pendingDriver = null
             }
@@ -72,7 +79,9 @@ class UsbGnssService(
 
     /** Connect to a USB serial device. Requests permission if needed. */
     fun connect(driver: UsbSerialDriver, baudRate: Int = DEFAULT_BAUD_RATE) {
+        onBeforeConnect?.invoke()
         disconnect()
+        gnssState.setActiveTransport(Transport.USB)
         gnssState.setConnectionStatus(ConnectionStatus.CONNECTING)
 
         val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
@@ -102,17 +111,20 @@ class UsbGnssService(
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException opening device", e)
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            gnssState.clearActiveTransport(Transport.USB)
             return
         }
         if (connection == null) {
             Log.e(TAG, "openDevice returned null")
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            gnssState.clearActiveTransport(Transport.USB)
             return
         }
 
         if (driver.ports.isEmpty()) {
             Log.e(TAG, "driver has no ports")
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            gnssState.clearActiveTransport(Transport.USB)
             return
         }
 
@@ -133,6 +145,7 @@ class UsbGnssService(
         } catch (e: IOException) {
             Log.e(TAG, "IOException during connect", e)
             gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+            gnssState.clearActiveTransport(Transport.USB)
         }
     }
 
@@ -158,6 +171,7 @@ class UsbGnssService(
         }
         port = null
         gnssState.setConnectionStatus(ConnectionStatus.DISCONNECTED)
+        gnssState.clearActiveTransport(Transport.USB)
     }
 
     /** Clean up the permission receiver. Call from Activity.onDestroy(). */
