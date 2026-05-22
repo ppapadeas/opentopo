@@ -178,6 +178,7 @@ surface and split settings + about into their own screens.
 - [ ] **Radial/pie context menu** — long-press on map features for circular action menu (difficulty: 6, impact: 7)
 - [ ] **Home screen widget** — Glance API widget with live survey status (difficulty: 5, impact: 5)
 - [ ] **Survey coverage heatmap** — density overlay revealing spatial gaps (difficulty: 7, impact: 6)
+- [ ] **ToF deep-well capture** — Well survey mode (rim + bottom linked points) with TF-Luna USB/BT depth sensor; covers 6+2 m irrigation wells, manholes, sumps. Spec: `docs/TOF_DEEP_WELL_SPEC.md` (difficulty: 6, impact: 8)
 
 ### v3.0.0 -- Country Packs & Extensible Geodesy
 **Goal:** Multi-country support via downloadable country packs, each bundling datum, projection, grids, geoid, trig points, and NTRIP presets.

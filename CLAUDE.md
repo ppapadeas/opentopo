@@ -5,6 +5,7 @@
 - **HEPOS transformation spec:** `docs/HEPOS_SPECIFICATION.md`
 - **Architecture:** `docs/ARCHITECTURE.md`
 - **Roadmap:** `docs/ROADMAP.md`
+- **ToF deep-well capture spec:** `docs/TOF_DEEP_WELL_SPEC.md`
 - **Contributing:** `CONTRIBUTING.md`
 
 ## Build & Test
